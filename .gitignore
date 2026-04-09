@@ -1,0 +1,45 @@
+# Node
+node_modules/
+.pnpm-debug.log*
+.npm
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+apps/web/.vercel
+apps/admin/.next/
+apps/admin/out/
+apps/admin/.vercel
+
+# Gradle / Kotlin
+apps/api/.gradle/
+apps/api/build/
+apps/api/out/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+logs/
+
+# Docker volumes (local)
+.docker/
+
+# TypeScript
+*.tsbuildinfo

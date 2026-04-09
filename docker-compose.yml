@@ -1,0 +1,37 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gada-hiring-postgres
+    environment:
+      POSTGRES_DB: gada_hiring
+      POSTGRES_USER: gada
+      POSTGRES_PASSWORD: gada_dev_pass
+    ports:
+      - "5436:5432"     # 5436 to avoid conflicts with other local PG instances
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gada -d gada_hiring"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: gada-hiring-redis
+    ports:
+      - "6380:6379"     # 6380 to avoid conflicts
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,50 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 210 11% 7%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 7%;
+    --primary: 217 95% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 42 100% 58%;
+    --secondary-foreground: 210 11% 7%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 14% 55%;
+    --accent: 217 95% 96%;
+    --accent-foreground: 217 95% 35%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 20% 91%;
+    --input: 214 20% 91%;
+    --ring: 217 95% 50%;
+    --radius: 0.75rem;
+    --sidebar-width: 240px;
+    --sidebar-collapsed-width: 64px;
+    --topbar-height: 56px;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .sidebar-width { width: var(--sidebar-width); }
+  .sidebar-collapsed-width { width: var(--sidebar-collapsed-width); }
+  .topbar-height { height: var(--topbar-height); }
+  .content-offset { padding-left: var(--sidebar-width); padding-top: var(--topbar-height); }
+}

@@ -1,0 +1,47 @@
+# docker-compose.local.yml
+# Local development override for gada-hiring platform
+# Run with: docker compose -f docker-compose.local.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gada-hiring-postgres
+    environment:
+      POSTGRES_DB: gada_hiring
+      POSTGRES_USER: gada
+      POSTGRES_PASSWORD: gada_dev_pass
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gada -d gada_hiring"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: gada-hiring-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data_local:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: gada-hiring-mail
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    profiles: ["mail"]
+
+volumes:
+  postgres_data_local:
+  redis_data_local:
