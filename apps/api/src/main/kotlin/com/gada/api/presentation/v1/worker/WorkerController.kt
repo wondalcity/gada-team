@@ -16,6 +16,7 @@ import com.gada.api.infrastructure.persistence.user.WorkerProfileRepository
 import com.gada.api.domain.user.VisaType
 import com.gada.api.domain.user.HealthCheckStatus
 import com.gada.api.domain.user.PayUnit
+import com.gada.api.domain.user.UserRole
 import com.gada.api.domain.user.WorkerProfile
 import com.fasterxml.jackson.annotation.JsonInclude
 import org.springframework.http.ResponseEntity
@@ -31,6 +32,63 @@ class WorkerController(
     private val teamMemberRepository: TeamMemberRepository,
     private val teamRepository: TeamRepository,
 ) {
+
+    @GetMapping
+    @Transactional(readOnly = true)
+    @PreAuthorize("isAuthenticated()")
+    fun listWorkers(
+        @RequestParam(required = false) keyword: String?,
+        @RequestParam(required = false) nationality: String?,
+        @RequestParam(required = false) visaType: String?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): ResponseEntity<ApiResponse<WorkerListResponse>> {
+        val visaTypeEnum = visaType?.let { runCatching { VisaType.valueOf(it) }.getOrNull() }
+        val (profiles, total) = workerProfileRepository.findAll(
+            keyword = keyword,
+            nationality = nationality,
+            visaType = visaTypeEnum,
+            page = page,
+            size = size,
+        )
+
+        // Batch-fetch teams for TEAM_LEADER profiles to avoid N+1
+        val leaderUserIds = profiles
+            .filter { it.user?.role == UserRole.TEAM_LEADER }
+            .map { it.userId }
+        val teamsByLeader = leaderUserIds
+            .mapNotNull { uid -> teamRepository.findByLeaderId(uid)?.let { uid to it } }
+            .toMap()
+
+        val items = profiles.map { wp ->
+            val isLeader = wp.user?.role == UserRole.TEAM_LEADER
+            val team = if (isLeader) teamsByLeader[wp.userId] else null
+            WorkerListItem(
+                publicId = wp.publicId.toString(),
+                fullName = wp.fullName,
+                nationality = wp.nationality,
+                visaType = wp.visaType.name,
+                healthCheckStatus = wp.healthCheckStatus.name,
+                profileImageUrl = wp.profileImageUrl,
+                desiredPayMin = wp.desiredPayMin,
+                desiredPayMax = wp.desiredPayMax,
+                desiredPayUnit = wp.desiredPayUnit?.name,
+                isTeamLeader = isLeader,
+                teamPublicId = team?.publicId?.toString(),
+                teamName = team?.name,
+            )
+        }
+
+        return ApiResponse.ok(
+            WorkerListResponse(
+                content = items,
+                page = page,
+                size = size,
+                totalElements = total,
+                totalPages = ((total + size - 1) / size).toInt(),
+            )
+        ).toResponseEntity()
+    }
 
     @GetMapping("/me")
     @PreAuthorize("hasAnyRole('WORKER', 'TEAM_LEADER')")
@@ -69,6 +127,45 @@ class WorkerController(
             teamPublicId = team?.publicId?.toString(),
             teamName = team?.name,
             createdAt = profile.createdAt.toString(),
+        )
+
+        return ApiResponse.ok(response).toResponseEntity()
+    }
+
+    @GetMapping("/{publicId}")
+    @Transactional(readOnly = true)
+    @PreAuthorize("isAuthenticated()")
+    fun getWorker(
+        @PathVariable publicId: String,
+    ): ResponseEntity<ApiResponse<WorkerPublicProfileResponse>> {
+        val uuid = runCatching { java.util.UUID.fromString(publicId) }.getOrElse {
+            throw NotFoundException("WorkerProfile")
+        }
+        val profile = workerProfileRepository.findByPublicId(uuid)
+            ?: throw NotFoundException("WorkerProfile")
+
+        val isLeader = profile.user?.role == UserRole.TEAM_LEADER
+        val team = if (isLeader) teamRepository.findByLeaderId(profile.userId) else null
+
+        val response = WorkerPublicProfileResponse(
+            publicId = profile.publicId.toString(),
+            fullName = profile.fullName,
+            nationality = profile.nationality,
+            visaType = profile.visaType.name,
+            healthCheckStatus = profile.healthCheckStatus.name,
+            profileImageUrl = profile.profileImageUrl,
+            languages = profile.languages,
+            certifications = profile.certifications,
+            equipment = profile.equipment,
+            portfolio = profile.portfolio,
+            desiredPayMin = profile.desiredPayMin,
+            desiredPayMax = profile.desiredPayMax,
+            desiredPayUnit = profile.desiredPayUnit?.name,
+            desiredJobCategories = profile.desiredJobCategories,
+            bio = profile.bio,
+            isTeamLeader = isLeader,
+            teamPublicId = team?.publicId?.toString(),
+            teamName = team?.name,
         )
 
         return ApiResponse.ok(response).toResponseEntity()
@@ -163,6 +260,51 @@ data class WorkerProfileResponse(
     val teamPublicId: String?,
     val teamName: String?,
     val createdAt: String,
+)
+
+data class WorkerListItem(
+    val publicId: String,
+    val fullName: String,
+    val nationality: String,
+    val visaType: String,
+    val healthCheckStatus: String,
+    val profileImageUrl: String?,
+    val desiredPayMin: Int?,
+    val desiredPayMax: Int?,
+    val desiredPayUnit: String?,
+    val isTeamLeader: Boolean,
+    val teamPublicId: String?,
+    val teamName: String?,
+)
+
+data class WorkerListResponse(
+    val content: List<WorkerListItem>,
+    val page: Int,
+    val size: Int,
+    val totalElements: Long,
+    val totalPages: Int,
+)
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class WorkerPublicProfileResponse(
+    val publicId: String,
+    val fullName: String,
+    val nationality: String,
+    val visaType: String,
+    val healthCheckStatus: String,
+    val profileImageUrl: String?,
+    val languages: List<LanguageEntry>,
+    val certifications: List<CertificationEntry>,
+    val equipment: List<String>,
+    val portfolio: List<PortfolioEntry>,
+    val desiredPayMin: Int?,
+    val desiredPayMax: Int?,
+    val desiredPayUnit: String?,
+    val desiredJobCategories: List<Long>,
+    val bio: String?,
+    val isTeamLeader: Boolean,
+    val teamPublicId: String?,
+    val teamName: String?,
 )
 
 data class WorkerProfileUpdateRequest(

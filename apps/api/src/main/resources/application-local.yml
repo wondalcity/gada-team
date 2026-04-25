@@ -30,9 +30,10 @@ logging:
 sms:
   provider: mock
 
-# Firebase (empty creds = dev mode, auth disabled in dev filter)
+# Firebase — use gada-team project for local dev
 firebase:
-  project-id: gada-hiring-local
+  project-id: gada-team
+  service-account-path: src/main/resources/firebase-service-account.json
 
 # Dev auth bypass (only active in local profile)
 dev:

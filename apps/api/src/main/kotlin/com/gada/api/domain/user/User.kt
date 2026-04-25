@@ -35,6 +35,12 @@ class User : BaseEntity() {
     @Column(name = "status", length = 30, nullable = false)
     var status: UserStatus = UserStatus.PENDING
 
+    @Column(name = "password_hash", length = 255)
+    var passwordHash: String? = null
+
+    @Column(name = "full_name", length = 100)
+    var fullName: String? = null
+
     @Column(name = "admin_role", length = 30)
     var adminRoleStr: String? = null
 

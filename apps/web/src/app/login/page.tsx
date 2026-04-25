@@ -8,11 +8,12 @@ import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
 } from "@/lib/firebase";
-import { loginWithToken } from "@/lib/api";
+import { loginWithToken, loginWithPassword, registerWithPassword } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import type { ConfirmationResult } from "firebase/auth";
 import type { AuthResponse } from "@/lib/api";
-import { HardHat } from "lucide-react";
+import Link from "next/link";
+import { HardHat, Eye, EyeOff } from "lucide-react";
 import { useT } from "@/lib/i18n";
 
 // ─── Country data ──────────────────────────────────────────────────
@@ -47,15 +48,11 @@ function CountryDropdown({
   selected,
   onSelect,
   onClose,
-  searchLabel,
-  noResultLabel,
 }: {
   anchorRef: React.RefObject<HTMLButtonElement | null>;
   selected: Country;
   onSelect: (c: Country) => void;
   onClose: () => void;
-  searchLabel: string;
-  noResultLabel: string;
 }) {
   const [query, setQuery] = useState("");
   const [pos, setPos] = useState({ top: 0, left: 0, width: 240 });
@@ -114,7 +111,6 @@ function CountryDropdown({
       className="rounded-lg border border-neutral-200 bg-white shadow-xl overflow-hidden"
       onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
-      {/* Search */}
       <div className="px-2.5 pt-2.5 pb-1.5">
         <div className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5">
           <svg className="w-3.5 h-3.5 shrink-0 text-neutral-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -125,16 +121,15 @@ function CountryDropdown({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={searchLabel}
+            placeholder="국가 검색"
             autoComplete="off"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400 text-neutral-900"
           />
         </div>
       </div>
-      {/* List */}
       <ul className="max-h-[200px] overflow-y-auto overscroll-contain py-1">
         {filtered.length === 0 && (
-          <li className="px-3 py-2.5 text-sm text-neutral-400 text-center">{noResultLabel}</li>
+          <li className="px-3 py-2.5 text-sm text-neutral-400 text-center">결과 없음</li>
         )}
         {filtered.map((c) => {
           const isSel = c.code === selected.code;
@@ -193,7 +188,8 @@ const IS_LOCAL_DEV = process.env.NODE_ENV === "development";
 
 type Mode = "login" | "signup";
 type LoginTab = "worker" | "employer";
-type Step = "phone" | "otp";
+// Signup steps: phone → otp → password
+type SignupStep = "phone" | "otp" | "password";
 
 // ─── Component ────────────────────────────────────────────────────
 
@@ -202,37 +198,55 @@ export default function LoginPage() {
   const setUser = useAuthStore((s) => s.setUser);
   const [mode, setMode] = useState<Mode>("login");
   const [tab, setTab] = useState<LoginTab>("worker");
-  const [step, setStep] = useState<Step>("phone");
-  const [country, setCountry] = useState<Country>(COUNTRIES[0]); // 대한민국 default
-  const [localPhone, setLocalPhone] = useState(""); // digits only, no dial code
+
+  // ── Login state ──
+  const [loginCountry, setLoginCountry] = useState<Country>(COUNTRIES[0]);
+  const [loginLocal, setLoginLocal] = useState("");
+  const [loginDropdownOpen, setLoginDropdownOpen] = useState(false);
+  const loginCountryBtnRef = useRef<HTMLButtonElement>(null);
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPw, setShowLoginPw] = useState(false);
+
+  // ── Signup state ──
+  const [signupStep, setSignupStep] = useState<SignupStep>("phone");
+  const [signupName, setSignupName] = useState("");
+  const [signupCountry, setSignupCountry] = useState<Country>(COUNTRIES[0]);
+  const [signupLocal, setSignupLocal] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const countryBtnRef = useRef<HTMLButtonElement>(null);
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [countdown, setCountdown] = useState(0);
+  const [signupOtp, setSignupOtp] = useState("");
+  const [otpCountdown, setOtpCountdown] = useState(0);
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const [otpToken, setOtpToken] = useState<string | null>(null); // Firebase ID token after OTP
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupPasswordConfirm, setSignupPasswordConfirm] = useState("");
+  const [showSignupPw, setShowSignupPw] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const t = useT();
 
-  function switchMode(m: Mode) {
-    setMode(m); setStep("phone"); setLocalPhone(""); setOtp(""); setError("");
+  function reset() {
+    setLoginLocal(""); setLoginPassword(""); setError("");
+    setSignupStep("phone"); setSignupName(""); setSignupLocal(""); setSignupOtp("");
+    setSignupPassword(""); setSignupPasswordConfirm(""); setOtpToken(null); setError("");
   }
-  function switchTab(t: LoginTab) {
-    setTab(t); setStep("phone"); setLocalPhone(""); setOtp(""); setError("");
-  }
+
+  function switchMode(m: Mode) { reset(); setMode(m); }
+  function switchTab(t: LoginTab) { reset(); setTab(t); }
 
   useEffect(() => { return () => { recaptchaRef.current?.clear(); }; }, []);
 
   useEffect(() => {
-    if (countdown <= 0) return;
-    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [countdown]);
+    if (otpCountdown <= 0) return;
+    const id = setTimeout(() => setOtpCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [otpCountdown]);
 
-  /** Build E.164 from selected country dial code + local digits (strips leading zero). */
-  function toE164(): string {
-    const digits = localPhone.replace(/\D/g, "").replace(/^0+/, "");
+  function toE164(country: Country, local: string): string {
+    const digits = local.replace(/\D/g, "").replace(/^0+/, "");
     return country.dial + digits;
   }
 
@@ -243,41 +257,73 @@ export default function LoginPage() {
     router.replace("/");
   }
 
+  // ── Login handler ──
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setLoading(true);
+    try {
+      const authData = await loginWithPassword({ phone: toE164(loginCountry, loginLocal), password: loginPassword });
+      setUser(authData);
+      router.replace(authData.status === "PENDING" ? "/onboarding" : "/");
+    } catch (err: any) {
+      setError(err.message || "로그인에 실패했습니다.");
+    } finally { setLoading(false); }
+  }
+
+  // ── Signup: send OTP ──
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
+    if (!signupName.trim()) { setError("이름을 입력해주세요."); return; }
     setError(""); setLoading(true);
     try {
       if (!recaptchaRef.current) {
         recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
       }
-      const confirmation = await signInWithPhoneNumber(auth, toE164(), recaptchaRef.current);
+      const confirmation = await signInWithPhoneNumber(auth, toE164(signupCountry, signupLocal), recaptchaRef.current);
       confirmationRef.current = confirmation;
-      setStep("otp"); setCountdown(60);
+      setSignupStep("otp"); setOtpCountdown(60);
     } catch (err: any) {
-      setError(getErrorMessage(err.code));
+      setError(getOtpErrorMessage(err.code));
       recaptchaRef.current?.clear(); recaptchaRef.current = null;
     } finally { setLoading(false); }
   }
 
+  // ── Signup: verify OTP ──
   async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setLoading(true);
     try {
-      const result = await confirmationRef.current!.confirm(otp);
-      const idToken = await result.user.getIdToken();
-      const authData = await loginWithToken(idToken);
-      setUser(authData);
-      if (mode === "signup" || authData.isNewUser) {
-        router.replace("/onboarding");
-      } else {
-        router.replace("/");
-      }
+      const result = await confirmationRef.current!.confirm(signupOtp);
+      const token = await result.user.getIdToken();
+      setOtpToken(token);
+      setSignupStep("password");
     } catch (err: any) {
-      setError(getErrorMessage(err.code || err.errorCode));
+      setError(getOtpErrorMessage(err.code || err.errorCode));
     } finally { setLoading(false); }
   }
 
-  function getErrorMessage(code: string): string {
+  // ── Signup: set password & register ──
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    if (signupPassword !== signupPasswordConfirm) {
+      setError("비밀번호가 일치하지 않습니다."); return;
+    }
+    setError(""); setLoading(true);
+    try {
+      const authData = await registerWithPassword({
+        name: signupName.trim(),
+        phone: toE164(signupCountry, signupLocal),
+        firebaseOtpToken: otpToken ?? undefined,
+        password: signupPassword,
+      });
+      setUser(authData);
+      router.replace("/onboarding");
+    } catch (err: any) {
+      setError(err.message || "회원가입에 실패했습니다.");
+    } finally { setLoading(false); }
+  }
+
+  function getOtpErrorMessage(code: string): string {
     const m: Record<string, string> = {
       "auth/invalid-phone-number": t("auth.invalidPhone"),
       "auth/too-many-requests": t("auth.tooManyRequests"),
@@ -289,6 +335,12 @@ export default function LoginPage() {
   }
 
   const isEmployer = tab === "employer";
+  const accentFocus = isEmployer
+    ? "focus-within:border-warning-500 focus-within:ring-warning-100"
+    : "focus-within:border-primary-500 focus-within:ring-primary-100";
+  const btnClass = isEmployer
+    ? "bg-warning-500 text-white hover:bg-warning-700"
+    : "bg-primary-500 text-white hover:bg-primary-600";
 
   return (
     <div className="min-h-screen flex bg-neutral-50">
@@ -300,12 +352,12 @@ export default function LoginPage() {
           style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }}
         />
         <div className="relative z-10 px-12 w-full max-w-sm">
-          <div className="flex items-center gap-2.5 mb-8">
+          <Link href="/" className="flex items-center gap-2.5 mb-8 w-fit">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 border border-white/30">
               <HardHat className="h-5 w-5 text-white" />
             </div>
             <span className="font-display text-2xl font-bold text-white">GADA<span className="text-white/60">.</span></span>
-          </div>
+          </Link>
           <h2 className="font-display text-2xl font-bold text-white leading-snug mb-3">
             {t("auth.heroTitle")}
           </h2>
@@ -333,13 +385,15 @@ export default function LoginPage() {
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 overflow-y-auto">
         {/* Mobile logo */}
         <div className="lg:hidden mb-8 text-center">
-          <div className="inline-flex items-center gap-2 mb-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-500">
-              <HardHat className="h-4 w-4 text-white" />
+          <Link href="/" className="inline-flex flex-col items-center gap-1">
+            <div className="inline-flex items-center gap-2 mb-1">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-500">
+                <HardHat className="h-4 w-4 text-white" />
+              </div>
+              <span className="font-display text-xl font-bold text-neutral-900">GADA<span className="text-primary-500">.</span></span>
             </div>
-            <span className="font-display text-xl font-bold text-neutral-900">GADA<span className="text-primary-500">.</span></span>
-          </div>
-          <p className="text-xs text-neutral-400">{t("auth.heroSub")}</p>
+            <p className="text-xs text-neutral-400">{t("auth.heroSub")}</p>
+          </Link>
         </div>
 
         <div className="w-full max-w-sm">
@@ -372,197 +426,330 @@ export default function LoginPage() {
 
             {/* Form body */}
             <div className="p-6">
-              <div className="mb-5">
-                <h1 className="font-display text-lg font-semibold text-neutral-900">
-                  {mode === "signup"
-                    ? (tab === "worker" ? t("auth.workerRegister") : t("auth.employerRegister"))
-                    : (tab === "worker" ? t("auth.workerLogin") : t("auth.employerLogin"))}
-                </h1>
-                <p className="mt-1 text-xs text-neutral-400">
-                  {mode === "signup"
-                    ? (tab === "worker" ? t("auth.workerSubRegister") : t("auth.employerSubRegister"))
-                    : (tab === "worker" ? t("auth.workerDesc") : t("auth.employerDesc"))}
-                </p>
-              </div>
-
-              {/* Phone step */}
-              {step === "phone" && (
-                <form onSubmit={handleSendOtp} className="space-y-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-neutral-600">{t("auth.phone")}</label>
-                    {/* Country code + phone number input */}
-                    <div className={`flex items-center rounded-md border bg-white transition-colors focus-within:ring-2 ${
-                      isEmployer
-                        ? "border-neutral-200 focus-within:border-warning-500 focus-within:ring-warning-100"
-                        : "border-neutral-200 focus-within:border-primary-500 focus-within:ring-primary-100"
-                    }`}>
-                      {/* Country trigger */}
-                      <button
-                        ref={countryBtnRef}
-                        type="button"
-                        onClick={() => setDropdownOpen((v) => !v)}
-                        aria-haspopup="listbox"
-                        aria-expanded={dropdownOpen}
-                        className="flex shrink-0 items-center gap-1.5 border-r border-neutral-200 px-3 py-2.5 transition-colors hover:bg-neutral-50 rounded-l-md"
-                      >
-                        <span className="text-base leading-none">{country.flag}</span>
-                        <span className="text-sm font-semibold text-neutral-700 tabular-nums">{country.dial}</span>
-                        <svg
-                          className={`w-3 h-3 text-neutral-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
-                          fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"
-                        >
-                          <path d="m6 9 6 6 6-6" />
-                        </svg>
-                      </button>
-
-                      {/* Portal dropdown */}
-                      {dropdownOpen && (
-                        <CountryDropdown
-                          anchorRef={countryBtnRef}
-                          selected={country}
-                          onSelect={(c) => { setCountry(c); setLocalPhone(""); }}
-                          onClose={() => setDropdownOpen(false)}
-                          searchLabel={t("auth.countrySearch")}
-                          noResultLabel={t("auth.countryNoResult")}
-                        />
-                      )}
-
-                      {/* Phone number */}
-                      <input
-                        type="tel"
-                        inputMode="numeric"
-                        value={localPhone}
-                        onChange={(e) => setLocalPhone(e.target.value.replace(/[^\d\s\-]/g, ""))}
-                        placeholder={country.placeholder}
-                        autoComplete="tel-national"
-                        autoCorrect="off"
-                        autoCapitalize="none"
-                        enterKeyHint="done"
-                        required
-                        className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
-                      />
-                    </div>
+              {/* ─── LOGIN MODE ─── */}
+              {mode === "login" && (
+                <>
+                  <div className="mb-5">
+                    <h1 className="font-display text-lg font-semibold text-neutral-900">
+                      {isEmployer ? t("auth.employerLogin") : t("auth.workerLogin")}
+                    </h1>
+                    <p className="mt-1 text-xs text-neutral-400">
+                      {isEmployer ? t("auth.employerDesc") : t("auth.workerDesc")}
+                    </p>
                   </div>
-                  {error && <p className="text-sm text-danger-500">{error}</p>}
-                  <button
-                    type="submit"
-                    disabled={loading || localPhone.replace(/\D/g, "").length < 7}
-                    className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                      isEmployer
-                        ? "bg-warning-500 text-white hover:bg-warning-700"
-                        : "bg-primary-500 text-white hover:bg-primary-600"
-                    }`}
-                  >
-                    {loading ? t("auth.sending") : t("auth.sendOtp")}
-                  </button>
-                </form>
-              )}
 
-              {/* OTP step */}
-              {step === "otp" && (
-                <div className="space-y-3">
-                  <button
-                    onClick={() => { setStep("phone"); setOtp(""); setError(""); }}
-                    className="mb-1 text-sm text-neutral-400 hover:text-neutral-600"
-                  >
-                    ← {t("common.back")}
-                  </button>
-                  <p className="text-sm text-neutral-500">
-                    <span className="font-semibold text-neutral-900">{toE164()}</span>{t("auth.otpSentTo")}
-                  </p>
-                  <form onSubmit={handleVerifyOtp} className="space-y-3">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                      placeholder={t("auth.otpPlaceholder")}
-                      autoFocus
-                      className="w-full rounded-md border border-neutral-200 px-3.5 py-2.5 text-center text-sm font-semibold tracking-[0.4em] text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                    />
+                  <form onSubmit={handleLogin} className="space-y-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-neutral-600">
+                        전화번호
+                      </label>
+                      <div className={`flex items-center rounded-md border bg-white transition-colors focus-within:ring-2 border-neutral-200 ${accentFocus}`}>
+                        <button
+                          ref={loginCountryBtnRef}
+                          type="button"
+                          onClick={() => setLoginDropdownOpen((v) => !v)}
+                          className="flex shrink-0 items-center gap-1.5 border-r border-neutral-200 px-3 py-2.5 hover:bg-neutral-50 rounded-l-md"
+                        >
+                          <span className="text-base leading-none">{loginCountry.flag}</span>
+                          <span className="text-sm font-semibold text-neutral-700 tabular-nums">{loginCountry.dial}</span>
+                          <svg className={`w-3 h-3 text-neutral-400 transition-transform ${loginDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+                        </button>
+                        {loginDropdownOpen && (
+                          <CountryDropdown
+                            anchorRef={loginCountryBtnRef}
+                            selected={loginCountry}
+                            onSelect={(c) => { setLoginCountry(c); setLoginLocal(""); }}
+                            onClose={() => setLoginDropdownOpen(false)}
+                          />
+                        )}
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          value={loginLocal}
+                          onChange={(e) => setLoginLocal(e.target.value.replace(/[^\d\s\-]/g, ""))}
+                          placeholder={loginCountry.placeholder}
+                          autoComplete="tel-national"
+                          required
+                          className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-neutral-600">
+                        비밀번호
+                      </label>
+                      <div className={`flex items-center rounded-md border border-neutral-200 bg-white focus-within:ring-2 ${accentFocus}`}>
+                        <input
+                          type={showLoginPw ? "text" : "password"}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="비밀번호 입력"
+                          autoComplete="current-password"
+                          required
+                          className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowLoginPw((v) => !v)}
+                          className="px-3 text-neutral-400 hover:text-neutral-600"
+                        >
+                          {showLoginPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
                     {error && <p className="text-sm text-danger-500">{error}</p>}
+
                     <button
                       type="submit"
-                      disabled={loading || otp.length !== 6}
-                      className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                        isEmployer
-                          ? "bg-warning-500 text-white hover:bg-warning-700"
-                          : "bg-primary-500 text-white hover:bg-primary-600"
-                      }`}
+                      disabled={loading || loginLocal.replace(/\D/g, "").length < 7 || !loginPassword}
+                      className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${btnClass}`}
                     >
-                      {loading ? t("auth.verifying") : mode === "signup" ? (tab === "worker" ? t("auth.verifyAndRegister") : t("auth.verifyAndRegisterEmployer")) : t("auth.loginBtn")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setStep("phone"); setOtp(""); }}
-                      disabled={countdown > 0}
-                      className="w-full py-2 text-sm text-neutral-400 disabled:opacity-40"
-                    >
-                      {countdown > 0 ? `재발송 (${countdown}초)` : t("auth.resend")}
+                      {loading ? "로그인 중…" : t("auth.loginBtn")}
                     </button>
                   </form>
-                </div>
+
+                  {/* Dev quick login */}
+                  {IS_LOCAL_DEV && (
+                    <details className="mt-4">
+                      <summary className="cursor-pointer select-none text-center text-[11px] text-neutral-300 hover:text-neutral-400">
+                        {t("auth.devAccounts")}
+                      </summary>
+                      <div className="mt-3 space-y-1.5">
+                        {tab === "worker" ? (
+                          <>
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("role.worker")}</p>
+                            {DEV_WORKERS.map((u) => (
+                              <button key={u.devId} onClick={() => handleDevLogin(u)}
+                                className="flex w-full items-center gap-2 rounded-md border border-neutral-200 px-2.5 py-1.5 text-left hover:bg-neutral-50 transition-colors">
+                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary-50 text-[10px] font-bold text-primary-700">{u.devId}</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-medium text-neutral-800">{u.label}</p>
+                                  <p className="truncate text-[10px] text-neutral-400">{u.desc}</p>
+                                </div>
+                              </button>
+                            ))}
+                            <p className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("role.teamLeader")}</p>
+                            {DEV_TEAM_LEADERS.map((u) => (
+                              <button key={u.devId} onClick={() => handleDevLogin(u)}
+                                className="flex w-full items-center gap-2 rounded-md border border-neutral-200 px-2.5 py-1.5 text-left hover:bg-neutral-50 transition-colors">
+                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary-50 text-[10px] font-bold text-secondary-600">{u.devId}</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-medium text-neutral-800">{u.label}</p>
+                                  <p className="truncate text-[10px] text-neutral-400">{u.desc}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("role.employer")}</p>
+                            {DEV_EMPLOYERS.map((u) => (
+                              <button key={u.devId} onClick={() => handleDevLogin(u)}
+                                className="flex w-full items-center gap-2 rounded-md border border-neutral-200 px-2.5 py-1.5 text-left hover:bg-neutral-50 transition-colors">
+                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-warning-50 text-[10px] font-bold text-warning-700">{u.devId}</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-medium text-neutral-800">{u.label}</p>
+                                  <p className="truncate text-[10px] text-neutral-400">{u.desc}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    </details>
+                  )}
+                </>
               )}
 
-              {/* Dev quick login */}
-              {IS_LOCAL_DEV && step === "phone" && (
-                <details className="mt-4">
-                  <summary className="cursor-pointer select-none text-center text-[11px] text-neutral-300 hover:text-neutral-400">
-                    {t("auth.devAccounts")}
-                  </summary>
-                  <div className="mt-3 space-y-1.5">
-                    {tab === "worker" ? (
-                      <>
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("role.worker")}</p>
-                        {DEV_WORKERS.map((u) => (
-                          <button
-                            key={u.devId}
-                            onClick={() => handleDevLogin(u)}
-                            className="flex w-full items-center gap-2 rounded-md border border-neutral-200 px-2.5 py-1.5 text-left hover:bg-neutral-50 transition-colors"
-                          >
-                            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary-50 text-[10px] font-bold text-primary-700">{u.devId}</span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-neutral-800">{u.label}</p>
-                              <p className="truncate text-[10px] text-neutral-400">{u.desc}</p>
-                            </div>
-                          </button>
-                        ))}
-                        <p className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("role.teamLeader")}</p>
-                        {DEV_TEAM_LEADERS.map((u) => (
-                          <button
-                            key={u.devId}
-                            onClick={() => handleDevLogin(u)}
-                            className="flex w-full items-center gap-2 rounded-md border border-neutral-200 px-2.5 py-1.5 text-left hover:bg-neutral-50 transition-colors"
-                          >
-                            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary-50 text-[10px] font-bold text-secondary-600">{u.devId}</span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-neutral-800">{u.label}</p>
-                              <p className="truncate text-[10px] text-neutral-400">{u.desc}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </>
-                    ) : (
-                      <>
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("role.employer")}</p>
-                        {DEV_EMPLOYERS.map((u) => (
-                          <button
-                            key={u.devId}
-                            onClick={() => handleDevLogin(u)}
-                            className="flex w-full items-center gap-2 rounded-md border border-neutral-200 px-2.5 py-1.5 text-left hover:bg-neutral-50 transition-colors"
-                          >
-                            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-warning-50 text-[10px] font-bold text-warning-700">{u.devId}</span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-neutral-800">{u.label}</p>
-                              <p className="truncate text-[10px] text-neutral-400">{u.desc}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </>
-                    )}
+              {/* ─── SIGNUP MODE ─── */}
+              {mode === "signup" && (
+                <>
+                  <div className="mb-5">
+                    <h1 className="font-display text-lg font-semibold text-neutral-900">
+                      {isEmployer ? t("auth.employerRegister") : t("auth.workerRegister")}
+                    </h1>
+                    {/* Step indicator */}
+                    <div className="mt-3 flex items-center gap-1.5">
+                      {(["phone", "otp", "password"] as SignupStep[]).map((s, i) => (
+                        <div key={s} className="flex items-center gap-1.5">
+                          <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+                            signupStep === s
+                              ? isEmployer ? "bg-warning-500 text-white" : "bg-primary-500 text-white"
+                              : ["phone", "otp", "password"].indexOf(signupStep) > i
+                                ? "bg-success-500 text-white"
+                                : "bg-neutral-200 text-neutral-500"
+                          }`}>
+                            {["phone", "otp", "password"].indexOf(signupStep) > i ? "✓" : i + 1}
+                          </div>
+                          {i < 2 && <div className={`h-px flex-1 w-6 ${["phone", "otp", "password"].indexOf(signupStep) > i ? "bg-success-400" : "bg-neutral-200"}`} />}
+                        </div>
+                      ))}
+                      <span className="ml-1 text-xs text-neutral-400">
+                        {signupStep === "phone" ? "전화번호 입력" : signupStep === "otp" ? "인증번호 확인" : "비밀번호 설정"}
+                      </span>
+                    </div>
                   </div>
-                </details>
+
+                  {/* Step 1: name + phone */}
+                  {signupStep === "phone" && (
+                    <form onSubmit={handleSendOtp} className="space-y-3">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">이름</label>
+                        <input
+                          type="text"
+                          value={signupName}
+                          onChange={(e) => setSignupName(e.target.value)}
+                          placeholder="실명을 입력하세요"
+                          autoComplete="name"
+                          required
+                          className={`w-full rounded-md border border-neutral-200 px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-${isEmployer ? "warning" : "primary"}-500 focus:ring-2 focus:ring-${isEmployer ? "warning" : "primary"}-100`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">전화번호</label>
+                        <div className={`flex items-center rounded-md border bg-white transition-colors focus-within:ring-2 border-neutral-200 ${accentFocus}`}>
+                          <button
+                            ref={countryBtnRef}
+                            type="button"
+                            onClick={() => setDropdownOpen((v) => !v)}
+                            className="flex shrink-0 items-center gap-1.5 border-r border-neutral-200 px-3 py-2.5 hover:bg-neutral-50 rounded-l-md"
+                          >
+                            <span className="text-base leading-none">{signupCountry.flag}</span>
+                            <span className="text-sm font-semibold text-neutral-700 tabular-nums">{signupCountry.dial}</span>
+                            <svg className={`w-3 h-3 text-neutral-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+                          </button>
+                          {dropdownOpen && (
+                            <CountryDropdown
+                              anchorRef={countryBtnRef}
+                              selected={signupCountry}
+                              onSelect={(c) => { setSignupCountry(c); setSignupLocal(""); }}
+                              onClose={() => setDropdownOpen(false)}
+                            />
+                          )}
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            value={signupLocal}
+                            onChange={(e) => setSignupLocal(e.target.value.replace(/[^\d\s\-]/g, ""))}
+                            placeholder={signupCountry.placeholder}
+                            autoComplete="tel-national"
+                            required
+                            className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {error && <p className="text-sm text-danger-500">{error}</p>}
+
+                      <button
+                        type="submit"
+                        disabled={loading || !signupName.trim() || signupLocal.replace(/\D/g, "").length < 7}
+                        className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${btnClass}`}
+                      >
+                        {loading ? "전송 중…" : "인증번호 받기"}
+                      </button>
+                    </form>
+                  )}
+
+                  {/* Step 2: OTP */}
+                  {signupStep === "otp" && (
+                    <div className="space-y-3">
+                      <button onClick={() => { setSignupStep("phone"); setSignupOtp(""); setError(""); }} className="mb-1 text-sm text-neutral-400 hover:text-neutral-600">
+                        ← 뒤로
+                      </button>
+                      <p className="text-sm text-neutral-500">
+                        <span className="font-semibold text-neutral-900">{toE164(signupCountry, signupLocal)}</span>로 전송된 인증번호를 입력하세요.
+                      </p>
+                      <form onSubmit={handleVerifyOtp} className="space-y-3">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={signupOtp}
+                          onChange={(e) => setSignupOtp(e.target.value.replace(/\D/g, ""))}
+                          placeholder="인증번호 6자리"
+                          autoFocus
+                          className="w-full rounded-md border border-neutral-200 px-3.5 py-2.5 text-center text-sm font-semibold tracking-[0.4em] text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                        />
+                        {error && <p className="text-sm text-danger-500">{error}</p>}
+                        <button
+                          type="submit"
+                          disabled={loading || signupOtp.length !== 6}
+                          className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${btnClass}`}
+                        >
+                          {loading ? "확인 중…" : "인증번호 확인"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setSignupStep("phone"); setSignupOtp(""); }}
+                          disabled={otpCountdown > 0}
+                          className="w-full py-2 text-sm text-neutral-400 disabled:opacity-40"
+                        >
+                          {otpCountdown > 0 ? `재발송 (${otpCountdown}초)` : "재발송"}
+                        </button>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* Step 3: password */}
+                  {signupStep === "password" && (
+                    <form onSubmit={handleRegister} className="space-y-3">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">비밀번호 설정</label>
+                        <div className={`flex items-center rounded-md border border-neutral-200 bg-white focus-within:ring-2 ${accentFocus}`}>
+                          <input
+                            type={showSignupPw ? "text" : "password"}
+                            value={signupPassword}
+                            onChange={(e) => setSignupPassword(e.target.value)}
+                            placeholder="6자 이상"
+                            autoComplete="new-password"
+                            required
+                            minLength={6}
+                            autoFocus
+                            className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
+                          />
+                          <button type="button" tabIndex={-1} onClick={() => setShowSignupPw((v) => !v)} className="px-3 text-neutral-400 hover:text-neutral-600">
+                            {showSignupPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">비밀번호 확인</label>
+                        <input
+                          type="password"
+                          value={signupPasswordConfirm}
+                          onChange={(e) => setSignupPasswordConfirm(e.target.value)}
+                          placeholder="비밀번호 재입력"
+                          autoComplete="new-password"
+                          required
+                          className={`w-full rounded-md border px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:ring-2 ${
+                            signupPasswordConfirm && signupPassword !== signupPasswordConfirm
+                              ? "border-danger-300 focus:border-danger-500 focus:ring-danger-100"
+                              : `border-neutral-200 focus:border-${isEmployer ? "warning" : "primary"}-500 focus:ring-${isEmployer ? "warning" : "primary"}-100`
+                          }`}
+                        />
+                        {signupPasswordConfirm && signupPassword !== signupPasswordConfirm && (
+                          <p className="mt-1 text-xs text-danger-500">비밀번호가 일치하지 않습니다.</p>
+                        )}
+                      </div>
+
+                      {error && <p className="text-sm text-danger-500">{error}</p>}
+
+                      <button
+                        type="submit"
+                        disabled={loading || signupPassword.length < 6 || signupPassword !== signupPasswordConfirm}
+                        className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${btnClass}`}
+                      >
+                        {loading ? "가입 중…" : "가입 완료"}
+                      </button>
+                    </form>
+                  )}
+                </>
               )}
             </div>
 

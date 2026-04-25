@@ -1,21 +1,46 @@
-// Simple fetch wrapper for admin app
-// Uses X-Dev-User-Id header for local dev auth bypass.
+// Simple fetch wrapper for admin app.
+// Auth priority: JWT bearer token (password login) > X-Dev-User-Id (legacy dev bypass)
+
+export function getAdminToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("gada_admin_token");
+}
 
 export function getAdminUserId(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("gada_admin_user_id");
 }
 
+export function clearAdminSession(): void {
+  localStorage.removeItem("gada_admin_token");
+  localStorage.removeItem("gada_admin_user_id");
+}
+
 export async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getAdminToken();
   const devUserId = getAdminUserId();
+
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : devUserId
+    ? { "X-Dev-User-Id": devUserId }
+    : {};
+
   const res = await fetch(`/api/v1${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(devUserId ? { "X-Dev-User-Id": devUserId } : {}),
+      ...authHeaders,
       ...(options?.headers ?? {}),
     },
   });
+
+  if (res.status === 401) {
+    clearAdminSession();
+    if (typeof window !== "undefined") window.location.href = "/login";
+    throw new Error("세션이 만료되었습니다. 다시 로그인해주세요.");
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { message?: string }).message || `HTTP ${res.status}`);
@@ -134,17 +159,22 @@ export interface AdminWorkerItem {
   nationality?: string;
   visaType?: string;
   createdAt: string;
+  isFavorited?: boolean;
 }
 
 export async function getAdminWorkers(params: {
   page?: number;
   size?: number;
   status?: string;
+  keyword?: string;
+  role?: string;
 }): Promise<PagedResponse<AdminWorkerItem>> {
   const p = new URLSearchParams();
   if (params.page !== undefined) p.set("page", String(params.page));
   if (params.size !== undefined) p.set("size", String(params.size));
   if (params.status) p.set("status", params.status);
+  if (params.keyword) p.set("keyword", params.keyword);
+  if (params.role) p.set("role", params.role);
   return adminFetch<PagedResponse<AdminWorkerItem>>(`/admin/workers?${p.toString()}`);
 }
 
@@ -235,14 +265,14 @@ export interface AdminJobDetail {
 }
 
 export async function getAdminJobDetail(publicId: string): Promise<AdminJobDetail> {
-  return adminFetch<AdminJobDetail>(`/jobs/${publicId}`);
+  return adminFetch<AdminJobDetail>(`/admin/jobs/${publicId}`);
 }
 
 export async function patchAdminJobStatus(
   publicId: string,
   status: string
 ): Promise<AdminJobDetail> {
-  return adminFetch<AdminJobDetail>(`/jobs/${publicId}/status`, {
+  return adminFetch<AdminJobDetail>(`/admin/jobs/${publicId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
@@ -272,18 +302,93 @@ export interface AdminTeamItem {
   status: "ACTIVE" | "INACTIVE" | "DISSOLVED";
   isNationwide: boolean;
   createdAt: string;
+  isFavorited?: boolean;
 }
 
 export async function getAdminTeams(params: {
   page?: number;
   size?: number;
   status?: string;
+  keyword?: string;
 }): Promise<PagedResponse<AdminTeamItem>> {
   const p = new URLSearchParams();
   if (params.page !== undefined) p.set("page", String(params.page));
   if (params.size !== undefined) p.set("size", String(params.size));
   if (params.status) p.set("status", params.status);
+  if (params.keyword) p.set("keyword", params.keyword);
   return adminFetch<PagedResponse<AdminTeamItem>>(`/admin/teams?${p.toString()}`);
+}
+
+// ─── Admin Favorites ─────────────────────────────────────────────
+
+export interface FavoriteWorkerItem {
+  favoriteId: number;
+  userId: number;
+  publicId: string;
+  phone: string;
+  fullName?: string;
+  nationality?: string;
+  visaType?: string;
+  role: string;
+  status: string;
+  note?: string;
+  favoritedAt: string;
+}
+
+export interface FavoriteTeamItem {
+  favoriteId: number;
+  publicId: string;
+  name: string;
+  teamType: string;
+  leaderId: number;
+  memberCount: number;
+  status: string;
+  isNationwide: boolean;
+  note?: string;
+  favoritedAt: string;
+}
+
+export interface AdminFavoritesResponse {
+  workers: FavoriteWorkerItem[];
+  teams: FavoriteTeamItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+export async function getAdminFavorites(params: {
+  targetType?: "WORKER" | "TEAM";
+  page?: number;
+  size?: number;
+}): Promise<AdminFavoritesResponse> {
+  const p = new URLSearchParams();
+  if (params.targetType) p.set("targetType", params.targetType);
+  if (params.page !== undefined) p.set("page", String(params.page));
+  if (params.size !== undefined) p.set("size", String(params.size));
+  return adminFetch<AdminFavoritesResponse>(`/admin/favorites?${p.toString()}`);
+}
+
+export async function addAdminFavorite(
+  targetType: "WORKER" | "TEAM",
+  targetPublicId: string,
+  note?: string
+): Promise<{ favorited: boolean; targetPublicId: string }> {
+  return adminFetch(`/admin/favorites`, {
+    method: "POST",
+    body: JSON.stringify({ targetType, targetPublicId, note }),
+  });
+}
+
+export async function removeAdminFavorite(
+  targetType: "WORKER" | "TEAM",
+  targetPublicId: string
+): Promise<{ favorited: boolean; targetPublicId: string }> {
+  return adminFetch(`/admin/favorites/${targetType}/${targetPublicId}`, {
+    method: "DELETE",
+  });
 }
 
 // ─── Application Types ───────────────────────────────────────────

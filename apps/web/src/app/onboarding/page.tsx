@@ -280,12 +280,10 @@ export default function OnboardingPage() {
     setError("");
     setLoading(true);
     try {
+      // Get idToken for Firebase OTP users; password-auth users rely on JWT bearer (no idToken needed)
       const currentUser = auth.currentUser;
-      if (!currentUser) {
-        router.replace("/login");
-        return;
-      }
-      const idToken = await currentUser.getIdToken();
+      const idToken = currentUser ? await currentUser.getIdToken().catch(() => undefined) : undefined;
+
       const result = await onboard({
         idToken,
         role,
@@ -308,7 +306,7 @@ export default function OnboardingPage() {
         desiredPayUnit:
           !skipPreferences && (payMin || payMax) ? payUnit : undefined,
       });
-      setUser(result);
+      setUser(result);  // also updates stored token if returned
       router.replace("/");
     } catch (err: any) {
       setError(err.message || "오류가 발생했습니다.");

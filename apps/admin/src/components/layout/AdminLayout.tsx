@@ -437,7 +437,8 @@ export function AdminLayout({
       return;
     }
     // Verify the stored userId is actually an ADMIN
-    fetch("/api/v1/auth/me", {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8090/api";
+    fetch(`${apiBase}/v1/auth/me`, {
       headers: { "Content-Type": "application/json", "X-Dev-User-Id": userId },
     })
       .then((r) => r.json())
@@ -448,8 +449,8 @@ export function AdminLayout({
         }
       })
       .catch(() => {
-        localStorage.removeItem("gada_admin_user_id");
-        router.replace("/login");
+        // 네트워크 오류 시 localStorage는 유지 (재시도 가능하게)
+        console.warn("Auth check failed — network error");
       });
   }, [router]);
 

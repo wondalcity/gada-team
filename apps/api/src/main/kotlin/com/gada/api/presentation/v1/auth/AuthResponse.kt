@@ -9,4 +9,6 @@ data class AuthResponse(
     val role: UserRole,
     val status: UserStatus,
     val isNewUser: Boolean,
+    /** JWT token — only present when authenticated via password (not Firebase OTP) */
+    val token: String? = null,
 )
