@@ -30,10 +30,23 @@ const CODE_EMOJI: Record<string, string> = {
   GENERAL: "👷",
 };
 
-const PAY_TYPE_LABEL: Record<string, string> = {
-  DAILY: "일당",
-  HOURLY: "시급",
-  MONTHLY: "월급",
+// Fallback hero images (Unsplash) when content.heroImageUrl is not set
+const CODE_HERO_IMAGE: Record<string, string> = {
+  CONCRETE:   "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1200&auto=format&fit=crop&q=80",
+  REBAR:      "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=1200&auto=format&fit=crop&q=80",
+  FORM:       "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=1200&auto=format&fit=crop&q=80",
+  MASONRY:    "https://images.unsplash.com/photo-1621605815971-d36f8e04e7d2?w=1200&auto=format&fit=crop&q=80",
+  TILE:       "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80",
+  PLUMBING:   "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=1200&auto=format&fit=crop&q=80",
+  ELECTRICAL: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=1200&auto=format&fit=crop&q=80",
+  PAINTING:   "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&auto=format&fit=crop&q=80",
+  SCAFFOLD:   "https://images.unsplash.com/photo-1488972685288-c3fd157d7c7a?w=1200&auto=format&fit=crop&q=80",
+  WATERPROOF: "https://images.unsplash.com/photo-1565710965521-e9bf0e9dd08b?w=1200&auto=format&fit=crop&q=80",
+  CRANE:      "https://images.unsplash.com/photo-1521791055366-0d553381ad47?w=1200&auto=format&fit=crop&q=80",
+  EXCAVATOR:  "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=1200&auto=format&fit=crop&q=80",
+  WELDER:     "https://images.unsplash.com/photo-1517404215738-15263e9f9178?w=1200&auto=format&fit=crop&q=80",
+  INTERIOR:   "https://images.unsplash.com/photo-1503455637927-0be31f4bd8ad?w=1200&auto=format&fit=crop&q=80",
+  GENERAL:    "https://images.unsplash.com/photo-1531834835124-522bdb5b5e7b?w=1200&auto=format&fit=crop&q=80",
 };
 
 const SKILL_LEVEL_CLASS: Record<string, string> = {
@@ -192,7 +205,7 @@ function SkillsSection({ skills, label }: { skills: SkillEntry[]; label: string 
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 
-function PricingSection({ notes, label, noteText }: { notes: PricingNote[]; label: string; noteText: string }) {
+function PricingSection({ notes, label, noteText, payTypeLabel }: { notes: PricingNote[]; label: string; noteText: string; payTypeLabel: Record<string, string> }) {
   if (notes.length === 0) return null;
   return (
     <section id="pricing" className="scroll-mt-20 mb-12">
@@ -205,7 +218,7 @@ function PricingSection({ notes, label, noteText }: { notes: PricingNote[]; labe
           >
             <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-lg bg-primary-100">
               <span className="text-xs font-bold text-primary-700">
-                {PAY_TYPE_LABEL[note.type] ?? note.type}
+                {payTypeLabel[note.type] ?? note.type}
               </span>
             </div>
             <div>
@@ -446,19 +459,22 @@ function GuideDetailContent() {
     <>
       {/* ── Hero ── */}
       <div className="relative overflow-hidden">
-        {content.heroImageUrl ? (
-          <>
-            <img
-              src={content.heroImageUrl}
-              alt={content.title}
-              className="w-full h-72 md:h-[480px] object-cover"
-            />
-            {/* Strong gradient so breadcrumb + text are always legible */}
-            <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/95 via-neutral-900/60 to-neutral-900/20" />
-          </>
-        ) : (
-          <div className="w-full h-72 md:h-[480px] bg-gradient-to-br from-neutral-800 to-neutral-950" />
-        )}
+        {(() => {
+          const imgSrc = content.heroImageUrl ?? CODE_HERO_IMAGE[code];
+          return imgSrc ? (
+            <>
+              <img
+                src={imgSrc}
+                alt={content.title}
+                className="w-full h-72 md:h-[480px] object-cover"
+              />
+              {/* Strong gradient so breadcrumb + text are always legible */}
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/95 via-neutral-900/60 to-neutral-900/20" />
+            </>
+          ) : (
+            <div className="w-full h-72 md:h-[480px] bg-gradient-to-br from-neutral-800 to-neutral-950" />
+          );
+        })()}
 
         {/* Hero content overlay */}
         <div className="absolute inset-0 flex flex-col justify-end">
@@ -551,7 +567,7 @@ function GuideDetailContent() {
             {hasSkills && <SkillsSection skills={content.relatedSkills} label={t.skills} />}
 
             {hasPricing && (
-              <PricingSection notes={content.pricingNotes!} label={t.pricing} noteText={t.pricingNote} />
+              <PricingSection notes={content.pricingNotes!} label={t.pricing} noteText={t.pricingNote} payTypeLabel={t.payTypeLabel} />
             )}
 
             {hasFaqs && <FaqSection faqs={faqs} label={t.faq} />}

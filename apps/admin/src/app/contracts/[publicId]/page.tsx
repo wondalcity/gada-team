@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
@@ -146,7 +147,13 @@ export default function ContractDetailPage() {
     );
   }
 
-  const CONTRACT_STATUSES = ["DRAFT", "SENT", "SIGNED", "EXPIRED", "CANCELLED"];
+  const CONTRACT_STATUSES: { value: string; label: string }[] = [
+    { value: "DRAFT", label: "초안" },
+    { value: "SENT", label: "발송됨" },
+    { value: "SIGNED", label: "서명완료" },
+    { value: "EXPIRED", label: "만료됨" },
+    { value: "CANCELLED", label: "취소됨" },
+  ];
 
   return (
     <AdminLayout breadcrumbs={breadcrumbs}>
@@ -173,7 +180,7 @@ export default function ContractDetailPage() {
                 <ContractStatusBadge status={data.status} />
               </div>
               <p className="text-xs text-neutral-500 mt-0.5">
-                생성일: {new Date(data.createdAt).toLocaleDateString("ko-KR")}
+                생성일: {fmtDatetime(data.createdAt)}
               </p>
             </div>
           </div>
@@ -198,13 +205,13 @@ export default function ContractDetailPage() {
             <div>
               <p className="text-xs text-neutral-500 mb-1">시작일</p>
               <p className="text-sm font-medium text-neutral-900">
-                {data.startDate ? new Date(data.startDate).toLocaleDateString("ko-KR") : "—"}
+                {data.startDate ? fmtDate(data.startDate) : "—"}
               </p>
             </div>
             <div>
               <p className="text-xs text-neutral-500 mb-1">종료일</p>
               <p className="text-sm font-medium text-neutral-900">
-                {data.endDate ? new Date(data.endDate).toLocaleDateString("ko-KR") : "—"}
+                {data.endDate ? fmtDate(data.endDate) : "—"}
               </p>
             </div>
             <div>
@@ -270,7 +277,7 @@ export default function ContractDetailPage() {
             >
               <option value="">상태 선택...</option>
               {CONTRACT_STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
             <button

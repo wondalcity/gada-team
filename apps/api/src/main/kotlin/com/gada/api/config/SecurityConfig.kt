@@ -37,6 +37,8 @@ class SecurityConfig(
             "/api/v1/companies/*/jobs",
             "/api/v1/teams",
             "/api/v1/teams/*",
+            "/api/v1/workers",
+            "/api/v1/workers/*",
             "/actuator/health",
             "/v3/api-docs/**",
             "/swagger-ui/**",
@@ -77,8 +79,7 @@ class SecurityConfig(
     fun corsConfigurationSource(): CorsConfigurationSource {
         val config = CorsConfiguration()
         config.allowedOriginPatterns = listOf(
-            "http://localhost:3000",
-            "http://localhost:3001",
+            "http://localhost:*",
             "https://*.gada.kr",
             "https://gada.kr",
         )

@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   ChevronDown,
   Globe,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
@@ -94,10 +95,12 @@ function getNavLinks(role: string | undefined, t: ReturnType<typeof useT>) {
     { label: t("nav.applications"), href: "/applications", icon: FileText },
   ];
   const EMPLOYER_LINKS = [
-    { label: t("nav.dashboard"), href: "/employer", icon: LayoutDashboard },
+    { label: t("nav.dashboard"), href: "/employer", icon: LayoutDashboard, exact: true },
+    { label: t("nav.company"), href: "/employer/company", icon: Building2 },
+    { label: t("nav.sites"), href: "/employer/sites", icon: MapPin },
     { label: t("nav.jobManage"), href: "/employer/jobs", icon: Briefcase },
     { label: t("nav.applicants"), href: "/employer/applicants", icon: Users },
-    { label: t("nav.company"), href: "/employer/company", icon: Building2 },
+    { label: t("nav.teams"), href: "/employer/teams", icon: Users },
   ];
   const ADMIN_LINKS = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
@@ -194,7 +197,9 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
             {navLinks.map((link) => {
               const isActive =
                 !("external" in link && link.external) &&
-                (pathname === link.href || pathname.startsWith(link.href + "/"));
+                ("exact" in link && link.exact
+                  ? pathname === link.href
+                  : pathname === link.href || pathname.startsWith(link.href + "/"));
               if ("external" in link && link.external) {
                 return (
                   <a
@@ -341,7 +346,9 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                   const Icon = link.icon;
                   const isActive =
                     !("external" in link && link.external) &&
-                    (pathname === link.href || pathname.startsWith(link.href + "/"));
+                    ("exact" in link && link.exact
+                      ? pathname === link.href
+                      : pathname === link.href || pathname.startsWith(link.href + "/"));
                   if ("external" in link && link.external) {
                     return (
                       <a

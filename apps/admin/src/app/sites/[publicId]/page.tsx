@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -171,7 +172,7 @@ export default function SiteDetailPage() {
                 <p className="text-xs text-neutral-500">등록일</p>
               </div>
               <p className="text-sm font-medium text-neutral-900">
-                {new Date(data.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
+                {fmtDatetime(data.createdAt)}
               </p>
             </div>
             <div>

@@ -27,6 +27,7 @@ import {
   UserCog,
   List,
   SendHorizontal,
+  Coins,
 } from "lucide-react";
 import { cn } from "@gada/ui";
 
@@ -58,10 +59,20 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: "공고 관리",
+    title: "회사 정보",
     items: [
       { label: "건설사", href: "/companies", icon: Shield },
-      { label: "현장 관리", href: "/sites", icon: MapPin },
+    ],
+  },
+  {
+    title: "현장 관리",
+    items: [
+      { label: "현장 목록", href: "/sites", icon: MapPin },
+    ],
+  },
+  {
+    title: "공고 관리",
+    items: [
       { label: "채용공고", href: "/jobs", icon: Briefcase },
       { label: "지원 관리", href: "/applications", icon: ClipboardList },
       { label: "계약 관리", href: "/contracts", icon: ScrollText },
@@ -80,6 +91,12 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "SMS 발송 내역", href: "/sms-logs", icon: List },
       { label: "발송 도구", href: "/sms-send", icon: SendHorizontal },
+    ],
+  },
+  {
+    title: "포인트",
+    items: [
+      { label: "충전 요청 관리", href: "/points", icon: Coins },
     ],
   },
   {

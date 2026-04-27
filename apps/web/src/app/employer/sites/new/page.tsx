@@ -27,7 +27,7 @@ export default function NewSitePage() {
     mutationFn: (payload: CreateSitePayload) =>
       employerApi.createSite(company!.publicId, payload),
     onSuccess: () => {
-      router.push("/employer/company");
+      router.push("/employer/sites");
     },
     onError: (err: Error) => {
       setError(err.message || "현장 등록에 실패했습니다.");
@@ -57,7 +57,7 @@ export default function NewSitePage() {
   };
 
   const inputClass =
-    "w-full border border-neutral-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary-500 focus:outline-none text-sm text-neutral-900 placeholder:text-neutral-400";
+    "w-full border border-neutral-200 rounded-lg px-4 py-2.5 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 focus:outline-none text-sm text-neutral-900 placeholder:text-neutral-400 bg-white";
 
   if (companyLoading) {
     return (

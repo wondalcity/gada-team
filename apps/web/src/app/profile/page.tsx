@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LogOut, HardHat, Building2, Users, ShieldCheck,
   Phone, Globe, Award, Briefcase, User,
-  ChevronRight, FileText, Bell, Pencil,
+  ChevronRight, FileText, Bell, Pencil, Heart,
   CheckCircle2, Clock, Image as ImageIcon, Camera,
   X, Plus, Trash2, ChevronDown,
 } from "lucide-react";
@@ -942,7 +942,7 @@ export default function ProfilePage() {
                 <User className="h-10 w-10 text-neutral-200 mx-auto mb-2" />
                 <p className="text-sm text-neutral-500">프로필 정보가 없습니다.</p>
                 <Link
-                  href="/onboarding"
+                  href="/profile/setup"
                   className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
                 >
                   프로필 등록하기
@@ -981,6 +981,14 @@ export default function ProfilePage() {
             >
               <FileText className="h-4 w-4 text-neutral-400" />
               <span className="flex-1">내 지원현황</span>
+              <ChevronRight className="h-4 w-4 text-neutral-300" />
+            </Link>
+            <Link
+              href="/bookmarks"
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+            >
+              <Heart className="h-4 w-4 text-pink-400" />
+              <span className="flex-1">찜한 공고</span>
               <ChevronRight className="h-4 w-4 text-neutral-300" />
             </Link>
             <Link

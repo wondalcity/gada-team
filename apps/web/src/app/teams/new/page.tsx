@@ -636,7 +636,7 @@ function Step3({
                           return { ...f, portfolio: p };
                         })
                       }
-                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
                     />
                   </div>
                   <div>
@@ -651,7 +651,7 @@ function Step3({
                           return { ...f, portfolio: p };
                         })
                       }
-                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
                     />
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
@@ -195,14 +196,14 @@ export default function TeamDetailPage() {
             <div>
               <p className="text-xs text-neutral-500 mb-1">등록일</p>
               <p className="text-sm text-neutral-700">
-                {new Date(data.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
+                {fmtDatetime(data.createdAt)}
               </p>
             </div>
             {data.deletedAt && (
               <div>
                 <p className="text-xs text-red-500 mb-1">삭제일</p>
                 <p className="text-sm text-red-600">
-                  {new Date(data.deletedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
+                  {fmtDatetime(data.deletedAt)}
                 </p>
               </div>
             )}

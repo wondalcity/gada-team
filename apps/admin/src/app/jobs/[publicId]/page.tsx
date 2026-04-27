@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -44,11 +45,7 @@ function formatPay(min?: number, max?: number, unit?: string) {
 
 function formatDate(str?: string) {
   if (!str) return null;
-  return new Date(str).toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return fmtDatetime(str);
 }
 
 const APPLICATION_TYPE_LABELS: Record<string, string> = {

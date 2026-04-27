@@ -2,6 +2,7 @@ package com.gada.api.config
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.gada.api.infrastructure.persistence.user.UserRepository
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import jakarta.servlet.FilterChain
@@ -27,6 +28,7 @@ import java.util.Base64
 class FirebaseAuthFilter(
     private val firebaseApp: FirebaseApp,
     private val jwtService: JwtService,
+    private val userRepository: UserRepository,
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(FirebaseAuthFilter::class.java)
@@ -80,14 +82,28 @@ class FirebaseAuthFilter(
                 }
 
                 if (uid.isNotBlank()) {
+                    // If custom claims don't include userId/role, fall back to a DB lookup by Firebase UID.
+                    // This handles: OTP users without custom claims, password-registered users after JWT
+                    // expiry whose firebaseUid was linked during registration.
+                    val resolvedUserId: Long?
+                    val resolvedRole: String?
+                    if (userId == null || role == null) {
+                        val dbUser = userRepository.findByFirebaseUid(uid)
+                        resolvedUserId = userId ?: dbUser?.id
+                        resolvedRole = role ?: dbUser?.role?.name
+                    } else {
+                        resolvedUserId = userId
+                        resolvedRole = role
+                    }
+
                     val principal = GadaPrincipal(
                         firebaseUid = uid,
                         phone = phone,
-                        userId = userId,
-                        role = role,
+                        userId = resolvedUserId,
+                        role = resolvedRole,
                     )
-                    val authorities = if (role != null) {
-                        listOf(SimpleGrantedAuthority("ROLE_$role"))
+                    val authorities = if (resolvedRole != null) {
+                        listOf(SimpleGrantedAuthority("ROLE_$resolvedRole"))
                     } else {
                         emptyList()
                     }

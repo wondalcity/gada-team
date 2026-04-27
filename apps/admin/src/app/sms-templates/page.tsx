@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -121,7 +122,7 @@ export default function SmsTemplatesPage() {
       header: "수정일",
       render: (row) => (
         <span className="text-xs text-neutral-500">
-          {new Date(row.updatedAt).toLocaleDateString("ko-KR")}
+          {fmtDatetime(row.updatedAt)}
         </span>
       ),
     },

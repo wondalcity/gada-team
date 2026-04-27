@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { MapPin, Users, User, Building2, Clock } from "lucide-react";
+import { MapPin, Users, User, Building2, Clock, Heart } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { JobSummary } from "@/lib/jobs-api";
+import { addJobBookmark, removeJobBookmark } from "@/lib/api";
 import { ApplyModal } from "./ApplyModal";
 import { useT } from "@/lib/i18n";
 
@@ -72,12 +74,22 @@ function CompanyLogo({ logoUrl, companyName }: { logoUrl?: string; companyName: 
 
 // ─── JobCard ──────────────────────────────────────────────────────────────────
 
-export function JobCard({ job }: { job: JobSummary }) {
+export function JobCard({ job, isBookmarked: initialBookmarked }: { job: JobSummary; isBookmarked?: boolean }) {
   const t = useT();
+  const queryClient = useQueryClient();
   const daysLeft = getDaysRemaining(job.endDate);
   const isUrgent = !job.alwaysOpen && daysLeft !== null && daysLeft <= 7 && daysLeft >= 0;
   const isExpired = !job.alwaysOpen && daysLeft !== null && daysLeft < 0;
   const [applyOpen, setApplyOpen] = React.useState(false);
+  const [bookmarked, setBookmarked] = React.useState(!!initialBookmarked);
+
+  const bookmarkMutation = useMutation({
+    mutationFn: () => bookmarked ? removeJobBookmark(job.publicId) : addJobBookmark(job.publicId),
+    onSuccess: (res) => {
+      setBookmarked(res.bookmarked);
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
   const appTypeLabel: Record<string, string> = {
     INDIVIDUAL: t("card.individual"),
     TEAM: t("card.team"),
@@ -86,21 +98,31 @@ export function JobCard({ job }: { job: JobSummary }) {
 
   return (
     <div className="relative rounded-lg border border-neutral-200 bg-white hover:border-primary-200 hover:shadow-card-md transition-all">
-      <Link href={`/jobs/${job.publicId}`} className="block p-4">
-        {/* Distance badge */}
-        {job.distanceKm !== undefined && (
-          <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600">
-            <MapPin className="h-3 w-3" />
-            {formatDistance(job.distanceKm)}
-          </span>
+      {/* Bookmark button */}
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); bookmarkMutation.mutate(); }}
+        disabled={bookmarkMutation.isPending}
+        className={cn(
+          "absolute right-3 top-3 z-10 flex items-center justify-center rounded-full p-1.5 transition-colors disabled:opacity-50",
+          bookmarked
+            ? "bg-pink-50 text-pink-500 hover:bg-pink-100"
+            : "bg-white/80 text-neutral-300 hover:text-pink-400 hover:bg-pink-50"
         )}
+        title={bookmarked ? "찜 취소" : "찜하기"}
+      >
+        <Heart className={cn("h-4 w-4", bookmarked && "fill-pink-500 text-pink-500")} />
+      </button>
 
-        {/* Category */}
-        {job.categoryName && (
+      <Link href={`/jobs/${job.publicId}`} className="block p-4">
+        {/* Category + Distance row */}
+        {(job.categoryName || job.distanceKm !== undefined) && (
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-md bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600">
-              {job.categoryName}
-            </span>
+            {job.categoryName && (
+              <span className="rounded-md bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600">
+                {job.categoryName}
+              </span>
+            )}
             {job.categoryCode && job.categoryHasContent && (
               <Link
                 href={`/guides/${job.categoryCode}`}
@@ -109,6 +131,12 @@ export function JobCard({ job }: { job: JobSummary }) {
               >
                 {t("nav.guides")}
               </Link>
+            )}
+            {job.distanceKm !== undefined && (
+              <span className="ml-auto flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600">
+                <MapPin className="h-3 w-3" />
+                {formatDistance(job.distanceKm)}
+              </span>
             )}
           </div>
         )}

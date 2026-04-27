@@ -151,19 +151,30 @@ export default function HomePage() {
       <div className="min-h-screen bg-white">
 
         {/* ── Hero ── */}
-        <section className="border-b border-neutral-100 bg-white">
-          <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
+        <section className="relative overflow-hidden border-b border-neutral-800">
+          {/* Background image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&q=80&auto=format&fit=crop"
+            alt=""
+            aria-hidden
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-neutral-950/65" />
+          {/* Content */}
+          <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
             <div className="max-w-3xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-4 py-1.5 text-xs font-semibold text-primary-600 mb-6">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold text-white/90 mb-6 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary-400" />
                 {t("home.footer.platform")}
               </span>
-              <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl">
+              <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
                 {t("home.heroTitle")}
                 <br />
-                <span className="text-primary-500">{t("home.heroTitle2")}</span>
+                <span className="text-primary-400">{t("home.heroTitle2")}</span>
               </h1>
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-neutral-500">
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/75">
                 {t("home.heroSub")}
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -176,10 +187,10 @@ export default function HomePage() {
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-6 py-3 text-sm font-semibold text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white hover:bg-white/20 transition-colors backdrop-blur-sm"
                 >
                   {t("home.startNow")}
-                  <ChevronRight className="h-4 w-4 text-neutral-400" />
+                  <ChevronRight className="h-4 w-4 text-white/60" />
                 </Link>
               </div>
             </div>
@@ -434,9 +445,9 @@ export default function HomePage() {
                 <div>
                   <h4 className="mb-3 font-semibold text-neutral-700">{t("home.footer.support")}</h4>
                   <ul className="space-y-2 text-neutral-400">
-                    <li><Link href="/help" className="hover:text-neutral-700 transition-colors">{t("home.footer.help")}</Link></li>
-                    <li><Link href="/terms" className="hover:text-neutral-700 transition-colors">{t("home.footer.terms")}</Link></li>
-                    <li><Link href="/privacy" className="hover:text-neutral-700 transition-colors">{t("home.footer.privacy")}</Link></li>
+                      <li><span className="cursor-default">{t("home.footer.help")}</span></li>
+                    <li><span className="cursor-default">{t("home.footer.terms")}</span></li>
+                    <li><span className="cursor-default">{t("home.footer.privacy")}</span></li>
                   </ul>
                 </div>
               </div>

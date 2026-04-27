@@ -35,14 +35,14 @@ export function getMyNotifications(
   page = 0
 ): Promise<NotificationListResponse> {
   return api.get<NotificationListResponse>(
-    `/notifications/mine?page=${page}&size=20`
+    `/notifications?page=${page}&size=20`
   );
 }
 
 export function markNotificationRead(publicId: string): Promise<void> {
-  return api.post<void>(`/notifications/${publicId}/read`, {});
+  return api.patch<void>(`/notifications/${publicId}/read`, {});
 }
 
 export function markAllNotificationsRead(): Promise<void> {
-  return api.post<void>("/notifications/read-all", {});
+  return api.patch<void>("/notifications/read-all", {});
 }

@@ -178,6 +178,77 @@ function ExpandableText({ text }: { text: string }) {
   );
 }
 
+// ─── Contact Leader Sheet ─────────────────────────────────────────────────────
+
+function ContactLeaderSheet({
+  leaderName,
+  leaderProfileImageUrl,
+  teamName,
+  open,
+  onClose,
+}: {
+  leaderName?: string;
+  leaderProfileImageUrl?: string;
+  teamName: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-white p-6 shadow-2xl lg:bottom-0 lg:right-0 lg:left-auto lg:top-0 lg:w-96 lg:rounded-none lg:rounded-l-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-neutral-950">팀 참여 신청</h2>
+            <p className="mt-0.5 text-sm text-neutral-500">{teamName}</p>
+          </div>
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
+            <X className="h-4 w-4 text-neutral-600" />
+          </button>
+        </div>
+
+        {/* Leader info */}
+        <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 mb-5">
+          {leaderProfileImageUrl ? (
+            <img
+              src={leaderProfileImageUrl}
+              alt={leaderName}
+              className="h-12 w-12 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary-500 text-lg font-bold text-white">
+              {leaderName?.charAt(0).toUpperCase() ?? "?"}
+            </div>
+          )}
+          <div>
+            <p className="font-semibold text-neutral-900">{leaderName ?? "이름 없음"}</p>
+            <span className="inline-block rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700 mt-0.5">팀장</span>
+          </div>
+        </div>
+
+        {/* Guide message */}
+        <div className="rounded-lg border border-primary-100 bg-primary-50 p-4 space-y-2 mb-5">
+          <p className="text-sm font-semibold text-primary-700">팀 참여 방법</p>
+          <ol className="space-y-1.5 text-sm text-primary-600 list-decimal list-inside">
+            <li>팀장에게 직접 연락해 합류 의사를 전달하세요</li>
+            <li>팀장이 내 전화번호로 초대장을 발송합니다</li>
+            <li><strong>팀 찾기 → 내 초대</strong> 메뉴에서 초대를 수락하세요</li>
+          </ol>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
+        >
+          닫기
+        </button>
+      </div>
+    </>
+  );
+}
+
 // ─── Invite Sheet ─────────────────────────────────────────────────────────────
 
 function InviteSheet({
@@ -271,6 +342,7 @@ function InviteSheet({
 function TeamDetailContent({ id }: { id: string }) {
   const user = useAuthStore((s) => s.user);
   const [inviteOpen, setInviteOpen] = React.useState(false);
+  const [contactOpen, setContactOpen] = React.useState(false);
 
   const {
     data: team,
@@ -522,7 +594,7 @@ function TeamDetailContent({ id }: { id: string }) {
                 </button>
               ) : (
                 <button
-                  onClick={() => setInviteOpen(true)}
+                  onClick={() => setContactOpen(true)}
                   className="mt-4 w-full flex items-center justify-center gap-1.5 rounded-lg border border-primary-500 py-2.5 text-sm font-semibold text-primary-500 transition-all hover:bg-primary-50 active:scale-[0.98]"
                 >
                   <Phone className="h-4 w-4" />
@@ -617,11 +689,20 @@ function TeamDetailContent({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* ── Invite Sheet ── */}
+        {/* ── Invite Sheet (팀장 전용) ── */}
         <InviteSheet
           teamPublicId={team.publicId}
           open={inviteOpen}
           onClose={() => setInviteOpen(false)}
+        />
+
+        {/* ── Contact Leader Sheet (비팀장 전용) ── */}
+        <ContactLeaderSheet
+          leaderName={team.leaderName}
+          leaderProfileImageUrl={team.leaderProfileImageUrl}
+          teamName={team.name}
+          open={contactOpen}
+          onClose={() => setContactOpen(false)}
         />
 
         {/* ── Full Members Table ── */}

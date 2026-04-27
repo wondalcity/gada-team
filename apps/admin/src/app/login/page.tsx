@@ -8,8 +8,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 const IS_LOCAL_DEV = process.env.NODE_ENV === "development";
 
 // Dev admin accounts (only shown in local dev)
+// firebaseUid is used as the X-Dev-User-Id header — more stable than numeric ID
 const DEV_ADMINS = [
-  { id: 11, label: "슈퍼 관리자", phone: "+82-10-9001-0001", desc: "SUPER_ADMIN · dev-admin-1" },
+  { firebaseUid: "dev-admin-1", label: "슈퍼 관리자", phone: "+82-10-9001-0001", desc: "SUPER_ADMIN · dev-admin-1" },
 ];
 
 function getAdminToken(): string | null {
@@ -31,8 +32,8 @@ export default function AdminLoginPage() {
     }
   }, [router]);
 
-  function handleDevLogin(admin: { id: number; label: string }) {
-    localStorage.setItem("gada_admin_user_id", String(admin.id));
+  function handleDevLogin(admin: { firebaseUid: string; label: string }) {
+    localStorage.setItem("gada_admin_user_id", admin.firebaseUid);
     localStorage.removeItem("gada_admin_token");
     router.replace("/dashboard");
   }
@@ -165,12 +166,12 @@ export default function AdminLoginPage() {
             <div className="mt-3 space-y-1.5">
               {DEV_ADMINS.map((admin) => (
                 <button
-                  key={admin.id}
+                  key={admin.firebaseUid}
                   onClick={() => handleDevLogin(admin)}
                   className="flex w-full items-center gap-2 rounded-lg border border-neutral-700 px-2.5 py-2 text-left hover:bg-neutral-700 transition-colors"
                 >
                   <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[10px] font-bold text-amber-400">
-                    {admin.id}
+                    A
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium text-neutral-200">{admin.label}</p>

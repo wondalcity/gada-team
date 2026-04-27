@@ -24,12 +24,18 @@ class TeamRepository(
     fun findByLeaderId(leaderId: Long): Team? =
         qf.selectFrom(t).where(t.leaderId.eq(leaderId), t.deletedAt.isNull).fetchOne()
 
-    fun findAll(page: Int, size: Int, status: TeamStatus? = null): Pair<List<Team>, Long> {
+    fun findAll(
+        page: Int,
+        size: Int,
+        status: TeamStatus? = null,
+        keyword: String? = null,
+    ): Pair<List<Team>, Long> {
         val statusPred = status?.let { t.status.eq(it) }
+        val keywordPred = keyword?.takeIf { it.isNotBlank() }?.let { t.name.containsIgnoreCase(it) }
         val total = qf.select(t.count()).from(t)
-            .where(t.deletedAt.isNull, statusPred).fetchOne() ?: 0L
+            .where(t.deletedAt.isNull, statusPred, keywordPred).fetchOne() ?: 0L
         val content = qf.selectFrom(t)
-            .where(t.deletedAt.isNull, statusPred)
+            .where(t.deletedAt.isNull, statusPred, keywordPred)
             .orderBy(t.createdAt.desc())
             .offset((page * size).toLong())
             .limit(size.toLong())

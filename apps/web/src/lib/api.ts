@@ -3,23 +3,25 @@ import { useAuthStore } from "@/store/authStore";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
-/** Returns the best available token: our JWT (password auth) > Firebase OTP > dev user id */
+/** Returns the best available token: our JWT (password auth) > dev bypass > Firebase OTP */
 async function getBearerToken(): Promise<{ type: "bearer" | "dev"; value: string } | null> {
   // 1. Our own JWT (password-based auth) — highest priority
   const storedToken = useAuthStore.getState().token;
   if (storedToken) return { type: "bearer", value: storedToken };
 
-  // 2. Firebase OTP session
+  // 2. Dev quick-login (X-Dev-User-Id) — must come before Firebase so a stale Firebase
+  //    session never shadows the dev bypass (backend would reject the Firebase token with 401
+  //    when Firebase Admin SDK isn't configured in the dev environment).
+  if (typeof window !== "undefined") {
+    const devId = localStorage.getItem("gada_dev_user_id");
+    if (devId) return { type: "dev", value: devId };
+  }
+
+  // 3. Firebase OTP session (only reached when no JWT and no dev bypass)
   const firebaseUser = auth.currentUser;
   if (firebaseUser) {
     const fbToken = await firebaseUser.getIdToken().catch(() => null);
     if (fbToken) return { type: "bearer", value: fbToken };
-  }
-
-  // 3. Dev quick-login (X-Dev-User-Id)
-  if (typeof window !== "undefined") {
-    const devId = localStorage.getItem("gada_dev_user_id");
-    if (devId) return { type: "dev", value: devId };
   }
 
   return null;

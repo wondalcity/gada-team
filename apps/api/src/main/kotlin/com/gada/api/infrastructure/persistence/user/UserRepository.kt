@@ -56,17 +56,26 @@ class UserRepository(
         return user
     }
 
-    fun findWorkers(page: Int, size: Int, status: UserStatus? = null): Pair<List<User>, Long> {
-        val workerRoles = listOf(UserRole.WORKER, UserRole.TEAM_LEADER)
+    fun findWorkers(
+        page: Int,
+        size: Int,
+        status: UserStatus? = null,
+        keyword: String? = null,
+        role: UserRole? = null,
+    ): Pair<List<User>, Long> {
+        val workerRoles = if (role != null) listOf(role) else listOf(UserRole.WORKER, UserRole.TEAM_LEADER)
         val rolePred = u.role.`in`(workerRoles)
         val statusPred = status?.let { u.status.eq(it) }
+        val keywordPred = keyword?.takeIf { it.isNotBlank() }?.let {
+            u.phone.containsIgnoreCase(it)
+        }
 
         val total = qf.select(u.count()).from(u)
-            .where(rolePred, statusPred)
+            .where(rolePred, statusPred, keywordPred)
             .fetchOne() ?: 0L
 
         val users = qf.selectFrom(u)
-            .where(rolePred, statusPred)
+            .where(rolePred, statusPred, keywordPred)
             .orderBy(u.id.desc())
             .offset((page * size).toLong())
             .limit(size.toLong())

@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -469,7 +470,7 @@ export default function ApplicationsPage() {
                             {/* Applied date */}
                             <td className="px-4 py-3.5 hidden lg:table-cell">
                               <span className="text-xs text-neutral-500">
-                                {new Date(app.appliedAt).toLocaleDateString("ko-KR")}
+                                {fmtDatetime(app.appliedAt)}
                               </span>
                             </td>
 

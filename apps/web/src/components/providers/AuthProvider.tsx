@@ -16,19 +16,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        clear();
+        // Only wipe auth state when there's truly no session at all.
+        // Do NOT clear if the user has a password-based JWT or a dev bypass in localStorage —
+        // those are valid non-Firebase sessions and must survive Firebase's null event.
+        const hasJwt = !!useAuthStore.getState().token;
+        const hasDevBypass =
+          typeof window !== "undefined" && !!localStorage.getItem("gada_dev_user_id");
+        if (!hasJwt && !hasDevBypass) {
+          clear();
+        }
         return;
       }
+
       // If we already have the user loaded, nothing to do
       if (user) return;
 
-      // Re-sync after page refresh
+      // Re-sync after page refresh when only Firebase state exists
       try {
         const idToken = await firebaseUser.getIdToken();
         const authData = await loginWithToken(idToken);
         setUser(authData);
       } catch {
-        // Silently ignore — user might be navigating to /login
+        // Silently ignore — user might be navigating to /login,
+        // or Firebase Admin SDK isn't configured in this environment.
       }
     });
     return unsub;

@@ -34,6 +34,7 @@ type GuideStrings = {
   heroSub: string;
   typeGuide: string;
   noContent: string;
+  payTypeLabel: Record<string, string>;
 };
 
 export const GUIDE_STRINGS: Record<Locale, GuideStrings> = {
@@ -72,6 +73,7 @@ export const GUIDE_STRINGS: Record<Locale, GuideStrings> = {
     heroSub: "GADA가 정리한 직종별 완벽 가이드. 작업 특성, 필요 기술, 임금 정보까지 한번에.",
     typeGuide: "직종 가이드",
     noContent: "가이드를 준비 중이에요",
+    payTypeLabel: { DAILY: "일당", HOURLY: "시급", MONTHLY: "월급" },
   },
   en: {
     backToGuides: "Guide List",
@@ -108,6 +110,7 @@ export const GUIDE_STRINGS: Record<Locale, GuideStrings> = {
     heroSub: "Complete guides for each trade by GADA — work characteristics, required skills, and wage info all in one place.",
     typeGuide: "Trade Guides",
     noContent: "Guide in preparation",
+    payTypeLabel: { DAILY: "Daily Rate", HOURLY: "Hourly Rate", MONTHLY: "Monthly Salary" },
   },
   vi: {
     backToGuides: "Danh sách hướng dẫn",
@@ -144,6 +147,7 @@ export const GUIDE_STRINGS: Record<Locale, GuideStrings> = {
     heroSub: "Hướng dẫn đầy đủ cho từng ngành nghề bởi GADA — đặc điểm công việc, kỹ năng cần thiết, và thông tin lương tất cả trong một.",
     typeGuide: "Hướng dẫn ngành nghề",
     noContent: "Đang chuẩn bị hướng dẫn",
+    payTypeLabel: { DAILY: "Lương ngày", HOURLY: "Lương giờ", MONTHLY: "Lương tháng" },
   },
 };
 

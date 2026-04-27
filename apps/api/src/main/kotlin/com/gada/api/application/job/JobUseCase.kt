@@ -291,6 +291,15 @@ class JobUseCase(
         return toJobListResponse(content, page, size, total)
     }
 
+    @Transactional(readOnly = true)
+    fun getAdminJobDetail(publicId: UUID): JobDetailResponse {
+        val job = jobRepository.findByPublicId(publicId)
+            ?: throw NotFoundException("Job", publicId)
+        val site = siteRepository.findById(job.siteId)
+            ?: throw NotFoundException("Site", job.siteId)
+        return job.toDetail(site)
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private fun resolveJobForUser(userId: Long, publicId: UUID): Job {
@@ -371,6 +380,9 @@ private fun Job.toDetail(siteEntity: Site) = JobDetailResponse(
     accommodationProvided = accommodationProvided,
     mealProvided = mealProvided,
     transportationProvided = transportationProvided,
+    visaRequirements = visaRequirements,
+    certificationRequirements = certificationRequirements,
+    healthCheckRequired = healthCheckRequired,
     requiredCount = requiredCount,
     alwaysOpen = alwaysOpen,
     startDate = startDate,

@@ -222,6 +222,48 @@ export interface ApplicationListResponse {
   totalPages: number;
 }
 
+// ─── Points & Proposal types ──────────────────────────────────────
+
+export interface PointBalanceData {
+  balance: number;
+  totalCharged: number;
+  totalUsed: number;
+  updatedAt: string;
+}
+
+export interface PointChargeItem {
+  publicId: string;
+  amountKrw: number;
+  pointsToAdd: number;
+  paymentMethod: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  adminNote?: string;
+  reviewedAt?: string;
+  createdAt: string;
+}
+
+export interface TeamProposalData {
+  publicId: string;
+  teamPublicId: string;
+  jobPublicId: string;
+  jobTitle?: string;
+  message?: string;
+  pointsUsed: number;
+  status: "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED";
+  respondedAt?: string;
+  createdAt: string;
+}
+
+export interface PagedResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
 // ─── API functions ────────────────────────────────────────────────
 
 export const employerApi = {
@@ -312,4 +354,17 @@ export const employerApi = {
     isMockMode()
       ? mockEmployerApi.scoutApplicant(appPublicId)
       : api.post<ApplicationDetail>(`/employer/applications/${appPublicId}/scout`, {}),
+
+  // Points
+  getPointBalance: () => api.get<PointBalanceData>("/employer/points"),
+  listChargeRequests: (page = 0, size = 20) =>
+    api.get<PagedResponse<PointChargeItem>>(`/employer/points/charges?page=${page}&size=${size}`),
+  requestCharge: (amountKrw: number, paymentMethod: "CASH" | "CARD") =>
+    api.post<PointChargeItem>("/employer/points/charges", { amountKrw, paymentMethod }),
+
+  // Team proposals
+  sendProposal: (teamPublicId: string, jobPublicId: string, jobTitle?: string, message?: string) =>
+    api.post<TeamProposalData>("/employer/teams/proposals", { teamPublicId, jobPublicId, jobTitle, message }),
+  listProposals: (page = 0, size = 20) =>
+    api.get<PagedResponse<TeamProposalData>>(`/employer/teams/proposals?page=${page}&size=${size}`),
 };

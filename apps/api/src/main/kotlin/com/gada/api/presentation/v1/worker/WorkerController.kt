@@ -35,7 +35,6 @@ class WorkerController(
 
     @GetMapping
     @Transactional(readOnly = true)
-    @PreAuthorize("isAuthenticated()")
     fun listWorkers(
         @RequestParam(required = false) keyword: String?,
         @RequestParam(required = false) nationality: String?,

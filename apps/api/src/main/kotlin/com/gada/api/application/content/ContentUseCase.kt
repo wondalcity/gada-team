@@ -144,7 +144,15 @@ class ContentUseCase(
     fun getCategories(locale: String = "ko"): List<CategoryListItem> {
         val categories = jobCategoryRepository.findAll(isActive = true)
         return categories.map { cat ->
-            val hasContent = jobIntroContentRepository.findByCategoryAndLocale(cat.id, locale)?.isPublished == true
+            // Mirror the same fallback logic as getCategoryDetail(): if the requested
+            // locale has no published content, fall back to Korean before returning false.
+            val hasContent = run {
+                val byLocale = jobIntroContentRepository.findByCategoryAndLocale(cat.id, locale)
+                if (byLocale?.isPublished == true) true
+                else if (locale != "ko") {
+                    jobIntroContentRepository.findByCategoryAndLocale(cat.id, "ko")?.isPublished == true
+                } else false
+            }
             CategoryListItem(
                 id = cat.id,
                 publicId = cat.publicId,

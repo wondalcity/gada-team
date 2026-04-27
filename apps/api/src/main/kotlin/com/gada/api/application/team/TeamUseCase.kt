@@ -83,6 +83,8 @@ class TeamUseCase(
             profileImageUrl = leaderProfile?.profileImageUrl
             nationality = leaderProfile?.nationality
             visaType = leaderProfile?.visaType
+            healthCheckStatus = leaderProfile?.healthCheckStatus
+                ?: com.gada.api.domain.user.HealthCheckStatus.NOT_DONE
         }
         teamMemberRepository.save(leaderMember)
 
@@ -192,6 +194,8 @@ class TeamUseCase(
             profileImageUrl = inviteeProfile?.profileImageUrl
             nationality = inviteeProfile?.nationality
             visaType = inviteeProfile?.visaType
+            healthCheckStatus = inviteeProfile?.healthCheckStatus
+                ?: com.gada.api.domain.user.HealthCheckStatus.NOT_DONE
         }
         val savedMember = teamMemberRepository.save(member)
         log.info("[INVITE] team={} invitee={} by leader={}", team.id, invitee.id, leaderId)

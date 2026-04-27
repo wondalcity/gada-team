@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -262,7 +263,7 @@ export default function IntroListPage() {
                         </td>
                         <td className="px-4 py-3.5 hidden md:table-cell">
                           <span className="text-xs text-neutral-500">
-                            {new Date(item.updatedAt).toLocaleDateString("ko-KR")}
+                            {fmtDatetime(item.updatedAt)}
                           </span>
                         </td>
                         <td className="px-4 py-3.5">

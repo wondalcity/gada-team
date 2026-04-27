@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -93,7 +94,7 @@ export default function ContractsPage() {
       header: "시작일",
       render: (row) => (
         <span className="text-xs text-neutral-600">
-          {row.startDate ? new Date(row.startDate).toLocaleDateString("ko-KR") : "—"}
+          {row.startDate ? fmtDate(row.startDate) : "—"}
         </span>
       ),
     },
@@ -102,7 +103,7 @@ export default function ContractsPage() {
       header: "종료일",
       render: (row) => (
         <span className="text-xs text-neutral-600">
-          {row.endDate ? new Date(row.endDate).toLocaleDateString("ko-KR") : "—"}
+          {row.endDate ? fmtDate(row.endDate) : "—"}
         </span>
       ),
     },
@@ -122,7 +123,7 @@ export default function ContractsPage() {
       header: "생성일",
       render: (row) => (
         <span className="text-xs text-neutral-500">
-          {new Date(row.createdAt).toLocaleDateString("ko-KR")}
+          {fmtDatetime(row.createdAt)}
         </span>
       ),
     },

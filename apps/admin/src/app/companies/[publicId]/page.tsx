@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
@@ -340,7 +341,7 @@ export default function CompanyDetailPage() {
                 )}
                 {data.verifiedAt && (
                   <p className="text-xs text-green-600 mt-0.5">
-                    인증일: {new Date(data.verifiedAt).toLocaleDateString("ko-KR")}
+                    인증일: {fmtDatetime(data.verifiedAt)}
                   </p>
                 )}
               </div>
@@ -544,7 +545,7 @@ export default function CompanyDetailPage() {
                       </td>
                       <td className="px-4 py-3.5 hidden lg:table-cell">
                         <span className="text-xs text-neutral-500">
-                          {new Date(job.createdAt).toLocaleDateString("ko-KR")}
+                          {fmtDatetime(job.createdAt)}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
@@ -565,11 +566,7 @@ export default function CompanyDetailPage() {
 
         {/* Metadata footer */}
         <div className="text-xs text-neutral-400 pt-2 pb-6">
-          등록일: {new Date(data.createdAt).toLocaleDateString("ko-KR", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
+          등록일: {fmtDatetime(data.createdAt)}
         </div>
       </div>
     </AdminLayout>

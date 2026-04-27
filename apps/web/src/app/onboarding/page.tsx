@@ -399,7 +399,7 @@ export default function OnboardingPage() {
                 onChange={(e) => setBirthDate(e.target.value)}
                 required
                 max={new Date().toISOString().split("T")[0]}
-                className="w-full px-4 py-2.5 rounded-lg border border-neutral-300 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 text-sm"
               />
             </div>
           )}

@@ -32,10 +32,13 @@ class DevAuthFilter(
         response: HttpServletResponse,
         chain: FilterChain
     ) {
-        val devUserId = request.getHeader("X-Dev-User-Id")?.toLongOrNull()
+        val headerValue = request.getHeader("X-Dev-User-Id")
 
-        if (devUserId != null && SecurityContextHolder.getContext().authentication == null) {
-            val user = userRepository.findById(devUserId)
+        if (headerValue != null && SecurityContextHolder.getContext().authentication == null) {
+            // Support both numeric user ID and firebase UID (e.g. "dev-admin-1")
+            val user = headerValue.toLongOrNull()
+                ?.let { userRepository.findById(it) }
+                ?: userRepository.findByFirebaseUid(headerValue)
             if (user != null) {
                 val roleStr = user.role.name
                 val principal = GadaPrincipal(

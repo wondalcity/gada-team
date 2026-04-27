@@ -4,6 +4,7 @@ import com.gada.api.common.ApiResponse
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.authorization.AuthorizationDeniedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -28,6 +29,13 @@ class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
             .body(ApiResponse.error(message, "VALIDATION_ERROR"))
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException::class)
+    fun handleAccessDenied(e: AuthorizationDeniedException): ResponseEntity<ApiResponse<Nothing>> {
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
+            .body(ApiResponse.error("접근 권한이 없습니다.", "ACCESS_DENIED"))
     }
 
     @ExceptionHandler(Exception::class)

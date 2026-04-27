@@ -30,11 +30,13 @@ import com.gada.api.infrastructure.persistence.contract.ContractRepository
 import com.gada.api.infrastructure.persistence.job.JobRepository
 import com.gada.api.infrastructure.persistence.notification.NotificationRepository
 import com.gada.api.infrastructure.persistence.sms.SmsTemplateRepository
+import com.gada.api.infrastructure.persistence.bookmark.BookmarkRepository
 import com.gada.api.infrastructure.persistence.team.TeamMemberRepository
 import com.gada.api.infrastructure.persistence.team.TeamRepository
 import com.gada.api.infrastructure.persistence.user.EmployerProfileRepository
 import com.gada.api.infrastructure.persistence.user.UserRepository
 import com.gada.api.infrastructure.persistence.user.WorkerProfileRepository
+import com.gada.api.presentation.v1.job.JobDetailResponse
 import com.gada.api.presentation.v1.job.JobListResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -75,6 +77,7 @@ class AdminController(
     private val smsTemplateRepository: SmsTemplateRepository,
     private val auditService: AuditService,
     private val adminPermission: AdminPermission,
+    private val bookmarkRepository: BookmarkRepository,
 ) {
 
     // ═══════════════════════════════════════════════════════
@@ -508,6 +511,16 @@ class AdminController(
         return ApiResponse.ok(result).toResponseEntity()
     }
 
+    @Operation(summary = "공고 상세 (관리자)", security = [SecurityRequirement(name = "Bearer")])
+    @GetMapping("/jobs/{publicId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    fun getAdminJobDetail(
+        @PathVariable publicId: UUID,
+    ): ResponseEntity<ApiResponse<JobDetailResponse>> {
+        val result = jobUseCase.getAdminJobDetail(publicId)
+        return ApiResponse.ok(result).toResponseEntity()
+    }
+
     @Operation(summary = "공고 상태 변경 (관리자)", security = [SecurityRequirement(name = "Bearer")])
     @PatchMapping("/jobs/{publicId}/status")
     @PreAuthorize("hasRole('ADMIN')")
@@ -642,15 +655,25 @@ class AdminController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(required = false) status: String?,
+        @RequestParam(required = false) keyword: String?,
+        @RequestParam(required = false) role: String?,
+        @CurrentUser principal: GadaPrincipal,
     ): ResponseEntity<ApiResponse<AdminWorkerListResponse>> {
         val statusFilter = status?.let { runCatching { UserStatus.valueOf(it) }.getOrNull() }
-        val (users, total) = userRepository.findWorkers(page, size, statusFilter)
+        val roleFilter = role?.let { runCatching { UserRole.valueOf(it) }.getOrNull() }
+        val adminId = principal.userId
+        val (users, total) = userRepository.findWorkers(page, size, statusFilter, keyword, roleFilter)
         val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
 
+        // 현재 관리자가 찜한 근로자 ID 목록
+        val favoritedWorkerIds: Set<Long> = if (adminId != null) {
+            runCatching {
+                bookmarkRepository.getFavoritedWorkerIds(adminId)
+            }.getOrElse { emptySet() }
+        } else emptySet()
+
         val content = users.map { user ->
-            val profile = try {
-                workerProfileRepository.findByUserId(user.id)
-            } catch (e: Exception) { null }
+            val profile = try { workerProfileRepository.findByUserId(user.id) } catch (e: Exception) { null }
             AdminWorkerItem(
                 userId = user.id,
                 publicId = user.publicId,
@@ -661,6 +684,7 @@ class AdminController(
                 nationality = profile?.nationality,
                 visaType = profile?.visaType?.name,
                 createdAt = user.createdAt,
+                isFavorited = user.id in favoritedWorkerIds,
             )
         }
 
@@ -739,6 +763,37 @@ class AdminController(
         userRepository.saveAndFlush(user)
         auditService.record("User", user.id, "WORKER_RESTORED", actorId, "ADMIN")
         return ApiResponse.noContent().toResponseEntity()
+    }
+
+    @Operation(summary = "근로자 상태 변경 (관리자)", security = [SecurityRequirement(name = "Bearer")])
+    @PatchMapping("/workers/{publicId}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    fun patchWorkerStatus(
+        @PathVariable publicId: UUID,
+        @RequestBody req: PatchUserStatusRequest,
+        @CurrentUser principal: GadaPrincipal,
+    ): ResponseEntity<ApiResponse<Map<String, Any>>> {
+        val actorId = principal.userId ?: throw UnauthorizedException()
+        val user = userRepository.findByPublicId(publicId)
+            ?: throw NotFoundException("Worker", publicId)
+
+        val before = user.status.name
+        when (req.status) {
+            "ACTIVE" -> user.activate()
+            "SUSPENDED" -> user.suspend()
+            "INACTIVE" -> user.deactivate()
+            else -> throw BusinessException("Invalid status: ${req.status}", "INVALID_STATUS")
+        }
+        userRepository.saveAndFlush(user)
+
+        auditService.record("User", user.id, "WORKER_STATUS_CHANGED", actorId, "ADMIN",
+            oldData = mapOf("status" to before),
+            newData = mapOf("status" to user.status.name))
+
+        return ApiResponse.ok(mapOf<String, Any>(
+            "publicId" to user.publicId,
+            "status" to user.status.name,
+        ), "근로자 상태가 변경되었습니다.").toResponseEntity()
     }
 
     // ═══════════════════════════════════════════════════════
@@ -873,9 +928,19 @@ class AdminController(
     fun getAdminTeams(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(required = false) status: String?,
+        @RequestParam(required = false) keyword: String?,
+        @CurrentUser principal: GadaPrincipal,
     ): ResponseEntity<ApiResponse<AdminTeamListResponse>> {
-        val (teams, total) = teamRepository.findAll(page, size)
+        val statusFilter = status?.let { runCatching { com.gada.api.domain.team.TeamStatus.valueOf(it) }.getOrNull() }
+        val adminId = principal.userId
+        val (teams, total) = teamRepository.findAll(page, size, statusFilter, keyword)
         val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
+
+        val favoritedTeamIds: Set<Long> = if (adminId != null) {
+            runCatching { bookmarkRepository.getFavoritedTeamIds(adminId) }.getOrElse { emptySet() }
+        } else emptySet()
+
         val content = teams.map { team ->
             AdminTeamItem(
                 publicId = team.publicId,
@@ -887,6 +952,7 @@ class AdminController(
                 status = team.status.name,
                 isNationwide = team.isNationwide,
                 createdAt = team.createdAt,
+                isFavorited = team.id in favoritedTeamIds,
             )
         }
         return ApiResponse.ok(AdminTeamListResponse(
@@ -1625,6 +1691,7 @@ data class AdminWorkerItem(
     val nationality: String?,
     val visaType: String?,
     val createdAt: Instant,
+    val isFavorited: Boolean = false,
 )
 
 data class AdminWorkerListResponse(
@@ -1709,6 +1776,7 @@ data class AdminTeamItem(
     val status: String,
     val isNationwide: Boolean,
     val createdAt: Instant,
+    val isFavorited: Boolean = false,
 )
 
 data class AdminTeamListResponse(

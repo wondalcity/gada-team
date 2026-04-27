@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -97,7 +98,7 @@ function buildColumns(
       header: "등록일",
       render: (row) => (
         <span className="text-xs text-neutral-500">
-          {new Date(row.createdAt).toLocaleDateString("ko-KR")}
+          {fmtDatetime(row.createdAt)}
         </span>
       ),
     },

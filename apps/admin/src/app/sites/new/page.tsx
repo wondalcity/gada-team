@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createAdminSite, AdminUpsertSitePayload } from "@/lib/api";
 import { AdminLayout } from "@/components/layout/AdminLayout";
@@ -9,7 +9,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div><label className="block text-xs font-semibold text-neutral-500 mb-1">{label}</label>{children}</div>;
 }
 
-export default function SiteNewPage() {
+function SiteNewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preCompanyId = searchParams.get("companyPublicId") ?? "";
@@ -74,5 +74,13 @@ export default function SiteNewPage() {
       </form>
     </div>
     </AdminLayout>
+  );
+}
+
+export default function SiteNewPage() {
+  return (
+    <Suspense>
+      <SiteNewContent />
+    </Suspense>
   );
 }

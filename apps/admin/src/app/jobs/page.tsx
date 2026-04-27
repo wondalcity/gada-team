@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -157,7 +158,7 @@ const COLUMNS: Column<AdminJobItem>[] = [
     header: "등록일",
     render: (row) => (
       <span className="text-xs text-neutral-500">
-        {new Date(row.createdAt).toLocaleDateString("ko-KR")}
+        {fmtDatetime(row.createdAt)}
       </span>
     ),
   },

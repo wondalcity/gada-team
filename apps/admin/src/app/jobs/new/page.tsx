@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createAdminJob, AdminUpsertJobPayload } from "@/lib/api";
 import { AdminLayout } from "@/components/layout/AdminLayout";
@@ -26,7 +26,7 @@ function ToggleGroup({ options, selected, onChange }: { options: string[]; selec
   );
 }
 
-export default function JobNewPage() {
+function JobNewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preSiteId = searchParams.get("sitePublicId") ?? "";
@@ -127,5 +127,13 @@ export default function JobNewPage() {
       </form>
     </div>
     </AdminLayout>
+  );
+}
+
+export default function JobNewPage() {
+  return (
+    <Suspense>
+      <JobNewContent />
+    </Suspense>
   );
 }

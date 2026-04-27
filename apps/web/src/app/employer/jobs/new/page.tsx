@@ -345,7 +345,7 @@ export default function NewJobPage() {
   };
 
   const inputClass =
-    "w-full border border-neutral-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-primary-500 focus:outline-none text-sm text-neutral-900 placeholder:text-neutral-400";
+    "w-full border border-neutral-200 rounded-lg px-4 py-2.5 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 focus:outline-none text-sm text-neutral-900 placeholder:text-neutral-400 bg-white";
 
   // ── Site selection step ──
 

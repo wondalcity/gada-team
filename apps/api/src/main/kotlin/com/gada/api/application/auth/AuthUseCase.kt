@@ -126,6 +126,8 @@ class AuthUseCase(
      * 성공 시 JWT 토큰을 포함한 AuthResponse 반환.
      */
     fun register(request: RegisterRequest): AuthResponse {
+        var firebaseUidFromOtp: String? = null
+
         // 1. Verify Firebase OTP token to confirm phone ownership (skip in dev)
         if (!devAuthBypass && request.firebaseOtpToken != null) {
             try {
@@ -139,6 +141,8 @@ class AuthUseCase(
                         throw BusinessException("전화번호 인증 토큰이 일치하지 않습니다.", "PHONE_MISMATCH", HttpStatus.BAD_REQUEST)
                     }
                 }
+                // Capture the Firebase UID so we can link it to the new user
+                firebaseUidFromOtp = decoded.uid.takeIf { it.isNotBlank() }
             } catch (e: BusinessException) {
                 throw e
             } catch (e: Exception) {
@@ -153,15 +157,32 @@ class AuthUseCase(
         }
 
         // 3. Create user
+        // Only link the Firebase UID if it isn't already associated with another user
+        val safeFirebaseUid = firebaseUidFromOtp?.takeIf {
+            userRepository.findByFirebaseUid(it) == null
+        }
         val user = User().apply {
             phone = request.phone
             fullName = request.name
             passwordHash = passwordEncoder.encode(request.password)
             role = UserRole.WORKER
             status = UserStatus.PENDING
+            firebaseUid = safeFirebaseUid
         }
         userRepository.save(user)
-        log.info("New user registered: phone={}", request.phone)
+        log.info("New user registered: phone={} firebaseUid={}", request.phone, safeFirebaseUid)
+
+        // 4. Set Firebase custom claims so that future Firebase ID tokens carry userId/role
+        if (!devAuthBypass && firebaseUidFromOtp != null) {
+            try {
+                FirebaseAuth.getInstance(firebaseApp).setCustomUserClaims(
+                    firebaseUidFromOtp,
+                    mapOf("userId" to user.id, "role" to user.role.name),
+                )
+            } catch (e: Exception) {
+                log.warn("Failed to set Firebase custom claims for uid={}: {}", firebaseUidFromOtp, e.message)
+            }
+        }
 
         val token = jwtService.generateToken(user.id, user.phone, user.role.name)
         return AuthResponse(
@@ -226,19 +247,28 @@ class AuthUseCase(
                 ?: throw UnauthorizedException("먼저 로그인을 완료해주세요.")
         }
 
-        if (user.status != UserStatus.PENDING) {
+        // Allow ACTIVE users who don't yet have a worker/employer profile to re-run onboarding
+        val hasProfile = when (user.role) {
+            UserRole.WORKER, UserRole.TEAM_LEADER -> workerProfileRepository.findByUserId(user.id) != null
+            UserRole.EMPLOYER -> employerProfileRepository.findByUserId(user.id) != null
+            else -> true
+        }
+        if (user.status != UserStatus.PENDING && hasProfile) {
             throw ConflictException("이미 온보딩이 완료된 계정입니다.", "ALREADY_ONBOARDED")
         }
 
-        user.role = request.role
-        user.activate()
+        if (user.status == UserStatus.PENDING) {
+            user.role = request.role
+            user.activate()
+        }
 
         when (request.role) {
             UserRole.WORKER, UserRole.TEAM_LEADER -> {
                 val birthDate = request.birthDate
                     ?: throw BusinessException("생년월일을 입력해주세요.", "BIRTH_DATE_REQUIRED", HttpStatus.BAD_REQUEST)
 
-                val profile = WorkerProfile().apply {
+                val existing = workerProfileRepository.findByUserId(user.id)
+                val profile = (existing ?: WorkerProfile()).apply {
                     userId = user.id
                     fullName = request.fullName
                     this.birthDate = LocalDate.parse(birthDate)
@@ -254,7 +284,8 @@ class AuthUseCase(
                 workerProfileRepository.save(profile)
             }
             UserRole.EMPLOYER -> {
-                val profile = EmployerProfile().apply {
+                val existing = employerProfileRepository.findByUserId(user.id)
+                val profile = (existing ?: EmployerProfile()).apply {
                     userId = user.id
                     fullName = request.fullName
                 }
