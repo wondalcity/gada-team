@@ -1222,7 +1222,8 @@ function TeamsPageContent() {
   const leadedTeamsQuery = useQuery({
     queryKey: ["leaded-teams"],
     queryFn: () => teamsApi.getLeadedTeams(),
-    enabled: user?.role === "TEAM_LEADER",
+    // Both WORKER and TEAM_LEADER can create/lead teams
+    enabled: !!user && user.role !== "EMPLOYER" && user.role !== "ADMIN",
   });
   const myTeamPublicIds = React.useMemo(
     () => new Set((leadedTeamsQuery.data ?? []).map((t) => t.publicId)),
@@ -1254,7 +1255,7 @@ function TeamsPageContent() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {user?.role === "TEAM_LEADER" && myTeamPublicIds.size > 0 && (
+          {myTeamPublicIds.size > 0 && (
             <button
               onClick={() => setShowMyTeamsOnly((v) => !v)}
               className={cn(
@@ -1564,7 +1565,8 @@ function TabsWrapper() {
   const [showLeaderTab, setShowLeaderTab] = React.useState(false);
 
   React.useEffect(() => {
-    setShowLeaderTab(user?.role === "TEAM_LEADER");
+    // Both WORKER and TEAM_LEADER can create/lead teams
+    setShowLeaderTab(!!user && user.role !== "EMPLOYER" && user.role !== "ADMIN");
   }, [user]);
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
