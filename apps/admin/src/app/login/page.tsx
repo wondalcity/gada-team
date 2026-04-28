@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+// Always use relative URL so it goes through the Next.js rewrite proxy.
+const API_BASE = "";
 const IS_LOCAL_DEV = process.env.NODE_ENV === "development";
 
 // Dev admin accounts (only shown in local dev)

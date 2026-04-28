@@ -22,11 +22,9 @@ const SIDO_OPTIONS = [
 ];
 const PAGE_SIZE = 20;
 
-// ─── Region dropdown ──────────────────────────────────────────────────────────
+// ─── Shared dropdown hook ─────────────────────────────────────────────────────
 
-function RegionDropdown({ value, allLabel, onChange }: {
-  value: string; allLabel: string; onChange: (v: string) => void;
-}) {
+function useDropdown() {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -34,33 +32,104 @@ function RegionDropdown({ value, allLabel, onChange }: {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  return { open, setOpen, ref };
+}
+
+// ─── Region dropdown ──────────────────────────────────────────────────────────
+
+function RegionDropdown({ value, allLabel, onChange }: {
+  value: string; allLabel: string; onChange: (v: string) => void;
+}) {
+  const { open, setOpen, ref } = useDropdown();
   const isSelected = value !== allLabel;
   return (
     <div className="relative" ref={ref}>
       <button type="button" onClick={() => setOpen(v => !v)}
-        className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
-          isSelected ? "border-primary-300 bg-primary-50 text-primary-700" : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-300",
-          open && "border-primary-400 ring-2 ring-primary-100")}>
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-sm font-medium transition-all",
+          isSelected
+            ? "border-primary-300 bg-primary-50 text-primary-700"
+            : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50",
+          open && "border-primary-400 ring-2 ring-primary-100"
+        )}>
         <div className="flex items-center gap-2">
-          <MapPin className={cn("h-3.5 w-3.5", isSelected ? "text-primary-500" : "text-neutral-400")} />
+          <MapPin className={cn("h-3.5 w-3.5 flex-shrink-0", isSelected ? "text-primary-500" : "text-neutral-400")} />
           <span>{value}</span>
         </div>
-        <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180", isSelected ? "text-primary-400" : "text-neutral-400")} />
+        <ChevronDown className={cn("h-4 w-4 flex-shrink-0 transition-transform duration-150", open && "rotate-180", isSelected ? "text-primary-400" : "text-neutral-400")} />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-card-lg py-1">
           {SIDO_OPTIONS.map((opt, i) => {
             const val = i === 0 ? allLabel : opt;
             const active = value === val;
             return (
               <button key={opt} type="button" onClick={() => { onChange(val); setOpen(false); }}
-                className={cn("flex w-full items-center justify-between px-3 py-2.5 text-sm transition-colors",
-                  active ? "bg-primary-50 font-semibold text-primary-600" : "text-neutral-700 hover:bg-neutral-50")}>
-                {opt}
-                {active && <svg className="h-4 w-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                className={cn(
+                  "flex w-full items-center justify-between px-3 py-2 text-sm transition-colors",
+                  active ? "bg-primary-50 font-semibold text-primary-600" : "text-neutral-700 hover:bg-neutral-50"
+                )}>
+                <span>{opt}</span>
+                {active && (
+                  <svg className="h-4 w-4 flex-shrink-0 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
               </button>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Job select dropdown ──────────────────────────────────────────────────────
+
+function JobSelectDropdown({ jobs, value, placeholder, onChange }: {
+  jobs: { publicId: string; title: string }[];
+  value: string;
+  placeholder: string;
+  onChange: (v: string) => void;
+}) {
+  const { open, setOpen, ref } = useDropdown();
+  const selected = jobs.find(j => j.publicId === value);
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-sm transition-all",
+          selected ? "border-primary-300 bg-white text-neutral-800" : "border-neutral-200 bg-white text-neutral-400",
+          open ? "border-primary-400 ring-2 ring-primary-100" : "hover:border-neutral-300"
+        )}>
+        <span className={cn("truncate text-left", !selected && "text-neutral-400")}>
+          {selected ? selected.title : placeholder}
+        </span>
+        <ChevronDown className={cn("ml-2 h-4 w-4 flex-shrink-0 text-neutral-400 transition-transform duration-150", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-card-lg py-1">
+          {jobs.length === 0 ? (
+            <p className="px-3 py-3 text-center text-sm text-neutral-400">공고 없음</p>
+          ) : (
+            jobs.map(job => {
+              const active = value === job.publicId;
+              return (
+                <button key={job.publicId} type="button" onClick={() => { onChange(job.publicId); setOpen(false); }}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition-colors",
+                    active ? "bg-primary-50 font-semibold text-primary-600" : "text-neutral-700 hover:bg-neutral-50"
+                  )}>
+                  <span className="flex-1 truncate">{job.title}</span>
+                  {active && (
+                    <svg className="h-4 w-4 flex-shrink-0 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })
+          )}
         </div>
       )}
     </div>
@@ -135,16 +204,12 @@ function ProposeModal({ team, onClose }: { team: TeamListItem; onClose: () => vo
           {/* Job select */}
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-neutral-600">{t("employer.proposalSelectJob")}</label>
-            <select
+            <JobSelectDropdown
+              jobs={(jobs?.content ?? []).filter(j => j.status === "PUBLISHED")}
               value={selectedJobId}
-              onChange={e => setSelectedJobId(e.target.value)}
-              className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none"
-            >
-              <option value="">{t("employer.proposalSelectJob")}</option>
-              {(jobs?.content ?? []).filter(j => j.status === "PUBLISHED").map(j => (
-                <option key={j.publicId} value={j.publicId}>{j.title}</option>
-              ))}
-            </select>
+              placeholder={t("employer.proposalSelectJob")}
+              onChange={setSelectedJobId}
+            />
           </div>
 
           {/* Message */}
@@ -152,7 +217,7 @@ function ProposeModal({ team, onClose }: { team: TeamListItem; onClose: () => vo
             <label className="mb-1.5 block text-xs font-semibold text-neutral-600">{t("employer.proposalMessage")}</label>
             <textarea value={message} onChange={e => setMessage(e.target.value)} rows={3}
               placeholder="팀에게 전달할 메시지를 입력하세요 (선택)"
-              className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none" />
+              className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 transition-colors" />
           </div>
 
           {errorMsg && (

@@ -1,7 +1,9 @@
 import { auth } from "./firebase";
 import { useAuthStore } from "@/store/authStore";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+// Always use relative URLs so requests go through Next.js rewrites.
+// The rewrite proxies /api/* → Spring Boot API (resolvable server-side in Docker).
+const BASE_URL = "";
 
 /** Returns the best available token: our JWT (password auth) > dev bypass > Firebase OTP */
 async function getBearerToken(): Promise<{ type: "bearer" | "dev"; value: string } | null> {

@@ -571,7 +571,7 @@ export default function SmsLogsPage() {
             >
               <option value="">전체 템플릿</option>
               {templateOptions.map((t) => (
-                <option key={t.code} value={t.code}>
+                <option key={t.publicId} value={t.code}>
                   {t.code}
                 </option>
               ))}

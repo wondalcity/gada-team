@@ -28,6 +28,11 @@ class UserRepository(
     fun findByPublicId(publicId: UUID): User? =
         qf.selectFrom(u).where(u.publicId.eq(publicId)).fetchOne()
 
+    fun findAllByIds(ids: List<Long>): List<User> {
+        if (ids.isEmpty()) return emptyList()
+        return qf.selectFrom(u).where(u.id.`in`(ids)).fetch()
+    }
+
     fun findAdmins(page: Int, size: Int): Pair<List<User>, Long> {
         val total = qf.select(u.count()).from(u)
             .where(u.role.eq(UserRole.ADMIN)).fetchOne() ?: 0L

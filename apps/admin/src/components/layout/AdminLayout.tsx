@@ -453,9 +453,9 @@ export function AdminLayout({
       router.replace("/login");
       return;
     }
-    // Verify the stored userId is actually an ADMIN
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8090/api";
-    fetch(`${apiBase}/v1/auth/me`, {
+    // Verify the stored userId is actually an ADMIN.
+    // Always use relative URL so it goes through the Next.js rewrite proxy.
+    fetch(`/api/v1/auth/me`, {
       headers: { "Content-Type": "application/json", "X-Dev-User-Id": userId },
     })
       .then((r) => r.json())

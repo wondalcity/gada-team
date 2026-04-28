@@ -32,6 +32,14 @@ class WorkerProfileRepository(
             .resultList
             .firstOrNull()
 
+    fun findAllByUserIds(userIds: List<Long>): List<WorkerProfile> {
+        if (userIds.isEmpty()) return emptyList()
+        return em.createQuery(
+            "SELECT wp FROM WorkerProfile wp WHERE wp.userId IN :userIds",
+            WorkerProfile::class.java
+        ).setParameter("userIds", userIds).resultList
+    }
+
     fun findAll(
         keyword: String?,
         nationality: String?,

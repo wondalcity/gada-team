@@ -281,7 +281,7 @@ function SingleSendTab({
             >
               <option value="">— 템플릿 선택 —</option>
               {templates.map((t) => (
-                <option key={t.code} value={t.code}>
+                <option key={t.publicId} value={t.code}>
                   {t.code} — {t.name}
                 </option>
               ))}
@@ -552,7 +552,7 @@ function BroadcastTab({ templates }: { templates: AdminSmsTemplateItem[] }) {
             >
               <option value="">— 템플릿 선택 —</option>
               {templates.map((t) => (
-                <option key={t.code} value={t.code}>
+                <option key={t.publicId} value={t.code}>
                   {t.code} — {t.name}
                 </option>
               ))}

@@ -32,6 +32,48 @@ services:
       timeout: 5s
       retries: 5
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: gada-team-web
+    environment:
+      INTERNAL_API_URL: http://host.docker.internal:8090/api
+      NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyBFbzuM0uap-20aOKCqr6l_uEUay7tkajs
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: gada-team.firebaseapp.com
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: gada-team
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: gada-team.firebasestorage.app
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "611396731956"
+      NEXT_PUBLIC_FIREBASE_APP_ID: 1:611396731956:web:01af2b98d5f4a6359cf661
+    ports:
+      - "3020:3020"
+    volumes:
+      - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: gada-team-admin
+    environment:
+      INTERNAL_API_URL: http://host.docker.internal:8090
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./apps/admin:/app/apps/admin
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/admin/node_modules
+      - /app/apps/admin/.next
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   postgres_data:
   redis_data:

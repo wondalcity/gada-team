@@ -393,30 +393,45 @@ function GuideDetailContent() {
 
   // ── No content state ──
   if (!content) {
+    const fallbackImg = CODE_HERO_IMAGE[code];
     return (
       <>
-        {/* Simple fallback hero */}
-        <div className="bg-gradient-to-br from-neutral-800 to-neutral-950 text-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-            <div className="mb-8 flex items-center gap-2">
-              <Link
-                href="/guides"
-                className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/20 hover:text-white transition-colors"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                {t.backToGuides}
-              </Link>
-              <span className="text-white/30 text-xs">/</span>
-              <span className="text-xs text-white/50">{categoryName}</span>
+        {/* Fallback hero with category background image */}
+        <div className="relative overflow-hidden">
+          {fallbackImg ? (
+            <>
+              <img
+                src={fallbackImg}
+                alt={categoryName}
+                className="w-full h-72 md:h-[480px] object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/95 via-neutral-900/60 to-neutral-900/20" />
+            </>
+          ) : (
+            <div className="w-full h-72 md:h-[480px] bg-gradient-to-br from-neutral-800 to-neutral-950" />
+          )}
+          <div className="absolute inset-0 flex flex-col justify-end">
+            <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pb-10">
+              <div className="mb-5 flex items-center gap-2">
+                <Link
+                  href="/guides"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm hover:bg-white/20 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {t.backToGuides}
+                </Link>
+                <span className="text-white/30 text-xs">/</span>
+                <span className="text-xs text-white/50">{categoryName}</span>
+              </div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
+                <span>{emoji}</span>
+                {categoryName}
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
+                {categoryName}
+              </h1>
+              <p className="text-base text-white/60">{t.preparing}</p>
             </div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-sm font-medium text-white">
-              <span>{emoji}</span>
-              {categoryName}
-            </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-              {categoryName}
-            </h1>
-            <p className="text-lg text-white/60">{t.preparing}</p>
           </div>
         </div>
 

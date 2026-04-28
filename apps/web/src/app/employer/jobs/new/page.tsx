@@ -9,6 +9,7 @@ import {
   type CategoryItem,
   type CreateJobPayload,
 } from "@/lib/employer-api";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 // ─── Constants ────────────────────────────────────────────────────
 
@@ -459,20 +460,12 @@ export default function NewJobPage() {
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
                   직종 카테고리
                 </label>
-                <select
-                  value={categoryId ?? ""}
-                  onChange={(e) =>
-                    setCategoryId(e.target.value ? Number(e.target.value) : null)
-                  }
-                  className={inputClass}
-                >
-                  <option value="">카테고리 선택 (선택사항)</option>
-                  {(categories as CategoryItem[] | undefined)?.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.nameKo}
-                    </option>
-                  ))}
-                </select>
+                <CustomSelect
+                  options={(categories as CategoryItem[] | undefined)?.map(cat => ({ value: String(cat.id), label: cat.nameKo })) ?? []}
+                  value={categoryId != null ? String(categoryId) : ""}
+                  onChange={(v) => setCategoryId(v ? Number(v) : null)}
+                  placeholder="카테고리 선택 (선택사항)"
+                />
               </div>
 
               <div>

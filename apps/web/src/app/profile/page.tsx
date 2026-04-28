@@ -16,6 +16,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { getMyWorkerProfile, updateMyWorkerProfile, WorkerProfile } from "@/lib/api";
 import { teamsApi, TeamResponse } from "@/lib/teams-api";
 import { uploadImageToStorage } from "@/lib/firebase";
+import { equipmentLabel } from "@/lib/equipment-labels";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ function WorkerProfileContent({ profile }: { profile: WorkerProfile }) {
           <div className="flex flex-wrap gap-2">
             {profile.equipment.map((eq, i) => (
               <span key={i} className="inline-flex items-center rounded-lg bg-neutral-100 px-3 py-1.5 text-sm text-neutral-700">
-                {eq}
+                {equipmentLabel(eq)}
               </span>
             ))}
           </div>
@@ -537,17 +538,25 @@ function EditDrawer({
             <label className={labelClass}>희망 급여</label>
             <div className="flex items-center gap-2">
               <input
-                type="number"
-                value={vals.desiredPayMin}
-                onChange={(e) => setField("desiredPayMin", e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={vals.desiredPayMin ? Number(vals.desiredPayMin).toLocaleString("ko-KR") : ""}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, "")
+                  setField("desiredPayMin", raw)
+                }}
                 placeholder="최소"
                 className={`${inputClass} flex-1`}
               />
               <span className="text-neutral-400 text-sm flex-shrink-0">~</span>
               <input
-                type="number"
-                value={vals.desiredPayMax}
-                onChange={(e) => setField("desiredPayMax", e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={vals.desiredPayMax ? Number(vals.desiredPayMax).toLocaleString("ko-KR") : ""}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^\d]/g, "")
+                  setField("desiredPayMax", raw)
+                }}
                 placeholder="최대"
                 className={`${inputClass} flex-1`}
               />
