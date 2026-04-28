@@ -55,7 +55,7 @@ function TeamRowSkeleton() {
 
 // ─── Team list row ────────────────────────────────────────────────────────────
 
-function TeamRow({ team }: { team: TeamListItem }) {
+function TeamRow({ team, isMyTeam = false }: { team: TeamListItem; isMyTeam?: boolean }) {
   const t = useT();
   const isCompany = team.teamType === "COMPANY_LINKED";
 
@@ -102,6 +102,11 @@ function TeamRow({ team }: { team: TeamListItem }) {
           >
             {isCompany ? t("teams.affiliated") : t("teams.squad")}
           </span>
+          {isMyTeam && (
+            <span className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-warning-100 text-warning-700">
+              {t("teams.myTeamBadge")}
+            </span>
+          )}
         </div>
 
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
@@ -1213,6 +1218,13 @@ function TeamsPageContent() {
     },
   });
 
+  const myTeamQuery = useQuery({
+    queryKey: ["my-team"],
+    queryFn: () => teamsApi.getMyTeam(),
+    enabled: user?.role === "TEAM_LEADER",
+  });
+  const myTeamPublicId = myTeamQuery.data?.publicId;
+
   const teams = data?.pages.flatMap((p) => p.content) ?? [];
   const total = data?.pages[0]?.totalElements ?? 0;
   const activeCount = countActive(filter);
@@ -1331,7 +1343,13 @@ function TeamsPageContent() {
                 )}
               </div>
             ) : (
-              teams.map((team) => <TeamRow key={team.publicId} team={team} />)
+              teams.map((team) => (
+                <TeamRow
+                  key={team.publicId}
+                  team={team}
+                  isMyTeam={!!myTeamPublicId && team.publicId === myTeamPublicId}
+                />
+              ))
             )}
           </div>
 
