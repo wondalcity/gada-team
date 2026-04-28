@@ -20,6 +20,23 @@ class ContractRepository(
             .where(c.publicId.eq(publicId), c.deletedAt.isNull)
             .fetchOne()
 
+    fun findByApplicationId(applicationId: Long): Contract? =
+        qf.selectFrom(c)
+            .where(c.applicationId.eq(applicationId), c.deletedAt.isNull)
+            .fetchFirst()
+
+    fun findByWorkerUserId(workerUserId: Long): List<Contract> =
+        qf.selectFrom(c)
+            .where(c.workerUserId.eq(workerUserId), c.deletedAt.isNull)
+            .orderBy(c.createdAt.desc())
+            .fetch()
+
+    fun findByEmployerUserId(employerUserId: Long): List<Contract> =
+        qf.selectFrom(c)
+            .where(c.employerUserId.eq(employerUserId), c.deletedAt.isNull)
+            .orderBy(c.createdAt.desc())
+            .fetch()
+
     fun findAll(status: ContractStatus? = null, page: Int, size: Int): Pair<List<Contract>, Long> {
         val statusPred = status?.let { c.status.eq(it) }
 

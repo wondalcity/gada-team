@@ -145,6 +145,7 @@ export const teamsApi = {
   getTeams: (filter: TeamsFilter) =>
     api.get<TeamListResponse>(`/teams?${buildTeamsQuery(filter).toString()}`),
   getMyTeam: () => api.get<TeamResponse>("/teams/mine"),
+  getLeadedTeams: () => api.get<TeamResponse[]>("/teams/led-by-me"),
   getTeam: (publicId: string) => api.get<TeamResponse>(`/teams/${publicId}`),
   createTeam: (payload: CreateTeamPayload) => api.post<TeamResponse>("/teams", payload),
   updateTeam: (publicId: string, payload: UpdateTeamPayload) =>

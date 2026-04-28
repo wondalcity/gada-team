@@ -22,7 +22,10 @@ class TeamRepository(
         qf.selectFrom(t).where(t.id.eq(id), t.deletedAt.isNull).fetchOne()
 
     fun findByLeaderId(leaderId: Long): Team? =
-        qf.selectFrom(t).where(t.leaderId.eq(leaderId), t.deletedAt.isNull).fetchOne()
+        qf.selectFrom(t).where(t.leaderId.eq(leaderId), t.deletedAt.isNull).fetchFirst()
+
+    fun findAllByLeaderId(leaderId: Long): List<Team> =
+        qf.selectFrom(t).where(t.leaderId.eq(leaderId), t.deletedAt.isNull).orderBy(t.createdAt.desc()).fetch()
 
     fun findAll(
         page: Int,

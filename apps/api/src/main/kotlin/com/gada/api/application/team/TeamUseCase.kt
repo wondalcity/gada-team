@@ -90,8 +90,9 @@ class TeamUseCase(
 
         auditService.record("TEAM", saved.id, "CREATE", actorId = userId, actorRole = "TEAM_LEADER")
 
+        val leaderPhone = userRepository.findById(userId)?.phone
         return saved.toResponse(
-            members = listOf(leaderMember.toMemberResponse()),
+            members = listOf(leaderMember.toMemberResponse(leaderPhone, leaderProfile?.publicId?.toString())),
             leaderName = leaderProfile?.fullName,
             leaderProfileImageUrl = leaderProfile?.profileImageUrl,
             companyPublicId = companyPublicId,
@@ -110,8 +111,14 @@ class TeamUseCase(
         val companyName = team.company?.name
         val companyPublicId = team.company?.publicId
 
+        // Batch-load phones so member list shows contact info
+        val userIds = members.map { it.userId }
+        val phoneMap = userRepository.findAllByIds(userIds).associate { it.id to it.phone }
+        val profilePublicIdMap = workerProfileRepository.findAllByUserIds(userIds)
+            .associate { it.userId to it.publicId.toString() }
+
         return team.toResponse(
-            members = members.map { it.toMemberResponse() },
+            members = members.map { it.toMemberResponse(phoneMap[it.userId], profilePublicIdMap[it.userId]) },
             leaderName = leaderProfile?.fullName,
             leaderProfileImageUrl = leaderProfile?.profileImageUrl,
             companyPublicId = companyPublicId,
@@ -131,6 +138,11 @@ class TeamUseCase(
             ?: throw NotFoundException("Team")
         val team = teamRepository.findById(teamId) ?: throw NotFoundException("Team")
         return getTeamDetail(team.publicId)
+    }
+
+    @Transactional(readOnly = true)
+    fun getLeadedTeams(userId: Long): List<TeamResponse> {
+        return teamRepository.findAllByLeaderId(userId).map { getTeamDetail(it.publicId) }
     }
 
     fun updateTeam(userId: Long, publicId: UUID, req: UpdateTeamRequest): TeamResponse {
@@ -199,7 +211,7 @@ class TeamUseCase(
         }
         val savedMember = teamMemberRepository.save(member)
         log.info("[INVITE] team={} invitee={} by leader={}", team.id, invitee.id, leaderId)
-        return savedMember.toMemberResponse()
+        return savedMember.toMemberResponse(invitee.phone, inviteeProfile?.publicId?.toString())
     }
 
     fun removeMember(leaderId: Long, teamPublicId: UUID, userId: Long) {
@@ -341,9 +353,10 @@ private fun Team.toListItem() = TeamListItem(
     createdAt = createdAt,
 )
 
-private fun TeamMember.toMemberResponse() = TeamMemberResponse(
+private fun TeamMember.toMemberResponse(phone: String? = null, workerProfilePublicId: String? = null) = TeamMemberResponse(
     memberId = id,
     userId = userId,
+    workerProfilePublicId = workerProfilePublicId,
     fullName = fullName,
     profileImageUrl = profileImageUrl,
     nationality = nationality,
@@ -353,4 +366,5 @@ private fun TeamMember.toMemberResponse() = TeamMemberResponse(
     role = role.name,
     invitationStatus = invitationStatus?.name,
     joinedAt = joinedAt,
+    phone = phone,
 )

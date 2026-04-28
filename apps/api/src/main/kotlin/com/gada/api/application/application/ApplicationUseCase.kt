@@ -355,6 +355,7 @@ private fun Application.toSummary(
     statusUpdatedAt = statusUpdatedAt,
     isScouted = isScouted,
     isVerified = isVerified,
+    workerSnapshot = workerSnapshot,
     appliedAt = createdAt,
 )
 
@@ -401,6 +402,7 @@ data class ApplicationSummaryResponse(
     val statusUpdatedAt: Instant,
     val isScouted: Boolean,
     val isVerified: Boolean,
+    val workerSnapshot: WorkerSnapshot,
     val appliedAt: Instant,
 )
 

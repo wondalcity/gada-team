@@ -211,7 +211,16 @@ function Section({ title, subtitle, children, isEmpty, emptyMessage }: {
 export default function ProposalsPage() {
   const t = useT();
   const user = useAuthStore((s) => s.user);
-  const isLeader = user?.role === "TEAM_LEADER";
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Gate on mounted to avoid SSR/hydration mismatch: server always renders
+  // the skeleton, auth-based content is added only after client mount.
+  const isLeader = mounted && user?.role === "TEAM_LEADER";
+  const isNotLeader = mounted && user !== null && user?.role !== "TEAM_LEADER";
 
   const jobProposalsQuery = useQuery({
     queryKey: ["worker-team-proposals"],
@@ -228,7 +237,22 @@ export default function ProposalsPage() {
   const jobProposals = jobProposalsQuery.data?.content ?? [];
   const memberProposals = memberProposalsQuery.data?.content ?? [];
 
-  if (!isLeader) {
+  // Show loading skeleton until mount resolves auth state
+  if (!mounted) {
+    return (
+      <AppLayout>
+        <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 space-y-10">
+          <div className="space-y-2">
+            <div className="h-7 w-32 animate-pulse rounded bg-neutral-200" />
+            <div className="h-4 w-56 animate-pulse rounded bg-neutral-100" />
+          </div>
+          {Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)}
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (isNotLeader) {
     return (
       <AppLayout>
         <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 text-center">
@@ -236,7 +260,7 @@ export default function ProposalsPage() {
           <p className="font-semibold text-neutral-700">{t("proposals.notLeader")}</p>
           <p className="mt-2 text-sm text-neutral-400">{t("proposals.notLeaderSub")}</p>
           <Link
-            href="/teams/mine"
+            href="/teams"
             className="mt-5 inline-block rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
           >
             {t("proposals.notLeaderLink")}

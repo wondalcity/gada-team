@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { FileText, Star, BadgeCheck, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileText, Star, BadgeCheck, X, ChevronLeft, ChevronRight, ClipboardSignature } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   getMyApplications,
@@ -11,6 +11,7 @@ import {
   type ApplicationSummary,
   type ApplicationStatus,
 } from "@/lib/applications-api";
+import type { ContractSummary } from "@/lib/contracts-api";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
@@ -135,9 +136,11 @@ function WithdrawConfirmDialog({
 function ApplicationCard({
   app,
   onWithdraw,
+  contract,
 }: {
   app: ApplicationSummary;
   onWithdraw: (publicId: string) => void;
+  contract?: ContractSummary;
 }) {
   const t = useT();
   const [confirmOpen, setConfirmOpen] = React.useState(false);
@@ -183,6 +186,8 @@ function ApplicationCard({
     "bg-neutral-100 text-neutral-600";
   const typeLabel = t(`app.appType.${app.applicationType}` as any);
   const canWithdraw = app.status === "APPLIED";
+  const isHired = app.status === "HIRED";
+  const contractSigned = contract?.status === "SIGNED";
 
   return (
     <>
@@ -251,6 +256,31 @@ function ApplicationCard({
             </button>
           </div>
         )}
+
+        {/* Contract CTA for HIRED applications */}
+        {isHired && (
+          <div className="mt-3 border-t border-neutral-100 pt-3">
+            {contract ? (
+              <Link
+                href={`/applications/${app.publicId}/contract`}
+                className={cn(
+                  "flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
+                  contractSigned
+                    ? "border border-success-200 bg-success-50 text-success-700 hover:bg-success-100"
+                    : "bg-primary-500 text-white hover:bg-primary-600"
+                )}
+              >
+                <ClipboardSignature className="h-3.5 w-3.5" />
+                {contractSigned ? t("app.contractSigned") : t("app.contractSign")}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-1.5 justify-center rounded-lg border border-neutral-200 py-2 text-xs text-neutral-400">
+                <ClipboardSignature className="h-3.5 w-3.5" />
+                {t("app.contractPending")}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <WithdrawConfirmDialog
@@ -308,6 +338,7 @@ function ApplicationsContent() {
     throwOnError: false,
     retry: false,
   });
+
 
   const allApps = data?.content ?? [];
   const filteredApps = allApps.filter((a) => matchesTab(a.status, tab));
@@ -370,6 +401,7 @@ function ApplicationsContent() {
               key={app.publicId}
               app={app}
               onWithdraw={() => {}}
+              contract={undefined}
             />
           ))}
         </div>

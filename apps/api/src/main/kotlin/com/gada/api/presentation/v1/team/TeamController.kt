@@ -55,6 +55,13 @@ class TeamController(private val teamUseCase: TeamUseCase) {
         return ApiResponse.ok(teamUseCase.getMyTeam(userId)).toResponseEntity()
     }
 
+    @Operation(summary = "내가 팀장인 팀 목록 조회", security = [SecurityRequirement(name = "Bearer")])
+    @GetMapping("/led-by-me")
+    fun getLeadedTeams(@CurrentUser principal: GadaPrincipal): ResponseEntity<ApiResponse<List<TeamResponse>>> {
+        val userId = principal.userId ?: throw UnauthorizedException()
+        return ApiResponse.ok(teamUseCase.getLeadedTeams(userId)).toResponseEntity()
+    }
+
     @Operation(summary = "팀 상세 조회 (공개)")
     @GetMapping("/{publicId}")
     fun getTeam(@PathVariable publicId: UUID): ResponseEntity<ApiResponse<TeamResponse>> =

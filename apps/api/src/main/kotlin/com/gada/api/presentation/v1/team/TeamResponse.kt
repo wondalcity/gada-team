@@ -37,6 +37,7 @@ data class TeamResponse(
 data class TeamMemberResponse(
     val memberId: Long,
     val userId: Long,
+    val workerProfilePublicId: String?,
     val fullName: String?,
     val profileImageUrl: String?,
     val nationality: String?,
@@ -46,6 +47,7 @@ data class TeamMemberResponse(
     val role: String,
     val invitationStatus: String?,
     val joinedAt: Instant?,
+    val phone: String?,
 )
 
 data class TeamListItem(

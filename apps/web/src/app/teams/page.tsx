@@ -1218,12 +1218,15 @@ function TeamsPageContent() {
     },
   });
 
-  const myTeamQuery = useQuery({
-    queryKey: ["my-team"],
-    queryFn: () => teamsApi.getMyTeam(),
+  const leadedTeamsQuery = useQuery({
+    queryKey: ["leaded-teams"],
+    queryFn: () => teamsApi.getLeadedTeams(),
     enabled: user?.role === "TEAM_LEADER",
   });
-  const myTeamPublicId = myTeamQuery.data?.publicId;
+  const myTeamPublicIds = React.useMemo(
+    () => new Set((leadedTeamsQuery.data ?? []).map((t) => t.publicId)),
+    [leadedTeamsQuery.data]
+  );
 
   const teams = data?.pages.flatMap((p) => p.content) ?? [];
   const total = data?.pages[0]?.totalElements ?? 0;
@@ -1347,7 +1350,7 @@ function TeamsPageContent() {
                 <TeamRow
                   key={team.publicId}
                   team={team}
-                  isMyTeam={!!myTeamPublicId && team.publicId === myTeamPublicId}
+                  isMyTeam={myTeamPublicIds.has(team.publicId)}
                 />
               ))
             )}
@@ -1386,43 +1389,10 @@ function TeamsPageContent() {
   );
 }
 
-// ─── My Team Tab ──────────────────────────────────────────────
+// ─── My Team Card (single team in the list) ───────────────────
 
-function MyTeamTab() {
+function MyTeamCard({ team }: { team: TeamResponse }) {
   const t = useT();
-  const { data: team, isLoading, isError } = useQuery({
-    queryKey: ["my-team"],
-    queryFn: () => teamsApi.getMyTeam(),
-  });
-
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="rounded-xl border border-neutral-100 bg-white p-6 animate-pulse space-y-3">
-          <div className="h-5 w-1/3 rounded bg-neutral-200" />
-          <div className="h-4 w-2/3 rounded bg-neutral-100" />
-          <div className="h-4 w-1/2 rounded bg-neutral-100" />
-        </div>
-      </div>
-    );
-  }
-
-  if (isError || !team) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-16 text-center">
-        <Users className="mx-auto mb-4 h-12 w-12 text-neutral-200" />
-        <p className="font-semibold text-neutral-700">{t("teams.empty")}</p>
-        <p className="mt-1 text-sm text-neutral-400">{t("teams.emptyDesc")}</p>
-        <Link
-          href="/teams/create"
-          className="mt-5 inline-block rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
-        >
-          {t("teams.createTeam")}
-        </Link>
-      </div>
-    );
-  }
-
   const isCompany = team.teamType === "COMPANY_LINKED";
   const regionText = team.isNationwide
     ? null
@@ -1432,109 +1402,128 @@ function MyTeamTab() {
         .join(" · ");
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-card-md">
-        {/* Cover / Hero */}
-        <div className="relative h-28 overflow-hidden">
-          {team.coverImageUrl ? (
-            <>
-              <img src={team.coverImageUrl} alt={team.name} className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-black/40" />
-            </>
-          ) : (
-            <div className="h-full w-full bg-gradient-to-br from-primary-500 to-primary-600" />
-          )}
-          <div className="absolute bottom-4 left-5 right-5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-extrabold text-white">{team.name}</h2>
-              <span className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] font-semibold text-white",
-                isCompany ? "bg-secondary-500/90" : "bg-white/20 backdrop-blur-sm"
-              )}>
-                {isCompany ? t("teamDetail.companyType") : t("teamDetail.squadType")}
-              </span>
-            </div>
-            {team.introShort && (
-              <p className="mt-0.5 text-xs text-white/80 line-clamp-1">{team.introShort}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Info grid */}
-        <div className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("teams.persons")}</p>
-            <p className="mt-0.5 text-sm font-semibold text-neutral-900">
-              {team.memberCount}{t("teams.persons")}
-              {team.headcountTarget ? ` / ${team.headcountTarget}${t("teams.persons")}` : ""}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("teamDetail.region")}</p>
-            <p className="mt-0.5 text-sm font-semibold text-neutral-900">
-              {team.isNationwide ? (
-                <span className="text-success-700">{t("teamDetail.nationwide")}</span>
-              ) : (regionText ?? "—")}
-            </p>
-          </div>
-          {(team.desiredPayMin || team.desiredPayMax) && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("teamDetail.desiredPay")}</p>
-              <p className="mt-0.5 text-sm font-semibold text-primary-600">
-                {team.desiredPayMin?.toLocaleString("ko-KR")}
-                {team.desiredPayMax ? `~${team.desiredPayMax.toLocaleString("ko-KR")}원` : "원~"}
-              </p>
-            </div>
-          )}
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">상태</p>
-            <p className={cn("mt-0.5 text-sm font-semibold", team.status === "ACTIVE" ? "text-success-700" : "text-neutral-400")}>
-              {team.status === "ACTIVE" ? t("teamDetail.activeStatus") : t("teamDetail.dissolvedStatus")}
-            </p>
-          </div>
-        </div>
-
-        {/* Members preview */}
-        {team.members && team.members.length > 0 && (
-          <div className="border-t border-neutral-100 px-5 py-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teamDetail.memberPreview")}</p>
-            <div className="flex flex-wrap gap-2">
-              {team.members.slice(0, 6).map((m) => (
-                <div key={m.memberId} className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[9px] font-bold text-white">
-                    {(m.fullName ?? "?").charAt(0)}
-                  </div>
-                  <span className="text-xs font-medium text-neutral-700">{m.fullName ?? "—"}</span>
-                  {m.role === "LEADER" && (
-                    <span className="text-[9px] font-semibold text-warning-700">({t("teamDetail.leaderLabel")})</span>
-                  )}
-                </div>
-              ))}
-              {team.members.length > 6 && (
-                <span className="self-center text-xs text-neutral-400">
-                  {`외 ${team.members.length - 6}명`}
-                </span>
-              )}
-            </div>
-          </div>
+    <div className="overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-card-md">
+      {/* Cover / Hero */}
+      <div className="relative h-24 overflow-hidden">
+        {team.coverImageUrl ? (
+          <>
+            <img src={team.coverImageUrl} alt={team.name} className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-black/40" />
+          </>
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-primary-500 to-primary-600" />
         )}
-
-        {/* Actions */}
-        <div className="border-t border-neutral-100 p-5 flex flex-col sm:flex-row gap-3">
-          <Link
-            href={`/teams/${team.publicId}`}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
-          >
-            팀 상세 보기
-          </Link>
-          <button
-            disabled
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 py-2.5 text-sm font-semibold text-neutral-400 cursor-not-allowed"
-          >
-            <Send className="h-4 w-4" />
-            {t("teamDetail.leaderBelongs")}
-          </button>
+        <div className="absolute bottom-3 left-4 right-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-base font-extrabold text-white">{team.name}</h2>
+            <span className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-semibold text-white",
+              isCompany ? "bg-secondary-500/90" : "bg-white/20 backdrop-blur-sm"
+            )}>
+              {isCompany ? t("teamDetail.companyType") : t("teamDetail.squadType")}
+            </span>
+          </div>
+          {team.introShort && (
+            <p className="mt-0.5 text-xs text-white/80 line-clamp-1">{team.introShort}</p>
+          )}
         </div>
+      </div>
+
+      {/* Info row */}
+      <div className="flex flex-wrap gap-x-5 gap-y-2 px-4 py-3 text-xs text-neutral-500">
+        <span className="flex items-center gap-1">
+          <Users className="h-3.5 w-3.5" />
+          {team.memberCount}{t("teams.persons")}
+          {team.headcountTarget ? ` / ${team.headcountTarget}${t("teams.persons")}` : ""}
+        </span>
+        {team.isNationwide ? (
+          <span className="flex items-center gap-1 text-success-700">
+            <Globe className="h-3.5 w-3.5" />
+            {t("teamDetail.nationwide")}
+          </span>
+        ) : regionText ? (
+          <span className="flex items-center gap-1">
+            <MapPin className="h-3.5 w-3.5" />
+            {regionText}
+          </span>
+        ) : null}
+        <span className={cn("font-medium", team.status === "ACTIVE" ? "text-success-700" : "text-neutral-400")}>
+          {team.status === "ACTIVE" ? t("teamDetail.activeStatus") : t("teamDetail.dissolvedStatus")}
+        </span>
+      </div>
+
+      {/* Action */}
+      <div className="border-t border-neutral-100 px-4 py-3">
+        <Link
+          href={`/teams/${team.publicId}`}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
+        >
+          {t("teams.myTeamView")}
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── My Team Tab ──────────────────────────────────────────────
+
+function MyTeamTab() {
+  const t = useT();
+  const { data: teams, isLoading, isError } = useQuery({
+    queryKey: ["leaded-teams"],
+    queryFn: () => teamsApi.getLeadedTeams(),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-8 space-y-4">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-neutral-100 bg-white p-6 animate-pulse space-y-3">
+            <div className="h-5 w-1/3 rounded bg-neutral-200" />
+            <div className="h-4 w-2/3 rounded bg-neutral-100" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (isError || !teams || teams.length === 0) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-16 text-center">
+        <Users className="mx-auto mb-4 h-12 w-12 text-neutral-200" />
+        <p className="font-semibold text-neutral-700">{t("teams.empty")}</p>
+        <p className="mt-1 text-sm text-neutral-400">{t("teams.emptyDesc")}</p>
+        <Link
+          href="/teams/new"
+          className="mt-5 inline-block rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
+        >
+          {t("teams.createTeam")}
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-bold text-neutral-950">{t("teams.myTeamsTitle")}</h2>
+          <p className="mt-0.5 text-sm text-neutral-500">
+            {t("teams.myTeamsCount" as any, teams.length)}
+          </p>
+        </div>
+        <Link
+          href="/teams/new"
+          className="flex items-center gap-1 rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          {t("teams.createTeam")}
+        </Link>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {teams.map((team) => (
+          <MyTeamCard key={team.publicId} team={team} />
+        ))}
       </div>
     </div>
   );
@@ -1547,22 +1536,20 @@ type TabId = "teams" | "workers" | "myteam";
 function TabsWrapper() {
   const t = useT();
   const user = useAuthStore((s) => s.user);
-  const [mounted, setMounted] = React.useState(false);
   const [tab, setTab] = React.useState<TabId>("teams");
+  // `showLeaderTab` is a client-only state that avoids SSR/hydration mismatch.
+  // SSR always sees user=null, so we start with false and flip to true in an
+  // effect that fires only after the Zustand store rehydrates on the client.
+  const [showLeaderTab, setShowLeaderTab] = React.useState(false);
 
   React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Only evaluate isLeader after mount to avoid SSR/hydration mismatch.
-  // On the server user is always null; adding the tab only on the client
-  // prevents React from throwing a hydration error.
-  const isLeader = mounted && user?.role === "TEAM_LEADER";
+    setShowLeaderTab(user?.role === "TEAM_LEADER");
+  }, [user]);
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: "teams", label: t("teams.tabTeams"), icon: Users },
     { id: "workers", label: t("teams.tabWorkers"), icon: UserSearch },
-    ...(isLeader ? [{ id: "myteam" as TabId, label: t("teams.tabMyTeam"), icon: Shield }] : []),
+    ...(showLeaderTab ? [{ id: "myteam" as TabId, label: t("teams.tabMyTeam"), icon: Shield }] : []),
   ];
 
   return (

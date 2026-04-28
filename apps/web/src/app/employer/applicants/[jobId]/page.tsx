@@ -17,6 +17,8 @@ import {
   Lock,
 } from "lucide-react";
 import { employerApi, ApplicationSummary, ApplicationDetail, ApplicationStatus } from "@/lib/employer-api";
+import { contractsApi, type ContractDetail } from "@/lib/contracts-api";
+import { ClipboardSignature } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -83,6 +85,174 @@ function visaLabel(code: string) {
 function healthLabel(code: string) {
   const map: Record<string, string> = { COMPLETED: "완료", NOT_DONE: "미완료", EXPIRED: "만료" };
   return map[code] ?? code;
+}
+
+// ─── Contract section ─────────────────────────────────────────────────────────
+
+function ContractSection({ applicationPublicId }: { applicationPublicId: string }) {
+  const queryClient = useQueryClient();
+  const [showForm, setShowForm] = React.useState(false);
+  const [formData, setFormData] = React.useState({
+    startDate: "",
+    endDate: "",
+    payAmount: "",
+    payUnit: "DAILY",
+    terms: "",
+    documentUrl: "",
+  });
+
+  const { data: contract, isLoading } = useQuery({
+    queryKey: ["employer-contract", applicationPublicId],
+    queryFn: () => contractsApi.getByApplication(applicationPublicId),
+    retry: false,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: () => contractsApi.sendForApplication(applicationPublicId, {
+      startDate: formData.startDate || undefined,
+      endDate: formData.endDate || undefined,
+      payAmount: formData.payAmount ? Number(formData.payAmount) : undefined,
+      payUnit: formData.payUnit || undefined,
+      terms: formData.terms || undefined,
+      documentUrl: formData.documentUrl || undefined,
+    }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["employer-contract", applicationPublicId], data);
+      setShowForm(false);
+    },
+  });
+
+  const statusLabel: Record<string, string> = {
+    DRAFT: "초안", SENT: "발송됨", SIGNED: "서명완료", EXPIRED: "만료됨", CANCELLED: "취소됨",
+  };
+
+  return (
+    <div className="rounded-lg border border-neutral-100 bg-white p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <ClipboardSignature className="h-4 w-4 text-primary-500" />
+        <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">계약서</p>
+      </div>
+
+      {isLoading ? (
+        <div className="h-10 animate-pulse rounded bg-neutral-100" />
+      ) : contract ? (
+        <div>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
+                contract.status === "SIGNED"
+                  ? "bg-success-50 text-success-700"
+                  : "bg-primary-50 text-primary-700"
+              )}>
+                {statusLabel[contract.status] ?? contract.status}
+              </span>
+              {contract.sentAt && (
+                <p className="mt-1 text-xs text-neutral-400">
+                  발송: {new Date(contract.sentAt).toLocaleDateString("ko-KR")}
+                </p>
+              )}
+              {contract.workerSignedAt && (
+                <p className="text-xs text-success-600 font-medium">
+                  서명완료: {new Date(contract.workerSignedAt).toLocaleDateString("ko-KR")}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : showForm ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-neutral-500 mb-1 block">시작일</label>
+              <input
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData((f) => ({ ...f, startDate: e.target.value }))}
+                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-500 mb-1 block">종료일</label>
+              <input
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => setFormData((f) => ({ ...f, endDate: e.target.value }))}
+                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="text-xs text-neutral-500 mb-1 block">급여 (원)</label>
+              <input
+                type="number"
+                value={formData.payAmount}
+                onChange={(e) => setFormData((f) => ({ ...f, payAmount: e.target.value }))}
+                placeholder="예: 150000"
+                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-500 mb-1 block">단위</label>
+              <select
+                value={formData.payUnit}
+                onChange={(e) => setFormData((f) => ({ ...f, payUnit: e.target.value }))}
+                className="rounded-lg border border-neutral-200 px-2 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-200"
+              >
+                <option value="DAILY">일급</option>
+                <option value="MONTHLY">월급</option>
+                <option value="HOURLY">시급</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-neutral-500 mb-1 block">계약 조건 (선택)</label>
+            <textarea
+              value={formData.terms}
+              onChange={(e) => setFormData((f) => ({ ...f, terms: e.target.value }))}
+              rows={3}
+              placeholder="계약 조건을 입력하세요"
+              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-neutral-500 mb-1 block">문서 URL (선택)</label>
+            <input
+              type="url"
+              value={formData.documentUrl}
+              onChange={(e) => setFormData((f) => ({ ...f, documentUrl: e.target.value }))}
+              placeholder="https://..."
+              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setShowForm(false)}
+              className="flex-1 rounded-lg border border-neutral-200 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => sendMutation.mutate()}
+              disabled={sendMutation.isPending}
+              className="flex-1 rounded-lg bg-primary-500 py-2 text-xs font-semibold text-white hover:bg-primary-600 disabled:opacity-60 transition-colors"
+            >
+              {sendMutation.isPending ? "발송 중..." : "계약서 발송"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2.5 text-xs font-semibold text-white hover:bg-primary-600 transition-colors"
+        >
+          <ClipboardSignature className="h-4 w-4" />
+          계약서 작성 및 발송
+        </button>
+      )}
+    </div>
+  );
 }
 
 // ─── Applicant drawer ─────────────────────────────────────────────────────────
@@ -207,6 +377,11 @@ function ApplicantDrawer({
                   </p>
                 </div>
               </div>
+            )}
+
+            {/* Contract section — visible after HIRED */}
+            {data.status === "HIRED" && (
+              <ContractSection applicationPublicId={appPublicId} />
             )}
 
             {/* Team info */}
