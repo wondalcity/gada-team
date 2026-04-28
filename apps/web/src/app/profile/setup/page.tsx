@@ -221,7 +221,7 @@ export default function ProfileSetupPage() {
 
       const result = await onboard({
         idToken,
-        role: user.role as "WORKER" | "TEAM_LEADER" | "EMPLOYER",
+        role: user!.role as "WORKER" | "TEAM_LEADER" | "EMPLOYER",
         fullName,
         birthDate: !isEmployer ? birthDate || undefined : undefined,
         nationality: !isEmployer ? nationality || undefined : undefined,
