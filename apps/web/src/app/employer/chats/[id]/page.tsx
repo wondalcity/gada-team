@@ -215,6 +215,12 @@ export default function EmployerChatRoomPage({
 }) {
   const { id } = React.use(params);
 
+  const { data: room } = useQuery({
+    queryKey: ["employer-chat-room", id],
+    queryFn: () => chatApi.getRoom(id),
+    retry: false,
+  });
+
   return (
     <div className="flex flex-col rounded-xl border border-neutral-100 bg-neutral-50 shadow-card-md overflow-hidden" style={{ height: "calc(100vh - 10rem)" }}>
       {/* Header */}
@@ -226,7 +232,12 @@ export default function EmployerChatRoomPage({
           <ChevronLeft className="h-5 w-5 text-neutral-600" />
         </Link>
         <div>
-          <h1 className="text-sm font-bold text-neutral-950">채팅</h1>
+          <h1 className="text-sm font-bold text-neutral-950">
+            {room?.teamName ?? "채팅"}
+          </h1>
+          {room?.teamName && (
+            <p className="text-xs text-neutral-400">팀과의 채팅</p>
+          )}
         </div>
       </div>
 

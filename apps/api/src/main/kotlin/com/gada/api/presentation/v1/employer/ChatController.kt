@@ -92,6 +92,19 @@ class ChatController(
         return ApiResponse.ok(saved.toDetail(userId)).toResponseEntity(HttpStatus.CREATED)
     }
 
+    @Operation(summary = "채팅방 단건 조회", security = [SecurityRequirement(name = "Bearer")])
+    @GetMapping("/rooms/{roomPublicId}")
+    fun getRoom(
+        @PathVariable roomPublicId: String,
+        @CurrentUser principal: GadaPrincipal,
+    ): ResponseEntity<ApiResponse<ChatRoomSummary>> {
+        val userId = principal.userId ?: throw UnauthorizedException()
+        val room = chatRepository.findRoomByPublicId(UUID.fromString(roomPublicId))
+            ?: throw NotFoundException("채팅방")
+        if (room.employerId != userId) throw ForbiddenException()
+        return ApiResponse.ok(room.toSummary(userId)).toResponseEntity()
+    }
+
     @Operation(summary = "메시지 목록 조회", security = [SecurityRequirement(name = "Bearer")])
     @GetMapping("/rooms/{roomPublicId}/messages")
     fun getMessages(

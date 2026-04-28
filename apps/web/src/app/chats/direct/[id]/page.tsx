@@ -3,10 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Send, AlertCircle, ClipboardSignature, ExternalLink } from "lucide-react";
-import { workerChatApi, ChatMessageItem } from "@/lib/chat-api";
+import { ChevronLeft, Send, AlertCircle } from "lucide-react";
+import { directChatApi, DirectChatMessageItem } from "@/lib/chat-api";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -23,47 +22,21 @@ function isSameDay(a: string, b: string): boolean {
   return formatDate(a) === formatDate(b);
 }
 
-// ─── Contract Message Card ─────────────────────────────────────────────────────
+// ─── Date Divider ─────────────────────────────────────────────────────────────
 
-function ContractMessageCard({ msg }: { msg: ChatMessageItem }) {
+function DateDivider({ date }: { date: string }) {
   return (
-    <div className={cn("flex", msg.isMine ? "justify-end" : "justify-start")}>
-      <div className="max-w-[80%] space-y-0.5">
-        <div className="rounded-2xl rounded-tl-sm border border-primary-200 bg-primary-50 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-500">
-              <ClipboardSignature className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-primary-900">계약서 발송</p>
-              <p className="text-xs text-primary-600">서명이 필요합니다</p>
-            </div>
-          </div>
-          <p className="text-sm text-primary-800 leading-relaxed">{msg.content}</p>
-          <div className="flex gap-2">
-            <a
-              href="/applications"
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2 text-xs font-bold text-white hover:bg-primary-600 transition-colors"
-            >
-              <ClipboardSignature className="h-3.5 w-3.5" />
-              계약서 확인 및 서명
-            </a>
-          </div>
-        </div>
-        <p className="text-[10px] text-neutral-400 text-left">
-          {formatTime(msg.createdAt)}
-        </p>
-      </div>
+    <div className="flex items-center gap-3 py-2">
+      <div className="flex-1 border-t border-neutral-200" />
+      <span className="text-xs text-neutral-400">{formatDate(date)}</span>
+      <div className="flex-1 border-t border-neutral-200" />
     </div>
   );
 }
 
 // ─── Message Bubble ────────────────────────────────────────────────────────────
 
-function MessageBubble({ msg }: { msg: ChatMessageItem }) {
-  if (msg.messageType === "CONTRACT") {
-    return <ContractMessageCard msg={msg} />;
-  }
+function MessageBubble({ msg }: { msg: DirectChatMessageItem }) {
   return (
     <div className={cn("flex", msg.isMine ? "justify-end" : "justify-start")}>
       <div className="max-w-[72%] space-y-0.5">
@@ -83,29 +56,22 @@ function MessageBubble({ msg }: { msg: ChatMessageItem }) {
   );
 }
 
-// ─── Date Divider ─────────────────────────────────────────────────────────────
-
-function DateDivider({ date }: { date: string }) {
-  return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="flex-1 border-t border-neutral-200" />
-      <span className="text-xs text-neutral-400">{formatDate(date)}</span>
-      <div className="flex-1 border-t border-neutral-200" />
-    </div>
-  );
-}
-
 // ─── Chat Room Content ────────────────────────────────────────────────────────
 
-function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
-  const t = useT();
+function DirectChatContent({
+  roomPublicId,
+  otherName,
+}: {
+  roomPublicId: string;
+  otherName?: string | null;
+}) {
   const queryClient = useQueryClient();
   const [input, setInput] = React.useState("");
   const bottomRef = React.useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["worker-chat-messages", roomPublicId],
-    queryFn: () => workerChatApi.getMessages(roomPublicId, 0, 100),
+    queryKey: ["direct-chat-messages", roomPublicId],
+    queryFn: () => directChatApi.getMessages(roomPublicId, 0, 100),
     refetchInterval: 5000,
   });
 
@@ -119,10 +85,10 @@ function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
   }, [messages.length]);
 
   const sendMutation = useMutation({
-    mutationFn: (content: string) => workerChatApi.sendMessage(roomPublicId, content),
+    mutationFn: (content: string) => directChatApi.sendMessage(roomPublicId, content),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["worker-chat-messages", roomPublicId] });
-      queryClient.invalidateQueries({ queryKey: ["worker-chats"] });
+      queryClient.invalidateQueries({ queryKey: ["direct-chat-messages", roomPublicId] });
+      queryClient.invalidateQueries({ queryKey: ["direct-chat-rooms"] });
     },
   });
 
@@ -152,7 +118,7 @@ function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center px-4">
         <AlertCircle className="h-10 w-10 text-neutral-300" />
-        <p className="text-sm text-neutral-500">{t("chats.room.loadError")}</p>
+        <p className="text-sm text-neutral-500">채팅 내역을 불러오지 못했어요.</p>
       </div>
     );
   }
@@ -162,7 +128,9 @@ function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-sm text-neutral-400">{t("chats.room.empty")}</p>
+            <p className="text-sm text-neutral-400">
+              {otherName ? `${otherName}님과 채팅을 시작해보세요!` : "채팅을 시작해보세요!"}
+            </p>
           </div>
         )}
         {messages.map((msg, idx) => (
@@ -182,7 +150,7 @@ function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t("chats.room.placeholder")}
+            placeholder="메시지를 입력하세요"
             rows={1}
             className="flex-1 resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all max-h-32"
             style={{ overflowY: input.split("\n").length > 3 ? "auto" : "hidden" }}
@@ -202,25 +170,25 @@ function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function WorkerChatRoomPage({
+export default function DirectChatRoomPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = React.use(params);
-  const t = useT();
 
-  const { data: room } = useQuery({
-    queryKey: ["worker-chat-room", id],
-    queryFn: () => workerChatApi.getRoom(id),
-    retry: false,
-  });
+  // Decode otherName from query if available
+  const [otherName, setOtherName] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      setOtherName(sp.get("name"));
+    }
+  }, []);
 
   return (
     <AppLayout>
-      <div
-        className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6"
-      >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
         <div
           className="flex flex-col rounded-xl border border-neutral-100 bg-neutral-50 shadow-card-md overflow-hidden"
           style={{ height: "calc(100vh - 10rem)" }}
@@ -234,13 +202,13 @@ export default function WorkerChatRoomPage({
             </Link>
             <div>
               <h1 className="text-sm font-bold text-neutral-950">
-                {room?.employerName ?? t("chats.room.title")}
+                {otherName ?? "채팅"}
               </h1>
-              <p className="text-xs text-neutral-400">{t("chats.room.sub")}</p>
+              <p className="text-xs text-neutral-400">1:1 직접 채팅</p>
             </div>
           </div>
 
-          <ChatRoomContent roomPublicId={id} />
+          <DirectChatContent roomPublicId={id} otherName={otherName} />
         </div>
       </div>
     </AppLayout>

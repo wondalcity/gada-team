@@ -358,7 +358,7 @@ export default function LoginPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 border border-white/30">
               <HardHat className="h-5 w-5 text-white" />
             </div>
-            <span className="font-display text-2xl font-bold text-white">GADA<span className="text-white/60">.</span></span>
+            <span className="font-display text-2xl font-bold text-white">가다<span className="text-white/60 font-black"> Team</span></span>
           </Link>
           <h2 className="font-display text-2xl font-bold text-white leading-snug mb-3">
             {t("auth.heroTitle")}
@@ -389,10 +389,10 @@ export default function LoginPage() {
         <div className="lg:hidden mb-8 text-center">
           <Link href="/" className="inline-flex flex-col items-center gap-1">
             <div className="inline-flex items-center gap-2 mb-1">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-500">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm">
                 <HardHat className="h-4 w-4 text-white" />
               </div>
-              <span className="font-display text-xl font-bold text-neutral-900">GADA<span className="text-primary-500">.</span></span>
+              <span className="font-display text-xl font-bold text-neutral-900">가다<span className="text-primary-500 font-black"> Team</span></span>
             </div>
             <p className="text-xs text-neutral-400">{t("auth.heroSub")}</p>
           </Link>

@@ -28,12 +28,6 @@ class TeamUseCase(
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun createTeam(userId: Long, req: CreateTeamRequest): TeamResponse {
-        // Check user doesn't already lead a team
-        val existing = teamRepository.findByLeaderId(userId)
-        if (existing != null) {
-            throw ConflictException("이미 팀을 보유하고 있습니다.", "TEAM_ALREADY_EXISTS")
-        }
-
         var companyId: Long? = null
         var companyName: String? = null
         var companyPublicId: UUID? = null

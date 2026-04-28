@@ -190,11 +190,11 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
         <nav className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 font-display font-bold text-neutral-900">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-500">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm">
               <HardHat className="h-4 w-4 text-white" />
             </div>
             <span className="text-lg tracking-tight">
-              GADA<span className="text-primary-500">.</span>
+              가다<span className="text-primary-500 font-black"> Team</span>
             </span>
           </Link>
 

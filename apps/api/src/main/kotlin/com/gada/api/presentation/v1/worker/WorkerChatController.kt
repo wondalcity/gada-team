@@ -45,12 +45,26 @@ class WorkerChatController(
         val userId = principal.userId ?: throw UnauthorizedException()
         val (rooms, total) = chatRepository.findRoomsByLeader(userId, page, size)
         val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
-        val employerNames = rooms.associate { it.employerId to (chatRepository.findEmployerName(it.employerId) ?: "고용주") }
+        val employerNames = rooms.associate { it.employerId to (chatRepository.findEmployerCompanyName(it.employerId) ?: "고용주") }
         return ApiResponse.ok(PageResponse(
             content = rooms.map { it.toWorkerSummary(userId, employerNames[it.employerId]) },
             page = page, size = size, totalElements = total, totalPages = totalPages,
             isFirst = page == 0, isLast = page >= totalPages - 1,
         )).toResponseEntity()
+    }
+
+    @Operation(summary = "채팅방 단건 조회", security = [SecurityRequirement(name = "Bearer")])
+    @GetMapping("/rooms/{roomPublicId}")
+    fun getRoom(
+        @PathVariable roomPublicId: String,
+        @CurrentUser principal: GadaPrincipal,
+    ): ResponseEntity<ApiResponse<WorkerChatRoomSummary>> {
+        val userId = principal.userId ?: throw UnauthorizedException()
+        val room = chatRepository.findRoomByPublicId(UUID.fromString(roomPublicId))
+            ?: throw NotFoundException("채팅방")
+        if (room.teamLeaderId != userId) throw ForbiddenException()
+        val companyName = chatRepository.findEmployerCompanyName(room.employerId)
+        return ApiResponse.ok(room.toWorkerSummary(userId, companyName)).toResponseEntity()
     }
 
     @Operation(summary = "메시지 목록 조회", security = [SecurityRequirement(name = "Bearer")])

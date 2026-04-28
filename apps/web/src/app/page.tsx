@@ -412,17 +412,17 @@ export default function HomePage() {
             <div className="flex flex-col justify-between gap-10 md:flex-row md:items-start">
               <div className="max-w-xs">
                 <Link href="/" className="mb-3 flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-500">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm">
                     <HardHat className="h-4 w-4 text-white" />
                   </div>
                   <span className="font-display text-base font-bold text-neutral-900">
-                    GADA<span className="text-primary-500">.</span>
+                    가다<span className="text-primary-500 font-black"> Team</span>
                   </span>
                 </Link>
                 <p className="text-sm leading-relaxed text-neutral-400">
                   {t("home.footer.platform")}
                   <br />
-                  근로자, 팀, 기업 모두를 위한 GADA.
+                  근로자, 팀, 기업 모두를 위한 가다 Team.
                 </p>
               </div>
 

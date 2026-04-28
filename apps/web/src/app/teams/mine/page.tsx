@@ -16,9 +16,13 @@ import {
   Building2,
   Shield,
   CheckCircle2,
+  MessageCircle,
+  UserCheck,
+  Clock,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { teamsApi, TeamResponse, TeamMemberResponse } from "@/lib/teams-api";
+import { workerChatApi, memberProposalApi, WorkerChatRoomSummary, MemberProposalItem } from "@/lib/chat-api";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
 
@@ -139,8 +143,9 @@ function InviteSheet({ teamPublicId, open, onClose }: InviteSheetProps) {
         onClick={onClose}
       />
 
-      {/* Panel: bottom sheet on mobile, right side panel on desktop */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-2xl bg-white p-6 shadow-2xl lg:bottom-0 lg:right-0 lg:left-auto lg:top-0 lg:w-96 lg:rounded-none lg:rounded-l-2xl lg:animate-slide-in-right">
+      {/* Panel: bottom sheet on mobile, centered modal on desktop */}
+      <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-4">
+      <div className="rounded-t-2xl sm:rounded-2xl bg-white p-6 shadow-2xl sm:w-full sm:max-w-md">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-neutral-950">팀원 초대</h2>
@@ -199,6 +204,7 @@ function InviteSheet({ teamPublicId, open, onClose }: InviteSheetProps) {
             {inviteMutation.isPending ? "발송 중..." : "초대장 보내기"}
           </button>
         </div>
+      </div>
       </div>
     </>
   );
@@ -286,6 +292,332 @@ function InvitationsBanner({ count }: { count: number }) {
       </span>
       <ChevronRight className="h-4 w-4 text-neutral-700" />
     </Link>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function relativeTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diff < 60) return "방금 전";
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}일 전`;
+  return d.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+}
+
+// ─── Leader Chat Rooms Section ────────────────────────────────────────────────
+
+function LeaderChatRooms() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["leader-chat-rooms"],
+    queryFn: () => workerChatApi.listRooms(0, 10),
+    refetchInterval: 15000,
+  });
+
+  const rooms = data?.content ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
+        <div className="h-4 w-24 animate-pulse rounded bg-neutral-200 mb-3" />
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="h-10 w-10 animate-pulse rounded-full bg-neutral-200 flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 w-2/5 animate-pulse rounded bg-neutral-200" />
+                <div className="h-3 w-3/5 animate-pulse rounded bg-neutral-200" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (rooms.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-neutral-100 bg-white shadow-card-md overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
+        <h2 className="text-base font-bold text-neutral-950 flex items-center gap-2">
+          <MessageCircle className="h-4 w-4 text-primary-500" />
+          고용주 채팅
+          {rooms.some((r) => r.unreadCount > 0) && (
+            <span className="inline-flex h-5 items-center justify-center rounded-full bg-danger-500 px-1.5 text-[10px] font-bold text-white">
+              {rooms.reduce((sum, r) => sum + r.unreadCount, 0)}
+            </span>
+          )}
+        </h2>
+      </div>
+      <div className="divide-y divide-neutral-100">
+        {rooms.map((room) => (
+          <LeaderChatRoomRow key={room.publicId} room={room} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LeaderChatRoomRow({ room }: { room: WorkerChatRoomSummary }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-3 px-5 py-3.5 hover:bg-neutral-50 transition-colors text-left"
+      >
+        <div className="relative flex-shrink-0">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
+            <MessageCircle className="h-5 w-5 text-primary-500" />
+          </div>
+          {room.unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-danger-500 text-[9px] font-bold text-white">
+              {room.unreadCount > 9 ? "9+" : room.unreadCount}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className={cn("text-sm font-semibold truncate", room.unreadCount > 0 ? "text-neutral-950" : "text-neutral-800")}>
+              {room.employerName ?? "고용주"}
+            </span>
+            <span className="flex-shrink-0 text-xs text-neutral-400">
+              {room.lastMessageAt ? relativeTime(room.lastMessageAt) : ""}
+            </span>
+          </div>
+          <p className={cn("mt-0.5 text-xs truncate", room.unreadCount > 0 ? "font-medium text-neutral-600" : "text-neutral-400")}>
+            {room.lastMessagePreview ?? "대화를 시작해보세요"}
+          </p>
+        </div>
+        <ChevronRight className="h-4 w-4 flex-shrink-0 text-neutral-300" />
+      </button>
+
+      {open && (
+        <LeaderChatSheet roomPublicId={room.publicId} employerName={room.employerName} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
+// ─── Leader Chat Sheet (inline chat UI) ───────────────────────────────────────
+
+function LeaderChatSheet({
+  roomPublicId,
+  employerName,
+  onClose,
+}: {
+  roomPublicId: string;
+  employerName: string | null;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [input, setInput] = React.useState("");
+  const bottomRef = React.useRef<HTMLDivElement>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["leader-chat-messages", roomPublicId],
+    queryFn: () => workerChatApi.getMessages(roomPublicId, 0, 100),
+    refetchInterval: 5000,
+  });
+
+  const messages = React.useMemo(() => {
+    const list = [...(data?.content ?? [])];
+    return list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [data]);
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const sendMutation = useMutation({
+    mutationFn: (content: string) => workerChatApi.sendMessage(roomPublicId, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leader-chat-messages", roomPublicId] });
+      queryClient.invalidateQueries({ queryKey: ["leader-chat-rooms"] });
+    },
+  });
+
+  function handleSend() {
+    const text = input.trim();
+    if (!text || sendMutation.isPending) return;
+    setInput("");
+    sendMutation.mutate(text);
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-4 pointer-events-none">
+      <div className="flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl pointer-events-auto w-full sm:max-w-lg" style={{ maxHeight: "85dvh" }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 flex-shrink-0">
+          <div>
+            <p className="font-bold text-neutral-950">{employerName ?? "고용주"}</p>
+            <p className="text-xs text-neutral-400 mt-0.5">고용주와의 채팅</p>
+          </div>
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
+            <X className="h-4 w-4 text-neutral-600" />
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-neutral-50">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+            </div>
+          ) : messages.length === 0 ? (
+            <p className="text-center text-sm text-neutral-400 py-8">대화를 시작해보세요!</p>
+          ) : (
+            messages.map((msg) => (
+              <div key={msg.publicId} className={cn("flex", msg.isMine ? "justify-end" : "justify-start")}>
+                <div className={cn(
+                  "max-w-[72%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                  msg.isMine
+                    ? "rounded-tr-sm bg-primary-500 text-white"
+                    : "rounded-tl-sm bg-white border border-neutral-200 text-neutral-800"
+                )}>
+                  {msg.content}
+                </div>
+              </div>
+            ))
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="flex items-end gap-2 border-t border-neutral-200 bg-white px-4 py-3 flex-shrink-0">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder="메시지를 입력하세요"
+            rows={1}
+            className="flex-1 resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || sendMutation.isPending}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-40 transition-all"
+          >
+            <MessageCircle className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Member Proposals Section (team leader) ───────────────────────────────────
+
+function LeaderMemberProposals() {
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["leader-member-proposals"],
+    queryFn: () => memberProposalApi.receivedProposals(0, 20),
+  });
+
+  const respondMutation = useMutation({
+    mutationFn: ({ publicId, status }: { publicId: string; status: "ACCEPTED" | "DECLINED" }) =>
+      memberProposalApi.respondToProposal(publicId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leader-member-proposals"] });
+    },
+  });
+
+  const proposals = data?.content ?? [];
+  const pending = proposals.filter((p) => p.status === "PENDING");
+
+  if (isLoading) return null;
+  if (proposals.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-neutral-100 bg-white shadow-card-md overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
+        <h2 className="text-base font-bold text-neutral-950 flex items-center gap-2">
+          <UserCheck className="h-4 w-4 text-primary-500" />
+          팀원 제안
+          {pending.length > 0 && (
+            <span className="inline-flex h-5 items-center justify-center rounded-full bg-primary-500 px-1.5 text-[10px] font-bold text-white">
+              {pending.length}
+            </span>
+          )}
+        </h2>
+      </div>
+      <div className="divide-y divide-neutral-100">
+        {proposals.map((p) => (
+          <ProposalRow key={p.publicId} proposal={p} onRespond={(status) => respondMutation.mutate({ publicId: p.publicId, status })} isResponding={respondMutation.isPending} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProposalRow({
+  proposal,
+  onRespond,
+  isResponding,
+}: {
+  proposal: MemberProposalItem;
+  onRespond: (status: "ACCEPTED" | "DECLINED") => void;
+  isResponding: boolean;
+}) {
+  const statusConfig = {
+    PENDING: { label: "대기 중", className: "bg-amber-100 text-amber-700" },
+    ACCEPTED: { label: "수락됨", className: "bg-success-50 text-success-700" },
+    DECLINED: { label: "거절됨", className: "bg-neutral-100 text-neutral-500" },
+  };
+  const cfg = statusConfig[proposal.status as keyof typeof statusConfig] ?? statusConfig.PENDING;
+
+  return (
+    <div className="px-5 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-neutral-900">
+              {proposal.proposerName ?? "이름 없음"}
+            </span>
+            <span className={cn("rounded-md px-2 py-0.5 text-xs font-semibold", cfg.className)}>
+              {cfg.label}
+            </span>
+          </div>
+          {proposal.message && (
+            <p className="mt-1.5 text-sm text-neutral-600 leading-relaxed line-clamp-3">
+              "{proposal.message}"
+            </p>
+          )}
+          <p className="mt-1 text-xs text-neutral-400 flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {relativeTime(proposal.createdAt)}
+          </p>
+        </div>
+      </div>
+
+      {proposal.status === "PENDING" && (
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={() => onRespond("DECLINED")}
+            disabled={isResponding}
+            className="flex-1 rounded-lg border border-neutral-200 py-2 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors disabled:opacity-50"
+          >
+            거절
+          </button>
+          <button
+            onClick={() => onRespond("ACCEPTED")}
+            disabled={isResponding}
+            className="flex-1 rounded-lg bg-primary-500 py-2 text-sm font-semibold text-white hover:bg-primary-600 transition-colors disabled:opacity-50"
+          >
+            수락
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -495,6 +827,14 @@ function TeamHubContent() {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* ── Leader-only: Employer Chats + Member Proposals ── */}
+          {isLeader && (
+            <>
+              <LeaderChatRooms />
+              <LeaderMemberProposals />
+            </>
           )}
         </div>
       )}

@@ -70,6 +70,9 @@ export const chatApi = {
   listRooms: (page = 0, size = 20) =>
     api.get<PageResponse<ChatRoomSummary>>(`/employer/chats/rooms?page=${page}&size=${size}`),
 
+  getRoom: (roomPublicId: string) =>
+    api.get<ChatRoomSummary>(`/employer/chats/rooms/${roomPublicId}`),
+
   getMessages: (roomPublicId: string, page = 0, size = 50) =>
     api.get<PageResponse<ChatMessageItem>>(`/employer/chats/rooms/${roomPublicId}/messages?page=${page}&size=${size}`),
 
@@ -82,6 +85,9 @@ export const chatApi = {
 export const workerChatApi = {
   listRooms: (page = 0, size = 20) =>
     api.get<PageResponse<WorkerChatRoomSummary>>(`/worker/chats/rooms?page=${page}&size=${size}`),
+
+  getRoom: (roomPublicId: string) =>
+    api.get<WorkerChatRoomSummary>(`/worker/chats/rooms/${roomPublicId}`),
 
   getMessages: (roomPublicId: string, page = 0, size = 50) =>
     api.get<PageResponse<ChatMessageItem>>(`/worker/chats/rooms/${roomPublicId}/messages?page=${page}&size=${size}`),
@@ -109,6 +115,53 @@ export const workerTeamProposalApi = {
 
   respond: (proposalPublicId: string, status: "ACCEPTED" | "DECLINED") =>
     api.put<WorkerTeamProposalItem>(`/worker/teams/proposals/${proposalPublicId}`, { status }),
+};
+
+// ── Direct Chat API (worker ↔ worker / leader ↔ member) ───────────────────────
+
+export interface DirectChatRoomResponse {
+  publicId: string;
+  myId: number;
+  otherId: number;
+  otherName: string | null;
+  otherProfileImageUrl: string | null;
+  unreadCount: number;
+  lastMessageAt: string | null;
+  lastMessagePreview: string | null;
+  createdAt: string;
+}
+
+export interface DirectChatRoomSummary {
+  publicId: string;
+  otherUserId: number;
+  otherName: string | null;
+  otherProfileImageUrl: string | null;
+  unreadCount: number;
+  lastMessageAt: string | null;
+  lastMessagePreview: string | null;
+  createdAt: string;
+}
+
+export interface DirectChatMessageItem {
+  publicId: string;
+  senderId: number;
+  isMine: boolean;
+  content: string;
+  createdAt: string;
+}
+
+export const directChatApi = {
+  openRoom: (workerProfilePublicId: string) =>
+    api.post<DirectChatRoomResponse>(`/worker/direct-chats/open?workerProfilePublicId=${encodeURIComponent(workerProfilePublicId)}`, {}),
+
+  listRooms: (page = 0, size = 20) =>
+    api.get<PageResponse<DirectChatRoomSummary>>(`/worker/direct-chats/rooms?page=${page}&size=${size}`),
+
+  getMessages: (roomPublicId: string, page = 0, size = 50) =>
+    api.get<PageResponse<DirectChatMessageItem>>(`/worker/direct-chats/rooms/${roomPublicId}/messages?page=${page}&size=${size}`),
+
+  sendMessage: (roomPublicId: string, content: string) =>
+    api.post<DirectChatMessageItem>(`/worker/direct-chats/rooms/${roomPublicId}/messages`, { content }),
 };
 
 // ── Member Proposal API ────────────────────────────────────────────────────────

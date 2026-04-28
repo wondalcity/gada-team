@@ -2,13 +2,15 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import {
   Users, MapPin, Globe, ChevronRight, Plus, Search,
   SlidersHorizontal, X, ChevronDown, Building2,
-  UserSearch, Shield, Wrench, Phone, Award, Briefcase,
-  Send,
+  UserSearch, Shield, Wrench, MessageCircle, Award, Briefcase,
+  Loader2,
 } from "lucide-react";
+import { directChatApi } from "@/lib/chat-api";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { teamsApi, type TeamListItem, type TeamsFilter, type TeamResponse } from "@/lib/teams-api";
 import { getWorkers, getWorker, type WorkerListItem, type WorkersFilter } from "@/lib/workers-api";
@@ -404,37 +406,39 @@ function FilterSheet({
         onClick={onClose}
         aria-hidden
       />
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[88dvh] flex-col rounded-t-2xl bg-white shadow-card-xl">
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="h-1 w-10 rounded-full bg-neutral-200" />
-        </div>
-        <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3 flex-shrink-0">
-          <span className="text-base font-semibold text-neutral-950">{t("teams.filterSettings")}</span>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setLocal({ page: 0, size: PAGE_SIZE })} className="text-sm text-neutral-500 hover:text-neutral-700">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 pointer-events-none">
+        <div className="w-full sm:max-w-lg max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl pointer-events-auto">
+          <div className="flex justify-center pt-3 pb-1 flex-shrink-0 sm:hidden">
+            <div className="h-1 w-10 rounded-full bg-neutral-200" />
+          </div>
+          <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3 flex-shrink-0">
+            <span className="text-base font-semibold text-neutral-950">{t("teams.filterSettings")}</span>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setLocal({ page: 0, size: PAGE_SIZE })} className="text-sm text-neutral-500 hover:text-neutral-700">
+                {t("teams.filterReset")}
+              </button>
+              <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100">
+                <X className="h-4 w-4 text-neutral-600" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <FilterContent value={local} onChange={setLocal} />
+          </div>
+          <div className="flex-shrink-0 border-t border-neutral-100 bg-white px-5 py-4 flex gap-3">
+            <button
+              onClick={() => { setLocal({ page: 0, size: PAGE_SIZE }); }}
+              className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors"
+            >
               {t("teams.filterReset")}
             </button>
-            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100">
-              <X className="h-4 w-4 text-neutral-600" />
+            <button
+              onClick={() => { onApply({ ...local, page: 0 }); onClose(); }}
+              className="flex-[2] rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
+            >
+              {activeCount > 0 ? t("teams.filterApplyCount" as any, activeCount) : t("teams.filterApply")}
             </button>
           </div>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <FilterContent value={local} onChange={setLocal} />
-        </div>
-        <div className="flex-shrink-0 border-t border-neutral-100 bg-white px-5 py-4 flex gap-3">
-          <button
-            onClick={() => { setLocal({ page: 0, size: PAGE_SIZE }); }}
-            className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors"
-          >
-            {t("teams.filterReset")}
-          </button>
-          <button
-            onClick={() => { onApply({ ...local, page: 0 }); onClose(); }}
-            className="flex-[2] rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
-          >
-            {activeCount > 0 ? t("teams.filterApplyCount" as any, activeCount) : t("teams.filterApply")}
-          </button>
         </div>
       </div>
     </>
@@ -710,35 +714,36 @@ function WorkerFilterSheet({
   return (
     <>
       <div className="fixed inset-0 z-50 bg-neutral-950/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[88dvh] flex-col rounded-t-2xl bg-white shadow-card-xl">
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="h-1 w-10 rounded-full bg-neutral-200" />
-        </div>
-        <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3 flex-shrink-0">
-          <span className="text-base font-semibold text-neutral-950">{t("teams.filterSettings")}</span>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setLocal({ page: 0, size: 20 })} className="text-sm text-neutral-500 hover:text-neutral-700">{t("common.reset")}</button>
-            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100">
-              <X className="h-4 w-4 text-neutral-600" />
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 pointer-events-none">
+        <div className="w-full sm:max-w-lg max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl pointer-events-auto">
+          <div className="flex justify-center pt-3 pb-1 flex-shrink-0 sm:hidden">
+            <div className="h-1 w-10 rounded-full bg-neutral-200" />
+          </div>
+          <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3 flex-shrink-0">
+            <span className="text-base font-semibold text-neutral-950">{t("teams.filterSettings")}</span>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setLocal({ page: 0, size: 20 })} className="text-sm text-neutral-500 hover:text-neutral-700">{t("common.reset")}</button>
+              <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100">
+                <X className="h-4 w-4 text-neutral-600" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <WorkerFilterContent value={local} onChange={setLocal} />
+          </div>
+          <div className="flex-shrink-0 border-t border-neutral-100 bg-white px-5 py-4 flex gap-3">
+            <button onClick={() => setLocal({ page: 0, size: 20 })} className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors">{t("teams.filterReset")}</button>
+            <button onClick={() => { onApply({ ...local, page: 0 }); onClose(); }} className="flex-[2] rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 transition-colors">
+              {activeCount > 0 ? t("teams.filterApplyCount" as any, activeCount) : t("teams.filterApply")}
             </button>
           </div>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <WorkerFilterContent value={local} onChange={setLocal} />
-        </div>
-        <div className="flex-shrink-0 border-t border-neutral-100 bg-white px-5 py-4 flex gap-3">
-          <button onClick={() => setLocal({ page: 0, size: 20 })} className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors">{t("teams.filterReset")}</button>
-          <button onClick={() => { onApply({ ...local, page: 0 }); onClose(); }} className="flex-[2] rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 transition-colors">
-            {activeCount > 0 ? t("teams.filterApplyCount" as any, activeCount) : t("teams.filterApply")}
-          </button>
         </div>
       </div>
     </>
   );
 }
 
-// ─── Worker detail sheet ──────────────────────────────────────────────────────
-
+// ─── Worker detail modal (popup) ─────────────────────────────────────────────
 
 function WorkerDetailSheet({
   publicId,
@@ -748,6 +753,7 @@ function WorkerDetailSheet({
   onClose: () => void;
 }) {
   const t = useT();
+  const router = useRouter();
   const isOpen = !!publicId;
 
   const { data: profile, isLoading } = useQuery({
@@ -756,16 +762,26 @@ function WorkerDetailSheet({
     enabled: isOpen,
   });
 
-  const [contactOpen, setContactOpen] = React.useState(false);
+  const [chatError, setChatError] = React.useState<string | null>(null);
+
+  const openChatMutation = useMutation({
+    mutationFn: () => directChatApi.openRoom(publicId!),
+    onSuccess: (room) => {
+      onClose();
+      router.push(`/chats/direct/${room.publicId}?name=${encodeURIComponent(profile?.fullName ?? "")}`);
+    },
+    onError: () => {
+      setChatError("채팅방을 열지 못했어요. 다시 시도해주세요.");
+    },
+  });
 
   React.useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
-  // Reset contact sub-view when sheet closes
   React.useEffect(() => {
-    if (!isOpen) setContactOpen(false);
+    if (!isOpen) setChatError(null);
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -775,237 +791,186 @@ function WorkerDetailSheet({
 
   return (
     <>
+      {/* Backdrop */}
       <div
         className="fixed inset-0 z-50 bg-neutral-950/40 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[92dvh] flex-col rounded-t-2xl bg-white shadow-card-xl">
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="h-1 w-10 rounded-full bg-neutral-200" />
-        </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3 flex-shrink-0">
-          <span className="text-base font-semibold text-neutral-950">
-            {contactOpen ? t("teams.contactTitle") : t("teams.workerDetailTitle")}
-          </span>
-          <div className="flex items-center gap-2">
-            {contactOpen && (
-              <button
-                onClick={() => setContactOpen(false)}
-                className="text-sm text-neutral-500 hover:text-neutral-700 px-2"
-              >
-                {t("teams.contactBack")}
-              </button>
-            )}
+      {/* Centered popup modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden pointer-events-auto">
+
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4 flex-shrink-0">
+            <span className="text-base font-semibold text-neutral-950">
+              {t("teams.workerDetailTitle")}
+            </span>
             <button
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100"
+              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100 transition-colors"
             >
               <X className="h-4 w-4 text-neutral-600" />
             </button>
           </div>
-        </div>
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
-            <div className="flex flex-col gap-4 px-5 py-6 animate-pulse">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-neutral-200 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-1/3 rounded bg-neutral-200" />
-                  <div className="h-3 w-1/2 rounded bg-neutral-100" />
-                </div>
-              </div>
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-16 rounded-lg bg-neutral-100" />
-              ))}
-            </div>
-          ) : !profile ? (
-            <div className="flex flex-col items-center justify-center py-20 px-5 text-center">
-              <UserSearch className="h-10 w-10 text-neutral-200 mb-3" />
-              <p className="text-sm text-neutral-500">{t("teams.profileError")}</p>
-            </div>
-          ) : contactOpen ? (
-            /* ── Contact sub-view ── */
-            <div className="px-5 py-6 space-y-5">
-              {/* Leader summary */}
-              <div className="flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
-                {profile.profileImageUrl ? (
-                  <img src={profile.profileImageUrl} alt={profile.fullName} className="h-12 w-12 rounded-full object-cover flex-shrink-0" />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-500 text-base font-bold text-white flex-shrink-0">
-                    {profile.fullName.charAt(0)}
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto">
+            {isLoading ? (
+              <div className="flex flex-col gap-4 px-5 py-6 animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-full bg-neutral-200 flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-1/3 rounded bg-neutral-200" />
+                    <div className="h-3 w-1/2 rounded bg-neutral-100" />
                   </div>
-                )}
-                <div>
-                  <p className="font-semibold text-neutral-900">{profile.fullName}</p>
-                  {profile.teamName && (
-                    <p className="text-sm text-neutral-500">{profile.teamName} {t("teams.leaderRole")}</p>
-                  )}
                 </div>
-              </div>
-
-              {/* Step guide */}
-              <div className="space-y-3">
-                {[
-                  { step: "01", title: t("teams.contactStep1Title"), desc: t("teams.contactStep1Desc") },
-                  { step: "02", title: t("teams.contactStep2Title"), desc: t("teams.contactStep2Desc") },
-                  { step: "03", title: t("teams.contactStep3Title"), desc: t("teams.contactStep3Desc") },
-                ].map((s) => (
-                  <div key={s.step} className="flex gap-3">
-                    <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary-50 text-[11px] font-bold text-primary-600">
-                      {s.step}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-800">{s.title}</p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-neutral-500">{s.desc}</p>
-                    </div>
-                  </div>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-16 rounded-lg bg-neutral-100" />
                 ))}
               </div>
-
-              {profile.teamPublicId && (
-                <Link
-                  href={`/teams/${profile.teamPublicId}`}
-                  onClick={onClose}
-                  className="block w-full rounded-xl bg-primary-500 py-3.5 text-center text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
-                >
-                  {t("teams.goToTeamPage")}
-                </Link>
-              )}
-            </div>
-          ) : (
-            /* ── Profile main view ── */
-            <div className="px-5 py-6 space-y-5">
-              {/* Avatar + name + badges */}
-              <div className="flex items-center gap-4">
-                <div className="relative flex-shrink-0">
-                  {profile.profileImageUrl ? (
-                    <img src={profile.profileImageUrl} alt={profile.fullName} className="h-16 w-16 rounded-full object-cover" />
-                  ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-500 text-xl font-bold text-white">
-                      {profile.fullName.charAt(0)}
-                    </div>
-                  )}
-                  {profile.isTeamLeader && (
-                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-warning-500 ring-2 ring-white">
-                      <Shield className="h-3 w-3 text-white" />
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <h2 className="text-lg font-bold text-neutral-900">{profile.fullName}</h2>
-                    {profile.isTeamLeader && (
-                      <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-warning-100 text-warning-700">
-                        {t("teams.leaderBadge")}
-                      </span>
-                    )}
-                    {healthClassName && healthLabel && (
-                      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none", healthClassName)}>
-                        {healthLabel}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-sm text-neutral-500">
-                    {t(`nationality.${profile.nationality}` as any) || profile.nationality} · {t(`visa.${profile.visaType}` as any) || profile.visaType}
-                  </p>
-                  {profile.teamName && (
-                    <p className="mt-0.5 text-sm text-primary-600 font-medium">{profile.teamName}</p>
-                  )}
-                </div>
+            ) : !profile ? (
+              <div className="flex flex-col items-center justify-center py-20 px-5 text-center">
+                <UserSearch className="h-10 w-10 text-neutral-200 mb-3" />
+                <p className="text-sm text-neutral-500">{t("teams.profileError")}</p>
               </div>
-
-              {/* Bio */}
-              {profile.bio && (
-                <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
-                  <p className="text-sm leading-relaxed text-neutral-600">{profile.bio}</p>
-                </div>
-              )}
-
-              {/* Pay expectation */}
-              {(profile.desiredPayMin || profile.desiredPayMax) && (
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teams.desiredPay")}</p>
-                  <p className="text-sm font-semibold text-neutral-800">
-                    {profile.desiredPayMin ? `${profile.desiredPayMin.toLocaleString("ko-KR")}원` : ""}
-                    {profile.desiredPayMin && profile.desiredPayMax ? " ~ " : ""}
-                    {profile.desiredPayMax ? `${profile.desiredPayMax.toLocaleString("ko-KR")}원` : ""}
-                    {profile.desiredPayUnit ? ` / ${t(`payUnit.${profile.desiredPayUnit}` as any) || profile.desiredPayUnit}` : ""}
-                  </p>
-                </div>
-              )}
-
-              {/* Languages */}
-              {profile.languages.length > 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teams.workerLanguages")}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {profile.languages.map((l, i) => (
-                      <span key={i} className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600">
-                        {l.code} · {t(`langLevel.${l.level}` as any) || l.level}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Certifications */}
-              {profile.certifications.length > 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teams.workerCerts")}</p>
-                  <div className="space-y-1.5">
-                    {profile.certifications.map((c, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <Award className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-neutral-400" />
-                        <div>
-                          <p className="text-sm font-medium text-neutral-800">{c.name}</p>
-                          {(c.issueDate || c.expiryDate) && (
-                            <p className="text-xs text-neutral-400">
-                              {[c.issueDate, c.expiryDate].filter(Boolean).join(" ~ ")}
-                            </p>
-                          )}
-                        </div>
+            ) : (
+              <div className="px-5 py-6 space-y-5">
+                {/* Avatar + name + badges */}
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-shrink-0">
+                    {profile.profileImageUrl ? (
+                      <img src={profile.profileImageUrl} alt={profile.fullName} className="h-16 w-16 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-500 text-xl font-bold text-white">
+                        {profile.fullName.charAt(0)}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Equipment */}
-              {profile.equipment.length > 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teams.workerEquipment")}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {profile.equipment.map((eq, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600">
-                        <Wrench className="h-3 w-3 text-neutral-400" />
-                        {equipmentLabel(eq)}
+                    )}
+                    {profile.isTeamLeader && (
+                      <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-warning-500 ring-2 ring-white">
+                        <Shield className="h-3 w-3 text-white" />
                       </span>
-                    ))}
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <h2 className="text-lg font-bold text-neutral-900">{profile.fullName}</h2>
+                      {profile.isTeamLeader && (
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none bg-warning-100 text-warning-700">
+                          {t("teams.leaderBadge")}
+                        </span>
+                      )}
+                      {healthClassName && healthLabel && (
+                        <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none", healthClassName)}>
+                          {healthLabel}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-sm text-neutral-500">
+                      {t(`nationality.${profile.nationality}` as any) || profile.nationality} · {t(`visa.${profile.visaType}` as any) || profile.visaType}
+                    </p>
+                    {profile.teamName && (
+                      <p className="mt-0.5 text-sm text-primary-600 font-medium">{profile.teamName}</p>
+                    )}
                   </div>
                 </div>
+
+                {/* Bio */}
+                {profile.bio && (
+                  <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+                    <p className="text-sm leading-relaxed text-neutral-600">{profile.bio}</p>
+                  </div>
+                )}
+
+                {/* Pay expectation */}
+                {(profile.desiredPayMin || profile.desiredPayMax) && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teams.desiredPay")}</p>
+                    <p className="text-sm font-semibold text-neutral-800">
+                      {profile.desiredPayMin ? `${profile.desiredPayMin.toLocaleString("ko-KR")}원` : ""}
+                      {profile.desiredPayMin && profile.desiredPayMax ? " ~ " : ""}
+                      {profile.desiredPayMax ? `${profile.desiredPayMax.toLocaleString("ko-KR")}원` : ""}
+                      {profile.desiredPayUnit ? ` / ${t(`payUnit.${profile.desiredPayUnit}` as any) || profile.desiredPayUnit}` : ""}
+                    </p>
+                  </div>
+                )}
+
+                {/* Languages */}
+                {profile.languages.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teams.workerLanguages")}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.languages.map((l, i) => (
+                        <span key={i} className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600">
+                          {l.code} · {t(`langLevel.${l.level}` as any) || l.level}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Certifications */}
+                {profile.certifications.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teams.workerCerts")}</p>
+                    <div className="space-y-1.5">
+                      {profile.certifications.map((c, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <Award className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-neutral-400" />
+                          <div>
+                            <p className="text-sm font-medium text-neutral-800">{c.name}</p>
+                            {(c.issueDate || c.expiryDate) && (
+                              <p className="text-xs text-neutral-400">
+                                {[c.issueDate, c.expiryDate].filter(Boolean).join(" ~ ")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Equipment */}
+                {profile.equipment.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">{t("teams.workerEquipment")}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.equipment.map((eq, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600">
+                          <Wrench className="h-3 w-3 text-neutral-400" />
+                          {equipmentLabel(eq)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer CTA */}
+          {!isLoading && profile && (
+            <div className="flex-shrink-0 border-t border-neutral-100 bg-white px-5 py-4 space-y-2">
+              {chatError && (
+                <p className="text-xs text-danger-600 text-center">{chatError}</p>
               )}
+              <button
+                onClick={() => openChatMutation.mutate()}
+                disabled={openChatMutation.isPending}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 py-3.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 transition-colors"
+              >
+                {openChatMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MessageCircle className="h-4 w-4" />
+                )}
+                {openChatMutation.isPending ? "채팅방 열기..." : "채팅하기"}
+              </button>
             </div>
           )}
         </div>
-
-        {/* Footer CTA */}
-        {!isLoading && profile && !contactOpen && profile.isTeamLeader && (
-          <div className="flex-shrink-0 border-t border-neutral-100 bg-white px-5 py-4">
-            <button
-              onClick={() => setContactOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 py-3.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
-            >
-              <Phone className="h-4 w-4" />
-              {t("teams.contactTitle")}
-            </button>
-          </div>
-        )}
       </div>
     </>
   );

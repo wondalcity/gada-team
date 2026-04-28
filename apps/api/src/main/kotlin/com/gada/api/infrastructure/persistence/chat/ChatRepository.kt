@@ -110,6 +110,13 @@ class ChatRepository(private val em: EntityManager) {
             String::class.java
         ).setParameter("uid", employerId).resultList.firstOrNull()
 
+    /** Get employer company name (기업명) — falls back to employer full name */
+    fun findEmployerCompanyName(employerId: Long): String? =
+        em.createNativeQuery(
+            "SELECT c.name FROM employer_profiles ep LEFT JOIN companies c ON ep.company_id = c.id WHERE ep.user_id = :uid LIMIT 1"
+        ).setParameter("uid", employerId).resultList.firstOrNull() as? String
+            ?: findEmployerName(employerId)
+
     /** Get worker/leader display name from worker_profiles */
     fun findWorkerName(userId: Long): String? =
         em.createQuery(
