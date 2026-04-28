@@ -17,8 +17,8 @@ import {
   Lock,
 } from "lucide-react";
 import { employerApi, ApplicationSummary, ApplicationDetail, ApplicationStatus } from "@/lib/employer-api";
-import { contractsApi, type ContractDetail } from "@/lib/contracts-api";
-import { ClipboardSignature } from "lucide-react";
+import { contractsApi, type ContractDetail, type ContractTemplateResponse } from "@/lib/contracts-api";
+import { ClipboardSignature, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -89,9 +89,14 @@ function healthLabel(code: string) {
 
 // ─── Contract section ─────────────────────────────────────────────────────────
 
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: "초안", SENT: "발송됨", SIGNED: "서명완료", EXPIRED: "만료됨", CANCELLED: "취소됨",
+};
+
 function ContractSection({ applicationPublicId }: { applicationPublicId: string }) {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = React.useState(false);
+  const [sendError, setSendError] = React.useState<string | null>(null);
   const [formData, setFormData] = React.useState({
     startDate: "",
     endDate: "",
@@ -107,6 +112,26 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
     retry: false,
   });
 
+  // Fetch employer template to pre-fill form
+  const { data: template } = useQuery({
+    queryKey: ["employer-contract-template"],
+    queryFn: () => contractsApi.getTemplate(),
+    retry: false,
+  });
+
+  // When template loads and form hasn't been touched, pre-fill
+  React.useEffect(() => {
+    if (template && !contract) {
+      setFormData((f) => ({
+        ...f,
+        payAmount: template.payAmount ? String(template.payAmount) : f.payAmount,
+        payUnit: template.payUnit ?? f.payUnit,
+        terms: template.terms ?? f.terms,
+        documentUrl: template.documentUrl ?? f.documentUrl,
+      }));
+    }
+  }, [template, contract]);
+
   const sendMutation = useMutation({
     mutationFn: () => contractsApi.sendForApplication(applicationPublicId, {
       startDate: formData.startDate || undefined,
@@ -119,49 +144,91 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
     onSuccess: (data) => {
       queryClient.setQueryData(["employer-contract", applicationPublicId], data);
       setShowForm(false);
+      setSendError(null);
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "계약서 발송에 실패했어요.";
+      setSendError(msg);
     },
   });
 
-  const statusLabel: Record<string, string> = {
-    DRAFT: "초안", SENT: "발송됨", SIGNED: "서명완료", EXPIRED: "만료됨", CANCELLED: "취소됨",
-  };
-
   return (
     <div className="rounded-lg border border-neutral-100 bg-white p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <ClipboardSignature className="h-4 w-4 text-primary-500" />
-        <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">계약서</p>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ClipboardSignature className="h-4 w-4 text-primary-500" />
+          <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">계약서</p>
+        </div>
+        {!contract && (
+          <Link
+            href="/employer/contracts"
+            className="text-[10px] text-primary-500 hover:underline"
+          >
+            양식 관리 →
+          </Link>
+        )}
       </div>
 
       {isLoading ? (
         <div className="h-10 animate-pulse rounded bg-neutral-100" />
       ) : contract ? (
-        <div>
+        /* ── Contract exists: show status ── */
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <div>
-              <span className={cn(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
-                contract.status === "SIGNED"
-                  ? "bg-success-50 text-success-700"
-                  : "bg-primary-50 text-primary-700"
-              )}>
-                {statusLabel[contract.status] ?? contract.status}
-              </span>
-              {contract.sentAt && (
-                <p className="mt-1 text-xs text-neutral-400">
-                  발송: {new Date(contract.sentAt).toLocaleDateString("ko-KR")}
-                </p>
+            <span className={cn(
+              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+              contract.status === "SIGNED"
+                ? "bg-success-50 text-success-700"
+                : contract.status === "SENT"
+                ? "bg-primary-50 text-primary-700"
+                : "bg-neutral-100 text-neutral-500"
+            )}>
+              {STATUS_LABEL[contract.status] ?? contract.status}
+            </span>
+            {contract.documentUrl && (
+              <a
+                href={contract.documentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary-500 hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                문서 열기
+              </a>
+            )}
+          </div>
+          <div className="text-xs text-neutral-500 space-y-0.5">
+            {contract.sentAt && (
+              <p>발송: {new Date(contract.sentAt).toLocaleDateString("ko-KR")}</p>
+            )}
+            {contract.workerSignedAt ? (
+              <p className="text-success-600 font-medium">
+                ✓ 근로자 서명: {new Date(contract.workerSignedAt).toLocaleDateString("ko-KR")}
+              </p>
+            ) : (
+              <p className="text-neutral-400">근로자 서명 대기 중</p>
+            )}
+          </div>
+          {(contract.payAmount || contract.startDate) && (
+            <div className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600 space-y-0.5">
+              {contract.payAmount && (
+                <p>{contract.payAmount.toLocaleString("ko-KR")}원 / {contract.payUnit === "DAILY" ? "일" : contract.payUnit === "MONTHLY" ? "월" : contract.payUnit}</p>
               )}
-              {contract.workerSignedAt && (
-                <p className="text-xs text-success-600 font-medium">
-                  서명완료: {new Date(contract.workerSignedAt).toLocaleDateString("ko-KR")}
-                </p>
+              {contract.startDate && (
+                <p>{contract.startDate} ~ {contract.endDate ?? "—"}</p>
               )}
             </div>
-          </div>
+          )}
         </div>
       ) : showForm ? (
+        /* ── Contract form ── */
         <div className="space-y-3">
+          {sendError && (
+            <div className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2 text-xs text-danger-700">
+              <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+              <span>{sendError}</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-neutral-500 mb-1 block">시작일</label>
@@ -213,7 +280,7 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
               onChange={(e) => setFormData((f) => ({ ...f, terms: e.target.value }))}
               rows={3}
               placeholder="계약 조건을 입력하세요"
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200 resize-none"
             />
           </div>
           <div>
@@ -228,7 +295,7 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
           </div>
           <div className="flex gap-2 pt-1">
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => { setShowForm(false); setSendError(null); }}
               className="flex-1 rounded-lg border border-neutral-200 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors"
             >
               취소
@@ -243,6 +310,7 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
           </div>
         </div>
       ) : (
+        /* ── No contract yet: show create button ── */
         <button
           onClick={() => setShowForm(true)}
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2.5 text-xs font-semibold text-white hover:bg-primary-600 transition-colors"

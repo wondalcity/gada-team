@@ -16,9 +16,12 @@ import {
   Check,
   Briefcase,
   Image as ImageIcon,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { teamsApi, CreateTeamPayload, RegionEntry, PortfolioEntry } from "@/lib/teams-api";
+import { uploadImageToStorage } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -245,6 +248,34 @@ function Step1({
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
 }) {
+  const [uploadingCover, setUploadingCover] = React.useState(false);
+  const [coverError, setCoverError] = React.useState<string | null>(null);
+  const coverFileRef = React.useRef<HTMLInputElement>(null);
+
+  async function handleCoverFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setCoverError("이미지 파일만 업로드할 수 있어요 (JPG, PNG, WebP)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCoverError("파일 크기는 5MB 이하여야 해요");
+      return;
+    }
+    setCoverError(null);
+    setUploadingCover(true);
+    try {
+      const path = `teams/covers/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
+      const url = await uploadImageToStorage(file, path);
+      setForm((f) => ({ ...f, coverImageUrl: url }));
+    } catch {
+      setCoverError("업로드에 실패했어요. 다시 시도해주세요.");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Team name */}
@@ -348,35 +379,77 @@ function Step1({
         />
       </div>
 
-      {/* Cover image URL + preview */}
+      {/* Cover image upload */}
       <div>
         <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
-          팀 사진 URL (선택)
+          팀 대표 사진 (선택)
         </label>
+
+        {/* Hidden file input */}
         <input
-          type="url"
-          value={form.coverImageUrl}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, coverImageUrl: e.target.value }))
-          }
-          placeholder="https://..."
-          className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          ref={coverFileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleCoverFileChange}
         />
-        {form.coverImageUrl && (
-          <div className="mt-2 relative h-36 w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
+
+        {form.coverImageUrl ? (
+          /* Preview with change / remove buttons */
+          <div className="relative h-40 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100">
             <img
               src={form.coverImageUrl}
               alt="팀 사진 미리보기"
               className="h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.parentElement!.innerHTML =
-                  '<p class="flex h-full items-center justify-center text-xs text-neutral-400">이미지를 불러올 수 없어요</p>';
-              }}
             />
-            <div className="absolute bottom-2 right-2">
-              <span className="rounded-lg bg-black/50 px-2 py-0.5 text-[10px] text-white">미리보기</span>
+            <div className="absolute inset-0 flex items-end justify-end gap-2 p-2 bg-gradient-to-t from-black/30 to-transparent">
+              <button
+                type="button"
+                onClick={() => coverFileRef.current?.click()}
+                disabled={uploadingCover}
+                className="rounded-lg bg-white/90 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-white transition-colors shadow-sm"
+              >
+                변경
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, coverImageUrl: "" }))}
+                className="rounded-lg bg-danger-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-danger-600 transition-colors shadow-sm"
+              >
+                삭제
+              </button>
             </div>
           </div>
+        ) : (
+          /* Upload button */
+          <button
+            type="button"
+            onClick={() => coverFileRef.current?.click()}
+            disabled={uploadingCover}
+            className={cn(
+              "flex h-32 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all",
+              uploadingCover
+                ? "border-primary-300 bg-primary-50 cursor-not-allowed"
+                : "border-neutral-200 bg-neutral-50 hover:border-primary-400 hover:bg-primary-50 cursor-pointer"
+            )}
+          >
+            {uploadingCover ? (
+              <>
+                <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
+                <p className="text-xs text-primary-600 font-medium">업로드 중...</p>
+              </>
+            ) : (
+              <>
+                <Upload className="h-6 w-6 text-neutral-400" />
+                <p className="text-sm font-medium text-neutral-600">사진 선택</p>
+                <p className="text-xs text-neutral-400">JPG, PNG, WebP · 최대 5MB</p>
+              </>
+            )}
+          </button>
+        )}
+
+        {coverError && (
+          <p className="mt-1.5 text-xs text-danger-600">{coverError}</p>
         )}
       </div>
     </div>

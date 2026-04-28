@@ -3,12 +3,15 @@ package com.gada.api.application.contract
 import com.gada.api.common.exception.ForbiddenException
 import com.gada.api.common.exception.NotFoundException
 import com.gada.api.domain.application.ApplicationStatus
+import com.gada.api.domain.chat.ChatMessage
 import com.gada.api.domain.contract.Contract
 import com.gada.api.domain.contract.ContractStatus
 import com.gada.api.domain.user.PayUnit
 import com.gada.api.infrastructure.persistence.application.ApplicationRepository
+import com.gada.api.infrastructure.persistence.chat.ChatRepository
 import com.gada.api.infrastructure.persistence.contract.ContractRepository
 import com.gada.api.infrastructure.persistence.job.JobRepository
+import com.gada.api.infrastructure.persistence.team.TeamRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -20,9 +23,9 @@ class ContractUseCase(
     private val contractRepository: ContractRepository,
     private val applicationRepository: ApplicationRepository,
     private val jobRepository: JobRepository,
+    private val teamRepository: TeamRepository,
+    private val chatRepository: ChatRepository,
 ) {
-    // ── Worker: list contracts where this user is the worker ────────────────────
-
     @Transactional(readOnly = true)
     fun getWorkerContracts(workerUserId: Long): List<ContractSummary> =
         contractRepository.findByWorkerUserId(workerUserId).map { it.toSummary() }
@@ -46,8 +49,6 @@ class ContractUseCase(
         return contractRepository.save(contract).toDetail()
     }
 
-    // ── Employer: create & send contract after application is HIRED ─────────────
-
     @Transactional
     fun createAndSend(
         employerUserId: Long,
@@ -59,20 +60,14 @@ class ContractUseCase(
         if (app.status != ApplicationStatus.HIRED)
             throw ForbiddenException("채용 확정 상태에서만 계약서를 발송할 수 있습니다.")
 
-        // Prevent duplicate contracts
         val existing = contractRepository.findByApplicationId(app.id)
-        if (existing != null) {
-            // Return existing if already sent
-            return existing.toDetail()
-        }
-
-        val job = jobRepository.findById(app.jobId) ?: throw NotFoundException("Job", app.jobId)
+        if (existing != null) return existing.toDetail()
 
         val contract = Contract().apply {
             this.applicationId = app.id
             this.jobId = app.jobId
             this.employerUserId = employerUserId
-            this.workerUserId = app.applicantUserId
+            this.workerUserId = app.applicantUserId ?: 0L
             this.status = ContractStatus.SENT
             this.startDate = req.startDate
             this.endDate = req.endDate
@@ -82,7 +77,36 @@ class ContractUseCase(
             this.documentUrl = req.documentUrl
             this.sentAt = Instant.now()
         }
-        return contractRepository.save(contract).toDetail()
+        val saved = contractRepository.save(contract)
+
+        // Send CONTRACT chat message if this is a TEAM application
+        if (app.teamId != null) {
+            try {
+                val team = teamRepository.findById(app.teamId!!)
+                if (team != null) {
+                    val teamPublicId = team.publicId.toString()
+                    val room = chatRepository.findRoomByEmployerAndTeam(employerUserId, teamPublicId)
+                    if (room != null) {
+                        val msg = ChatMessage().apply {
+                            this.roomId = room.id
+                            this.senderId = employerUserId
+                            this.content = "📄 계약서가 발송되었습니다. 확인 후 서명해 주세요."
+                            this.messageType = "CONTRACT"
+                            this.contractPublicId = saved.publicId
+                        }
+                        chatRepository.saveMessage(msg)
+                        room.lastMessageAt = msg.createdAt
+                        room.lastMessagePreview = msg.content.take(80)
+                        room.leaderUnread += 1
+                        chatRepository.saveRoom(room)
+                    }
+                }
+            } catch (e: Exception) {
+                // Non-fatal: contract was sent successfully, chat message failed silently
+            }
+        }
+
+        return saved.toDetail()
     }
 
     @Transactional(readOnly = true)
@@ -94,8 +118,6 @@ class ContractUseCase(
         return contract.toDetail()
     }
 }
-
-// ─── Response types ──────────────────────────────────────────────────────────
 
 data class CreateContractRequest(
     val startDate: LocalDate?,
@@ -136,7 +158,7 @@ data class ContractDetail(
 
 private fun Contract.toSummary() = ContractSummary(
     publicId = publicId,
-    applicationPublicId = null, // not stored in entity; caller can enrich if needed
+    applicationPublicId = null,
     jobTitle = null,
     status = status.name,
     sentAt = sentAt,

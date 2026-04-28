@@ -33,6 +33,13 @@ export interface CreateContractPayload {
   documentUrl?: string;
 }
 
+export interface ContractTemplateResponse {
+  payAmount?: number;
+  payUnit?: string;
+  terms?: string;
+  documentUrl?: string;
+}
+
 // ─── Worker ───────────────────────────────────────────────────────────────────
 
 export const contractsApi = {
@@ -52,4 +59,11 @@ export const contractsApi = {
   /** Employer: get contract linked to an application */
   getByApplication: (applicationPublicId: string) =>
     api.get<ContractDetail | null>(`/contracts/applications/${applicationPublicId}`),
+
+  /** Employer: get contract template */
+  getTemplate: () => api.get<ContractTemplateResponse>("/employer/contracts/template"),
+
+  /** Employer: save/update contract template */
+  upsertTemplate: (payload: ContractTemplateResponse) =>
+    api.put<ContractTemplateResponse>("/employer/contracts/template", payload),
 };

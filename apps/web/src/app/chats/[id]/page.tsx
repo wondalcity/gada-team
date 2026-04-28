@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Send, AlertCircle } from "lucide-react";
+import { ChevronLeft, Send, AlertCircle, ClipboardSignature, ExternalLink } from "lucide-react";
 import { workerChatApi, ChatMessageItem } from "@/lib/chat-api";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useT } from "@/lib/i18n";
@@ -23,9 +23,47 @@ function isSameDay(a: string, b: string): boolean {
   return formatDate(a) === formatDate(b);
 }
 
+// ─── Contract Message Card ─────────────────────────────────────────────────────
+
+function ContractMessageCard({ msg }: { msg: ChatMessageItem }) {
+  return (
+    <div className={cn("flex", msg.isMine ? "justify-end" : "justify-start")}>
+      <div className="max-w-[80%] space-y-0.5">
+        <div className="rounded-2xl rounded-tl-sm border border-primary-200 bg-primary-50 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-500">
+              <ClipboardSignature className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-primary-900">계약서 발송</p>
+              <p className="text-xs text-primary-600">서명이 필요합니다</p>
+            </div>
+          </div>
+          <p className="text-sm text-primary-800 leading-relaxed">{msg.content}</p>
+          <div className="flex gap-2">
+            <a
+              href="/applications"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2 text-xs font-bold text-white hover:bg-primary-600 transition-colors"
+            >
+              <ClipboardSignature className="h-3.5 w-3.5" />
+              계약서 확인 및 서명
+            </a>
+          </div>
+        </div>
+        <p className="text-[10px] text-neutral-400 text-left">
+          {formatTime(msg.createdAt)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Message Bubble ────────────────────────────────────────────────────────────
 
 function MessageBubble({ msg }: { msg: ChatMessageItem }) {
+  if (msg.messageType === "CONTRACT") {
+    return <ContractMessageCard msg={msg} />;
+  }
   return (
     <div className={cn("flex", msg.isMine ? "justify-end" : "justify-start")}>
       <div className="max-w-[72%] space-y-0.5">

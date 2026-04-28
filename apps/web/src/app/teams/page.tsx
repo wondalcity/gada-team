@@ -1199,6 +1199,7 @@ function TeamsPageContent() {
   const [filter, setFilter] = React.useState<TeamsFilter>({ page: 0, size: PAGE_SIZE });
   const [keyword, setKeyword] = React.useState("");
   const [showSheet, setShowSheet] = React.useState(false);
+  const [showMyTeamsOnly, setShowMyTeamsOnly] = React.useState(false);
 
   // Debounced keyword → filter
   React.useEffect(() => {
@@ -1228,7 +1229,11 @@ function TeamsPageContent() {
     [leadedTeamsQuery.data]
   );
 
-  const teams = data?.pages.flatMap((p) => p.content) ?? [];
+  const allTeams = data?.pages.flatMap((p) => p.content) ?? [];
+  // When "내 팀만 보기" is active, filter to only leaded teams
+  const teams = showMyTeamsOnly
+    ? allTeams.filter((t) => myTeamPublicIds.has(t.publicId))
+    : allTeams;
   const total = data?.pages[0]?.totalElements ?? 0;
   const activeCount = countActive(filter);
 
@@ -1248,15 +1253,31 @@ function TeamsPageContent() {
             </p>
           )}
         </div>
-        {(user?.role === "WORKER" || user?.role === "TEAM_LEADER") && (
-          <Link
-            href="/teams/new"
-            className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {t("teams.createTeam")}
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {user?.role === "TEAM_LEADER" && myTeamPublicIds.size > 0 && (
+            <button
+              onClick={() => setShowMyTeamsOnly((v) => !v)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
+                showMyTeamsOnly
+                  ? "border-primary-500 bg-primary-500 text-white"
+                  : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
+              )}
+            >
+              <Shield className="h-3.5 w-3.5" />
+              {t("teams.myTeamBadge")}
+            </button>
+          )}
+          {(user?.role === "WORKER" || user?.role === "TEAM_LEADER") && (
+            <Link
+              href="/teams/new"
+              className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              {t("teams.createTeam")}
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Search bar */}

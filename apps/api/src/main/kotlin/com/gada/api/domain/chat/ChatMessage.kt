@@ -27,6 +27,12 @@ class ChatMessage {
     @Column(name = "content", columnDefinition = "text", nullable = false)
     var content: String = ""
 
+    @Column(name = "message_type", nullable = false, length = 20)
+    var messageType: String = "TEXT"
+
+    @Column(name = "contract_public_id", columnDefinition = "uuid")
+    var contractPublicId: java.util.UUID? = null
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now()
 }

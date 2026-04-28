@@ -36,6 +36,8 @@ export interface ChatMessageItem {
   senderId: number;
   isMine: boolean;
   content: string;
+  messageType: "TEXT" | "CONTRACT";
+  contractPublicId?: string;
   createdAt: string;
 }
 

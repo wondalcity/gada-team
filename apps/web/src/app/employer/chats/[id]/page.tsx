@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Send, AlertCircle } from "lucide-react";
+import { ChevronLeft, Send, AlertCircle, ClipboardSignature, CheckCircle2 } from "lucide-react";
 import { chatApi, ChatMessageItem } from "@/lib/chat-api";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
@@ -22,9 +22,48 @@ function isSameDay(a: string, b: string): boolean {
   return formatDate(a) === formatDate(b);
 }
 
+// ─── Contract Message Card ─────────────────────────────────────────────────────
+
+function ContractMessageCard({ msg }: { msg: ChatMessageItem }) {
+  return (
+    <div className={cn("flex", msg.isMine ? "justify-end" : "justify-start")}>
+      <div className="max-w-[80%] space-y-0.5">
+        <div className={cn(
+          "rounded-2xl p-4 space-y-2",
+          msg.isMine
+            ? "rounded-tr-sm bg-primary-500"
+            : "rounded-tl-sm border border-primary-200 bg-primary-50"
+        )}>
+          <div className="flex items-center gap-2">
+            <ClipboardSignature className={cn("h-4 w-4", msg.isMine ? "text-white/80" : "text-primary-500")} />
+            <p className={cn("text-sm font-bold", msg.isMine ? "text-white" : "text-primary-900")}>
+              계약서 발송됨
+            </p>
+          </div>
+          <p className={cn("text-xs leading-relaxed", msg.isMine ? "text-white/80" : "text-primary-700")}>
+            {msg.content}
+          </p>
+          {msg.isMine && (
+            <p className="text-xs text-white/60 flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              근로자가 서명 대기 중
+            </p>
+          )}
+        </div>
+        <p className={cn("text-[10px] text-neutral-400", msg.isMine ? "text-right" : "text-left")}>
+          {formatTime(msg.createdAt)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Message Bubble ────────────────────────────────────────────────────────────
 
 function MessageBubble({ msg }: { msg: ChatMessageItem }) {
+  if (msg.messageType === "CONTRACT") {
+    return <ContractMessageCard msg={msg} />;
+  }
   return (
     <div className={cn("flex", msg.isMine ? "justify-end" : "justify-start")}>
       <div className={cn("max-w-[72%] space-y-0.5")}>
