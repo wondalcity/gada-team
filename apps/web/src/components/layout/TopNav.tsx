@@ -18,6 +18,9 @@ import {
   ChevronDown,
   Globe,
   MapPin,
+  Coins,
+  CreditCard,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
@@ -93,6 +96,8 @@ function getNavLinks(role: string | undefined, t: ReturnType<typeof useT>) {
     { label: t("nav.teams"), href: "/teams", icon: Users },
     { label: t("nav.guides"), href: "/guides", icon: BookOpen },
     { label: t("nav.applications"), href: "/applications", icon: FileText },
+    { label: t("nav.chats"), href: "/chats", icon: MessageCircle },
+    { label: t("nav.proposals"), href: "/proposals", icon: FileText },
   ];
   const EMPLOYER_LINKS = [
     { label: t("nav.dashboard"), href: "/employer", icon: LayoutDashboard, exact: true },
@@ -101,6 +106,7 @@ function getNavLinks(role: string | undefined, t: ReturnType<typeof useT>) {
     { label: t("nav.jobManage"), href: "/employer/jobs", icon: Briefcase },
     { label: t("nav.applicants"), href: "/employer/applicants", icon: Users },
     { label: t("nav.teams"), href: "/employer/teams", icon: Users },
+    { label: t("nav.chats"), href: "/employer/chats", icon: MessageCircle },
   ];
   const ADMIN_LINKS = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
@@ -263,12 +269,31 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                             {t("nav.myProfile")}
                           </Link>
                         ) : user.role === "EMPLOYER" ? (
-                          <Link
-                            href="/employer"
-                            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
-                          >
-                            {t("nav.adminDashboard")}
-                          </Link>
+                          <>
+                            <Link
+                              href="/employer"
+                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            >
+                              <LayoutDashboard className="h-3.5 w-3.5 text-neutral-400" />
+                              {t("nav.dashboard")}
+                            </Link>
+                            <div className="my-0.5 border-t border-neutral-100" />
+                            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("nav.employerProfile")}</p>
+                            <Link
+                              href="/employer/points"
+                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            >
+                              <Coins className="h-3.5 w-3.5 text-primary-400" />
+                              {t("nav.chargePoints")}
+                            </Link>
+                            <Link
+                              href="/employer/payments"
+                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            >
+                              <CreditCard className="h-3.5 w-3.5 text-neutral-400" />
+                              {t("nav.paymentHistory")}
+                            </Link>
+                          </>
                         ) : user.role === "ADMIN" ? (
                           <a
                             href="http://localhost:3001/dashboard"
@@ -386,6 +411,31 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                   );
                 })}
               </div>
+              {user?.role === "EMPLOYER" && (
+                <div className="mt-2 border-t border-neutral-100 pt-2">
+                  <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("nav.employerProfile")}</p>
+                  <Link
+                    href="/employer/points"
+                    className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Coins className="h-4 w-4 text-primary-400" />
+                      {t("nav.chargePoints")}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-neutral-300" />
+                  </Link>
+                  <Link
+                    href="/employer/payments"
+                    className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <CreditCard className="h-4 w-4 text-neutral-400" />
+                      {t("nav.paymentHistory")}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-neutral-300" />
+                  </Link>
+                </div>
+              )}
               <div className="mt-2 border-t border-neutral-100 pt-2">
                 {user ? (
                   <button

@@ -149,4 +149,33 @@ class PointsRepository(private val em: EntityManager) {
 
         return Pair(content, total)
     }
+
+    fun findProposalsByTeamPublicId(
+        teamPublicId: String,
+        page: Int,
+        size: Int,
+    ): Pair<List<TeamProposal>, Long> {
+        val total = em.createQuery(
+            "SELECT COUNT(p) FROM TeamProposal p WHERE p.teamPublicId = :team",
+            Long::class.javaObjectType
+        ).setParameter("team", teamPublicId)
+            .singleResult
+
+        val content = em.createQuery(
+            "SELECT p FROM TeamProposal p WHERE p.teamPublicId = :team ORDER BY p.createdAt DESC",
+            TeamProposal::class.java
+        ).setParameter("team", teamPublicId)
+            .setFirstResult(page * size)
+            .setMaxResults(size)
+            .resultList
+
+        return Pair(content, total)
+    }
+
+    fun findProposalByPublicId(publicId: java.util.UUID): TeamProposal? =
+        em.createQuery(
+            "SELECT p FROM TeamProposal p WHERE p.publicId = :pid",
+            TeamProposal::class.java
+        ).setParameter("pid", publicId)
+            .resultList.firstOrNull()
 }

@@ -20,10 +20,20 @@ import {
   UserPlus,
   X,
   CheckCircle2,
+  Clock,
+  MessageCircle,
+  Coins,
+  Send,
+  Inbox,
+  Briefcase,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { teamsApi, TeamResponse, TeamMemberResponse } from "@/lib/teams-api";
+import { equipmentLabel } from "@/lib/equipment-labels";
+import { chatApi, memberProposalApi, workerTeamProposalApi } from "@/lib/chat-api";
 import { useAuthStore } from "@/store/authStore";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -49,7 +59,7 @@ function formatPay(min?: number, max?: number, unit?: string): string {
     HOURLY: "시간",
   };
   const unitStr = unit ? unitLabel[unit] ?? unit : "";
-  if (!min && !max) return "협의";
+  if (!min && !max) return "–";
   if (min && max)
     return `${min.toLocaleString("ko-KR")}~${max.toLocaleString("ko-KR")}원/${unitStr}`;
   if (min) return `${min.toLocaleString("ko-KR")}원/${unitStr} 이상`;
@@ -131,6 +141,7 @@ function HealthBadge({ status }: { status?: string }) {
 // ─── Role Badge ───────────────────────────────────────────────────────────────
 
 function RoleBadge({ role }: { role: string }) {
+  const t = useT();
   const isLeader = role === "LEADER";
   return (
     <span
@@ -141,7 +152,7 @@ function RoleBadge({ role }: { role: string }) {
           : "bg-primary-50 text-primary-500"
       )}
     >
-      {isLeader ? "팀장" : "팀원"}
+      {isLeader ? t("teamDetail.leaderLabel") : t("worker.memberBadge")}
     </span>
   );
 }
@@ -178,22 +189,45 @@ function ExpandableText({ text }: { text: string }) {
   );
 }
 
-// ─── Contact Leader Sheet ─────────────────────────────────────────────────────
+// ─── Employer Chat Sheet ──────────────────────────────────────────────────────
+// Opens/creates a chat room with the team leader (costs 1 point if new)
 
-function ContactLeaderSheet({
+function EmployerChatSheet({
+  teamPublicId,
+  teamName,
   leaderName,
   leaderProfileImageUrl,
-  teamName,
   open,
   onClose,
 }: {
+  teamPublicId: string;
+  teamName: string;
   leaderName?: string;
   leaderProfileImageUrl?: string;
-  teamName: string;
   open: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
+  const [status, setStatus] = React.useState<"idle" | "loading" | "error">("idle");
+  const [errorMsg, setErrorMsg] = React.useState("");
+
+  React.useEffect(() => {
+    if (!open) { setStatus("idle"); setErrorMsg(""); }
+  }, [open]);
+
   if (!open) return null;
+
+  async function handleStartChat() {
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      const room = await chatApi.openRoom(teamPublicId);
+      router.push(`/employer/chats/${room.publicId}`);
+    } catch (err: any) {
+      setStatus("error");
+      setErrorMsg(err?.message || "채팅 시작에 실패했어요. 다시 시도해주세요.");
+    }
+  }
 
   return (
     <>
@@ -201,7 +235,7 @@ function ContactLeaderSheet({
       <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-white p-6 shadow-2xl lg:bottom-0 lg:right-0 lg:left-auto lg:top-0 lg:w-96 lg:rounded-none lg:rounded-l-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-neutral-950">팀 참여 신청</h2>
+            <h2 className="text-lg font-bold text-neutral-950">팀장에게 채팅하기</h2>
             <p className="mt-0.5 text-sm text-neutral-500">{teamName}</p>
           </div>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
@@ -212,11 +246,7 @@ function ContactLeaderSheet({
         {/* Leader info */}
         <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 mb-5">
           {leaderProfileImageUrl ? (
-            <img
-              src={leaderProfileImageUrl}
-              alt={leaderName}
-              className="h-12 w-12 rounded-full object-cover flex-shrink-0"
-            />
+            <img src={leaderProfileImageUrl} alt={leaderName} className="h-12 w-12 rounded-full object-cover flex-shrink-0" />
           ) : (
             <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary-500 text-lg font-bold text-white">
               {leaderName?.charAt(0).toUpperCase() ?? "?"}
@@ -228,22 +258,159 @@ function ContactLeaderSheet({
           </div>
         </div>
 
-        {/* Guide message */}
-        <div className="rounded-lg border border-primary-100 bg-primary-50 p-4 space-y-2 mb-5">
-          <p className="text-sm font-semibold text-primary-700">팀 참여 방법</p>
-          <ol className="space-y-1.5 text-sm text-primary-600 list-decimal list-inside">
-            <li>팀장에게 직접 연락해 합류 의사를 전달하세요</li>
-            <li>팀장이 내 전화번호로 초대장을 발송합니다</li>
-            <li><strong>팀 찾기 → 내 초대</strong> 메뉴에서 초대를 수락하세요</li>
-          </ol>
+        {/* Point notice */}
+        <div className="flex items-start gap-3 rounded-lg border border-amber-100 bg-amber-50 p-4 mb-5">
+          <Coins className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+          <div className="text-sm text-amber-700">
+            <p className="font-semibold">채팅 개설 시 1포인트가 차감됩니다</p>
+            <p className="mt-0.5 text-amber-600">이미 채팅 중인 팀에는 추가 포인트가 필요하지 않아요.</p>
+          </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="w-full rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
-        >
-          닫기
-        </button>
+        {status === "error" && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
+            <X className="h-4 w-4 flex-shrink-0" />
+            {errorMsg}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">
+            취소
+          </button>
+          <button
+            onClick={handleStartChat}
+            disabled={status === "loading"}
+            className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 transition-all active:scale-[0.98]"
+          >
+            <MessageCircle className="h-4 w-4" />
+            {status === "loading" ? "연결 중..." : "채팅 시작하기"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Worker Proposal Sheet ────────────────────────────────────────────────────
+// Worker sends a "팀원으로 제안하기" to the team leader
+
+function WorkerProposalSheet({
+  teamPublicId,
+  teamName,
+  leaderName,
+  leaderProfileImageUrl,
+  open,
+  onClose,
+}: {
+  teamPublicId: string;
+  teamName: string;
+  leaderName?: string;
+  leaderProfileImageUrl?: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [message, setMessage] = React.useState("");
+  const [status, setStatus] = React.useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = React.useState("");
+
+  React.useEffect(() => {
+    if (!open) { setMessage(""); setStatus("idle"); setErrorMsg(""); }
+  }, [open]);
+
+  if (!open) return null;
+
+  async function handleSend() {
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      await memberProposalApi.sendProposal(teamPublicId, message.trim() || undefined);
+      setStatus("success");
+    } catch (err: any) {
+      setStatus("error");
+      setErrorMsg(err?.message || "제안 전송에 실패했어요. 다시 시도해주세요.");
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-white p-6 shadow-2xl lg:bottom-0 lg:right-0 lg:left-auto lg:top-0 lg:w-96 lg:rounded-none lg:rounded-l-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-neutral-950">팀원으로 제안하기</h2>
+            <p className="mt-0.5 text-sm text-neutral-500">{teamName}</p>
+          </div>
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
+            <X className="h-4 w-4 text-neutral-600" />
+          </button>
+        </div>
+
+        {/* Leader info */}
+        <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 mb-5">
+          {leaderProfileImageUrl ? (
+            <img src={leaderProfileImageUrl} alt={leaderName} className="h-12 w-12 rounded-full object-cover flex-shrink-0" />
+          ) : (
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary-500 text-lg font-bold text-white">
+              {leaderName?.charAt(0).toUpperCase() ?? "?"}
+            </div>
+          )}
+          <div>
+            <p className="font-semibold text-neutral-900">{leaderName ?? "이름 없음"}</p>
+            <span className="inline-block rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700 mt-0.5">팀장</span>
+          </div>
+        </div>
+
+        {status === "success" ? (
+          <div className="space-y-4">
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success-50">
+                <CheckCircle2 className="h-7 w-7 text-success-600" />
+              </div>
+              <p className="font-semibold text-neutral-900">제안을 보냈어요!</p>
+              <p className="text-sm text-neutral-500">팀장의 응답을 기다려주세요.</p>
+            </div>
+            <button onClick={onClose} className="w-full rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 transition-colors">
+              확인
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
+                메시지 <span className="font-normal text-neutral-400">(선택)</span>
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="자기소개나 합류 의사를 짧게 적어보세요."
+                rows={4}
+                className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm outline-none resize-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+              />
+            </div>
+
+            {status === "error" && (
+              <div className="flex items-center gap-2 rounded-lg bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
+                <X className="h-4 w-4 flex-shrink-0" />
+                {errorMsg}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">
+                취소
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={status === "loading"}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 transition-all active:scale-[0.98]"
+              >
+                <Send className="h-4 w-4" />
+                {status === "loading" ? "전송 중..." : "제안 보내기"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -337,12 +504,132 @@ function InviteSheet({
   );
 }
 
+// ─── Received Proposals Section ──────────────────────────────────────────────
+
+function ProposalStatusBadge({ status }: { status: string }) {
+  const t = useT();
+  const map: Record<string, string> = {
+    PENDING:  "bg-warning-50 text-warning-700 border border-warning-200",
+    ACCEPTED: "bg-success-50 text-success-700 border border-success-200",
+    DECLINED: "bg-neutral-100 text-neutral-500 border border-neutral-200",
+    EXPIRED:  "bg-neutral-100 text-neutral-400 border border-neutral-200",
+  };
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", map[status] ?? "bg-neutral-100 text-neutral-500")}>
+      {status === "PENDING" && <Clock className="h-3 w-3" />}
+      {status === "ACCEPTED" && <CheckCircle2 className="h-3 w-3" />}
+      {(status === "DECLINED" || status === "EXPIRED") && <X className="h-3 w-3" />}
+      {t(`proposals.status.${status}` as any) || status}
+    </span>
+  );
+}
+
+function ReceivedProposalsSection({ teamPublicId }: { teamPublicId: string }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["team-received-proposals", teamPublicId],
+    queryFn: () => workerTeamProposalApi.listReceived(0, 20),
+  });
+
+  const proposals = data?.content ?? [];
+
+  const respondMutation = useMutation({
+    mutationFn: ({ publicId, status }: { publicId: string; status: "ACCEPTED" | "DECLINED" }) =>
+      workerTeamProposalApi.respond(publicId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-received-proposals", teamPublicId] });
+    },
+  });
+
+  return (
+    <div className="mt-5 rounded-lg border border-neutral-100 bg-white shadow-card-md overflow-hidden">
+      <div className="px-5 py-4 border-b border-neutral-100">
+        <h2 className="text-sm font-bold text-neutral-800">{t("teamDetail.receivedProposals")}</h2>
+        <p className="mt-0.5 text-xs text-neutral-500">{t("teamDetail.receivedProposalsSub")}</p>
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+        </div>
+      ) : proposals.length === 0 ? (
+        <div className="flex flex-col items-center py-10 text-center px-4">
+          <Inbox className="mb-2 h-8 w-8 text-neutral-200" />
+          <p className="text-sm text-neutral-400">{t("teamDetail.proposalEmpty")}</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-neutral-100">
+          {proposals.map((p) => (
+            <div key={p.publicId} className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50">
+                    <Briefcase className="h-4 w-4 text-primary-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-neutral-900 truncate">
+                      {p.jobTitle ?? t("proposals.defaultJobTitle")}
+                    </p>
+                    <p className="mt-0.5 text-xs text-neutral-400">
+                      {new Date(p.createdAt).toLocaleDateString("ko-KR")}
+                    </p>
+                  </div>
+                </div>
+                <ProposalStatusBadge status={p.status} />
+              </div>
+              {p.message && (
+                <p className="mt-3 text-sm text-neutral-600 rounded-lg bg-neutral-50 px-3 py-2 leading-relaxed">
+                  {p.message}
+                </p>
+              )}
+              <div className="mt-2">
+                <Link
+                  href={`/jobs/${p.jobPublicId}`}
+                  className="text-xs font-medium text-primary-500 hover:underline"
+                >
+                  {t("teamDetail.proposalViewJob")}
+                </Link>
+              </div>
+              {p.status === "PENDING" && (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => respondMutation.mutate({ publicId: p.publicId, status: "ACCEPTED" })}
+                    disabled={respondMutation.isPending}
+                    className="flex-1 rounded-lg bg-primary-500 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 transition-colors"
+                  >
+                    {t("teamDetail.proposalAccept")}
+                  </button>
+                  <button
+                    onClick={() => respondMutation.mutate({ publicId: p.publicId, status: "DECLINED" })}
+                    disabled={respondMutation.isPending}
+                    className="flex-1 rounded-lg border border-neutral-200 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-60 transition-colors"
+                  >
+                    {t("teamDetail.proposalDecline")}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Team Detail Content ──────────────────────────────────────────────────────
 
 function TeamDetailContent({ id }: { id: string }) {
+  const t = useT();
   const user = useAuthStore((s) => s.user);
+  const [mounted, setMounted] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
-  const [contactOpen, setContactOpen] = React.useState(false);
+  const [chatOpen, setChatOpen] = React.useState(false);
+  const [proposalOpen, setProposalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const {
     data: team,
@@ -360,13 +647,13 @@ function TeamDetailContent({ id }: { id: string }) {
       <div className="flex flex-col items-center justify-center py-32 text-center px-4">
         <AlertCircle className="mb-4 h-12 w-12 text-neutral-300" />
         <p className="text-base font-bold text-neutral-700">
-          팀을 찾을 수 없어요
+          {t("teamDetail.notFound")}
         </p>
         <Link
           href="/teams/mine"
           className="mt-5 rounded-lg bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white"
         >
-          내 팀으로
+          {t("teamDetail.backToMine")}
         </Link>
       </div>
     );
@@ -375,7 +662,14 @@ function TeamDetailContent({ id }: { id: string }) {
   const isCompany = team.teamType === "COMPANY_LINKED";
   const hasEquipment = team.equipment?.length > 0;
   const hasPortfolio = team.portfolio?.length > 0;
-  const isLeader = user ? user.userId === team.leaderId : false;
+  // All auth flags are gated on `mounted` so SSR always renders the same
+  // fallback button and React hydration never hits a structural mismatch.
+  const isLeader = mounted ? (user ? user.userId === team.leaderId : false) : false;
+  const isEmployer = mounted && user?.role === "EMPLOYER";
+  // isTeamLeaderElsewhere: TEAM_LEADER role but not the leader of THIS team
+  const isTeamLeaderElsewhere = mounted && !isLeader && user?.role === "TEAM_LEADER";
+  // isWorker: plain WORKER (no team leadership anywhere)
+  const isWorker = mounted && !isLeader && user?.role === "WORKER";
 
   return (
     <div>
@@ -421,7 +715,7 @@ function TeamDetailContent({ id }: { id: string }) {
               ) : (
                 <Users className="h-3 w-3" />
               )}
-              {isCompany ? "기업 소속" : "스쿼드"}
+              {isCompany ? t("teamDetail.companyType") : t("teamDetail.squadType")}
             </span>
           </div>
           <h1 className="text-3xl font-extrabold text-white drop-shadow">
@@ -451,7 +745,7 @@ function TeamDetailContent({ id }: { id: string }) {
             <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-neutral-800">
                 <Shield className="h-4 w-4 text-primary-500" />
-                팀 소개
+                {t("teamDetail.intro")}
               </h2>
               {team.introShort && (
                 <p className="mb-3 text-base font-semibold text-neutral-900">
@@ -468,12 +762,12 @@ function TeamDetailContent({ id }: { id: string }) {
             <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-neutral-800">
                 <MapPin className="h-4 w-4 text-primary-500" />
-                활동 지역
+                {t("teamDetail.region")}
               </h2>
               {team.isNationwide ? (
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-success-50 px-3 py-1.5 text-sm font-semibold text-success-700">
                   <Globe className="h-4 w-4" />
-                  전국
+                  {t("teamDetail.nationwide")}
                 </span>
               ) : team.regions?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -497,7 +791,7 @@ function TeamDetailContent({ id }: { id: string }) {
               <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-neutral-800">
                   <Wrench className="h-4 w-4 text-primary-500" />
-                  보유 장비
+                  {t("teamDetail.equipment")}
                 </h2>
                 <div className="flex flex-wrap gap-2">
                   {team.equipment.map((eq, i) => (
@@ -505,7 +799,7 @@ function TeamDetailContent({ id }: { id: string }) {
                       key={i}
                       className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm text-neutral-700"
                     >
-                      {eq}
+                      {equipmentLabel(eq)}
                     </span>
                   ))}
                 </div>
@@ -517,7 +811,7 @@ function TeamDetailContent({ id }: { id: string }) {
               <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-neutral-800">
                   <Calendar className="h-4 w-4 text-primary-500" />
-                  포트폴리오
+                  {t("teamDetail.portfolio")}
                 </h2>
                 <div className="space-y-4">
                   {team.portfolio.map((item, i) => (
@@ -562,7 +856,7 @@ function TeamDetailContent({ id }: { id: string }) {
           <div className="space-y-4 lg:col-span-1">
             {/* 팀장 */}
             <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
-              <h2 className="mb-3 text-sm font-bold text-neutral-800">팀장</h2>
+              <h2 className="mb-3 text-sm font-bold text-neutral-800">{t("teamDetail.leaderLabel")}</h2>
               <div className="flex items-center gap-3">
                 {team.leaderProfileImageUrl ? (
                   <img
@@ -580,7 +874,7 @@ function TeamDetailContent({ id }: { id: string }) {
                     {team.leaderName ?? "이름 없음"}
                   </p>
                   <span className="inline-block rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700 mt-0.5">
-                    팀장
+                    {t("teamDetail.leaderLabel")}
                   </span>
                 </div>
               </div>
@@ -590,15 +884,44 @@ function TeamDetailContent({ id }: { id: string }) {
                   className="mt-4 w-full flex items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-600 active:scale-[0.98]"
                 >
                   <UserPlus className="h-4 w-4" />
-                  전화번호로 팀원 초대
+                  {t("teamDetail.inviteByPhone")}
+                </button>
+              ) : isEmployer ? (
+                <button
+                  onClick={() => setChatOpen(true)}
+                  className="mt-4 w-full flex items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-600 active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  {t("teamDetail.chatWithLeader")}
+                </button>
+              ) : isTeamLeaderElsewhere ? (
+                <div className="mt-4 space-y-2">
+                  <button
+                    disabled
+                    className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 py-2.5 text-sm font-semibold text-neutral-400 cursor-not-allowed"
+                  >
+                    <Send className="h-4 w-4" />
+                    {t("teamDetail.propose")}
+                  </button>
+                  <p className="text-center text-xs text-neutral-400">
+                    {t("teamDetail.leaderBelongs")}
+                  </p>
+                </div>
+              ) : isWorker ? (
+                <button
+                  onClick={() => setProposalOpen(true)}
+                  className="mt-4 w-full flex items-center justify-center gap-1.5 rounded-lg border border-primary-500 py-2.5 text-sm font-semibold text-primary-500 transition-all hover:bg-primary-50 active:scale-[0.98]"
+                >
+                  <Send className="h-4 w-4" />
+                  {t("teamDetail.propose")}
                 </button>
               ) : (
                 <button
-                  onClick={() => setContactOpen(true)}
+                  onClick={() => setProposalOpen(true)}
                   className="mt-4 w-full flex items-center justify-center gap-1.5 rounded-lg border border-primary-500 py-2.5 text-sm font-semibold text-primary-500 transition-all hover:bg-primary-50 active:scale-[0.98]"
                 >
                   <Phone className="h-4 w-4" />
-                  팀장에게 연락하기
+                  {t("teamDetail.contactLeader")}
                 </button>
               )}
             </div>
@@ -607,12 +930,12 @@ function TeamDetailContent({ id }: { id: string }) {
             <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-neutral-800">
                 <UserCheck className="h-4 w-4 text-primary-500" />
-                모집 조건
+                {t("teamDetail.recruit")}
               </h2>
               <div className="space-y-3">
                 {team.headcountTarget && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-neutral-500">모집 인원</span>
+                    <span className="text-neutral-500">{t("teamDetail.headcount")}</span>
                     <span className="font-semibold text-neutral-900">
                       {team.memberCount}명 / {team.headcountTarget}명
                     </span>
@@ -620,7 +943,7 @@ function TeamDetailContent({ id }: { id: string }) {
                 )}
                 {(team.desiredPayMin || team.desiredPayMax) && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-neutral-500">희망 급여</span>
+                    <span className="text-neutral-500">{t("teamDetail.desiredPay")}</span>
                     <span className="font-semibold text-neutral-900">
                       {formatPay(
                         team.desiredPayMin,
@@ -650,19 +973,25 @@ function TeamDetailContent({ id }: { id: string }) {
             {team.members && team.members.length > 0 && (
               <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
                 <h2 className="mb-3 text-sm font-bold text-neutral-800">
-                  팀원
+                  {t("teamDetail.memberPreview")}
                 </h2>
                 {/* Avatars row */}
                 <div className="flex -space-x-2 mb-3">
-                  {team.members.slice(0, 5).map((m) => (
-                    <div
-                      key={m.memberId}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary-500 text-xs font-bold text-white"
-                      title={m.fullName}
-                    >
-                      {getInitials(m.fullName)}
-                    </div>
-                  ))}
+                  {team.members.slice(0, 5).map((m) => {
+                    const avatar = (
+                      <div
+                        className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary-500 text-xs font-bold text-white"
+                        title={m.fullName}
+                      >
+                        {getInitials(m.fullName)}
+                      </div>
+                    );
+                    return m.workerProfilePublicId ? (
+                      <Link key={m.memberId} href={`/workers/${m.workerProfilePublicId}`}>{avatar}</Link>
+                    ) : (
+                      <React.Fragment key={m.memberId}>{avatar}</React.Fragment>
+                    );
+                  })}
                   {team.members.length > 5 && (
                     <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-neutral-200 text-xs font-semibold text-neutral-600">
                       +{team.members.length - 5}
@@ -671,16 +1000,29 @@ function TeamDetailContent({ id }: { id: string }) {
                 </div>
                 <div className="space-y-1">
                   {team.members.slice(0, 3).map((m) => (
-                    <p key={m.memberId} className="text-xs text-neutral-600">
-                      {m.fullName ?? "이름 없음"}
-                      {m.role === "LEADER" && (
-                        <span className="ml-1 text-warning-700">(팀장)</span>
-                      )}
-                    </p>
+                    m.workerProfilePublicId ? (
+                      <Link
+                        key={m.memberId}
+                        href={`/workers/${m.workerProfilePublicId}`}
+                        className="flex items-center gap-1.5 text-xs text-primary-600 hover:underline"
+                      >
+                        {m.fullName ?? "이름 없음"}
+                        {m.role === "LEADER" && (
+                          <span className="text-warning-700">(팀장)</span>
+                        )}
+                      </Link>
+                    ) : (
+                      <p key={m.memberId} className="text-xs text-neutral-600">
+                        {m.fullName ?? "이름 없음"}
+                        {m.role === "LEADER" && (
+                          <span className="ml-1 text-warning-700">(팀장)</span>
+                        )}
+                      </p>
+                    )
                   ))}
                   {team.members.length > 3 && (
                     <p className="text-xs text-neutral-400">
-                      외 {team.members.length - 3}명
+                      {t("teamDetail.moreMembers", team.members.length - 3)}
                     </p>
                   )}
                 </div>
@@ -696,44 +1038,84 @@ function TeamDetailContent({ id }: { id: string }) {
           onClose={() => setInviteOpen(false)}
         />
 
-        {/* ── Contact Leader Sheet (비팀장 전용) ── */}
-        <ContactLeaderSheet
+        {/* ── Employer Chat Sheet ── */}
+        <EmployerChatSheet
+          teamPublicId={team.publicId}
+          teamName={team.name}
           leaderName={team.leaderName}
           leaderProfileImageUrl={team.leaderProfileImageUrl}
-          teamName={team.name}
-          open={contactOpen}
-          onClose={() => setContactOpen(false)}
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
         />
+
+        {/* ── Worker Proposal Sheet ── */}
+        <WorkerProposalSheet
+          teamPublicId={team.publicId}
+          teamName={team.name}
+          leaderName={team.leaderName}
+          leaderProfileImageUrl={team.leaderProfileImageUrl}
+          open={proposalOpen}
+          onClose={() => setProposalOpen(false)}
+        />
+
+        {/* ── Received Proposals (팀장 전용) ── */}
+        {isLeader && <ReceivedProposalsSection teamPublicId={team.publicId} />}
 
         {/* ── Full Members Table ── */}
         {team.members && team.members.length > 0 && (
           <div className="mt-5 rounded-lg border border-neutral-100 bg-white shadow-card-md overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-100">
               <h2 className="text-sm font-bold text-neutral-800">
-                팀원 목록
+                {t("teamDetail.memberList")}
               </h2>
             </div>
             {/* Mobile: cards */}
             <div className="divide-y divide-neutral-100 lg:hidden">
-              {team.members.map((m) => (
-                <div key={m.memberId} className="flex items-center gap-3 px-5 py-3.5">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-500 text-sm font-bold text-white">
-                    {getInitials(m.fullName)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-neutral-900">
-                        {m.fullName ?? "이름 없음"}
-                      </span>
-                      <RoleBadge role={m.role} />
+              {team.members.map((m) => {
+                const Inner = (
+                  <>
+                    <div className="relative flex-shrink-0">
+                      {m.profileImageUrl ? (
+                        <img src={m.profileImageUrl} alt={m.fullName} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500 text-sm font-bold text-white">
+                          {getInitials(m.fullName)}
+                        </div>
+                      )}
                     </div>
-                    <p className="mt-0.5 text-xs text-neutral-500">
-                      {[m.nationality, m.visaType].filter(Boolean).join(" · ")}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-neutral-900">
+                          {m.fullName ?? "이름 없음"}
+                        </span>
+                        <RoleBadge role={m.role} />
+                      </div>
+                      <p className="mt-0.5 text-xs text-neutral-500">
+                        {[m.nationality, m.visaType].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <HealthBadge status={m.healthCheckStatus} />
+                      {m.workerProfilePublicId && (
+                        <ChevronRight className="h-4 w-4 text-neutral-300" />
+                      )}
+                    </div>
+                  </>
+                );
+                return m.workerProfilePublicId ? (
+                  <Link
+                    key={m.memberId}
+                    href={`/workers/${m.workerProfilePublicId}`}
+                    className="flex items-center gap-3 px-5 py-3.5 hover:bg-neutral-50 transition-colors"
+                  >
+                    {Inner}
+                  </Link>
+                ) : (
+                  <div key={m.memberId} className="flex items-center gap-3 px-5 py-3.5">
+                    {Inner}
                   </div>
-                  <HealthBadge status={m.healthCheckStatus} />
-                </div>
-              ))}
+                );
+              })}
             </div>
             {/* Desktop: table */}
             <div className="hidden lg:block overflow-x-auto">
@@ -745,6 +1127,9 @@ function TeamDetailContent({ id }: { id: string }) {
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500">
                       역할
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500">
+                      연락처
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500">
                       국적
@@ -761,20 +1146,39 @@ function TeamDetailContent({ id }: { id: string }) {
                   {team.members.map((m) => (
                     <tr
                       key={m.memberId}
-                      className="transition-colors hover:bg-neutral-50"
+                      className={cn("transition-colors hover:bg-neutral-50", m.workerProfilePublicId && "cursor-pointer")}
+                      onClick={m.workerProfilePublicId ? () => window.location.href = `/workers/${m.workerProfilePublicId}` : undefined}
                     >
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-white">
-                            {getInitials(m.fullName)}
-                          </div>
+                          {m.profileImageUrl ? (
+                            <img src={m.profileImageUrl} alt={m.fullName} className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-white">
+                              {getInitials(m.fullName)}
+                            </div>
+                          )}
                           <span className="font-medium text-neutral-900">
                             {m.fullName ?? "이름 없음"}
                           </span>
+                          {m.workerProfilePublicId && <ChevronRight className="h-3.5 w-3.5 text-neutral-300" />}
                         </div>
                       </td>
                       <td className="px-4 py-3.5">
                         <RoleBadge role={m.role} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {m.phone ? (
+                          <a
+                            href={`tel:${m.phone}`}
+                            className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
+                          >
+                            <Phone className="h-3.5 w-3.5 shrink-0" />
+                            {m.phone}
+                          </a>
+                        ) : (
+                          <span className="text-neutral-400">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5 text-neutral-600">
                         {m.nationality ?? "-"}

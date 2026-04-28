@@ -97,23 +97,7 @@ export function JobCard({ job, isBookmarked: initialBookmarked }: { job: JobSumm
   };
 
   return (
-    <div className="relative rounded-lg border border-neutral-200 bg-white hover:border-primary-200 hover:shadow-card-md transition-all">
-      {/* Bookmark button */}
-      <button
-        type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); bookmarkMutation.mutate(); }}
-        disabled={bookmarkMutation.isPending}
-        className={cn(
-          "absolute right-3 top-3 z-10 flex items-center justify-center rounded-full p-1.5 transition-colors disabled:opacity-50",
-          bookmarked
-            ? "bg-pink-50 text-pink-500 hover:bg-pink-100"
-            : "bg-white/80 text-neutral-300 hover:text-pink-400 hover:bg-pink-50"
-        )}
-        title={bookmarked ? "찜 취소" : "찜하기"}
-      >
-        <Heart className={cn("h-4 w-4", bookmarked && "fill-pink-500 text-pink-500")} />
-      </button>
-
+    <div className="rounded-lg border border-neutral-200 bg-white hover:border-primary-200 hover:shadow-card-md transition-all">
       <Link href={`/jobs/${job.publicId}`} className="block p-4">
         {/* Category + Distance row */}
         {(job.categoryName || job.distanceKm !== undefined) && (
@@ -145,15 +129,32 @@ export function JobCard({ job, isBookmarked: initialBookmarked }: { job: JobSumm
         <div className="flex items-start gap-3">
           <CompanyLogo logoUrl={job.companyLogoUrl} companyName={job.companyName} />
           <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-neutral-900">
+            <div className="flex items-start gap-2">
+              <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold leading-snug text-neutral-900">
                 {job.title}
               </h3>
-              {isUrgent && (
-                <span className="flex-shrink-0 rounded-md bg-warning-50 px-2 py-0.5 text-xs font-semibold text-warning-700">
-                  {t("card.urgent")}
-                </span>
-              )}
+              <div className="flex flex-shrink-0 items-center gap-1">
+                {isUrgent && (
+                  <span className="rounded-md bg-warning-50 px-2 py-0.5 text-xs font-semibold text-warning-700">
+                    {t("card.urgent")}
+                  </span>
+                )}
+                {/* Bookmark button */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); bookmarkMutation.mutate(); }}
+                  disabled={bookmarkMutation.isPending}
+                  className={cn(
+                    "flex items-center justify-center rounded-full p-1.5 transition-colors disabled:opacity-50",
+                    bookmarked
+                      ? "bg-pink-50 text-pink-500 hover:bg-pink-100"
+                      : "text-neutral-300 hover:text-pink-400 hover:bg-pink-50"
+                  )}
+                  title={bookmarked ? "찜 취소" : "찜하기"}
+                >
+                  <Heart className={cn("h-4 w-4", bookmarked && "fill-pink-500 text-pink-500")} />
+                </button>
+              </div>
             </div>
             <p className="mt-0.5 text-xs text-neutral-400">{job.companyName}</p>
           </div>

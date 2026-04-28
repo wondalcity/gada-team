@@ -16,6 +16,7 @@ export interface PortfolioEntry {
 export interface TeamMemberResponse {
   memberId: number;
   userId: number;
+  workerProfilePublicId?: string;
   fullName?: string;
   profileImageUrl?: string;
   nationality?: string;
@@ -25,6 +26,7 @@ export interface TeamMemberResponse {
   role: "LEADER" | "MEMBER";
   invitationStatus?: string;
   joinedAt?: string;
+  phone?: string;
 }
 
 export interface TeamResponse {

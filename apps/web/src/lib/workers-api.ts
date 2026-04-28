@@ -1,14 +1,15 @@
 import { api } from "./api";
 
 export interface WorkerLanguageEntry {
-  language: string;
+  code: string;
   level: string;
 }
 
 export interface WorkerCertificationEntry {
+  code: string;
   name: string;
-  issuedBy?: string;
-  issuedAt?: string;
+  issueDate?: string;
+  expiryDate?: string;
 }
 
 export interface WorkerPortfolioEntry {
