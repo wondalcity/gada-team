@@ -255,7 +255,7 @@ class PointsController(
                     this.type = NotificationType.SCOUT
                     this.title = "채용 제안이 도착했습니다!"
                     this.body = "${req.jobTitle} 공고를 통해 채용 제안이 왔습니다."
-                    this.data = mapOf("teamPublicId" to req.teamPublicId, "jobTitle" to req.jobTitle)
+                    this.data = mapOf("teamPublicId" to req.teamPublicId, "jobTitle" to (req.jobTitle ?: ""))
                 }
                 notificationRepository.save(notif)
             }

@@ -276,10 +276,12 @@ class ApplicationUseCase(
         }
         if (recipientUserId != null) {
             val statusLabel = when (status) {
-                ApplicationStatus.ACCEPTED -> "합격"
+                ApplicationStatus.HIRED -> "합격"
                 ApplicationStatus.REJECTED -> "불합격"
-                ApplicationStatus.REVIEWING -> "검토 중"
-                ApplicationStatus.INTERVIEW -> "면접 대기"
+                ApplicationStatus.UNDER_REVIEW -> "검토 중"
+                ApplicationStatus.INTERVIEW_PENDING -> "면접 대기"
+                ApplicationStatus.SHORTLISTED -> "서류 통과"
+                ApplicationStatus.ON_HOLD -> "보류"
                 else -> status.name
             }
             runCatching {
