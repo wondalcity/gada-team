@@ -26,10 +26,12 @@ import {
   Send,
   Inbox,
   Briefcase,
+  Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { teamsApi, TeamResponse, TeamMemberResponse, WorkScheduleResponse } from "@/lib/teams-api";
+import { getWorkers, WorkerListItem } from "@/lib/workers-api";
 import { equipmentLabel } from "@/lib/equipment-labels";
 import { chatApi, memberProposalApi, workerTeamProposalApi } from "@/lib/chat-api";
 import { employerApi } from "@/lib/employer-api";
@@ -498,6 +500,54 @@ function WorkerProposalSheet({
 
 // ─── Invite Sheet ─────────────────────────────────────────────────────────────
 
+// ─── Worker row inside InviteSheet ───────────────────────────────────────────
+
+function InviteWorkerRow({
+  teamPublicId,
+  worker,
+}: {
+  teamPublicId: string;
+  worker: WorkerListItem;
+}) {
+  const queryClient = useQueryClient();
+  const inviteMutation = useMutation({
+    mutationFn: () => teamsApi.inviteMemberByProfile(teamPublicId, worker.publicId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team", teamPublicId] });
+    },
+  });
+
+  return (
+    <div className="flex items-center gap-3 py-3">
+      {worker.profileImageUrl ? (
+        <img src={worker.profileImageUrl} alt={worker.fullName} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+      ) : (
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-100">
+          <span className="text-sm font-bold text-primary-600">{worker.fullName?.[0] ?? "?"}</span>
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-neutral-900 truncate">{worker.fullName}</p>
+        <p className="text-xs text-neutral-400">{[worker.nationality, worker.visaType].filter(Boolean).join(" · ")}</p>
+      </div>
+      <button
+        onClick={() => inviteMutation.mutate()}
+        disabled={inviteMutation.isPending || inviteMutation.isSuccess}
+        className={cn(
+          "flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+          inviteMutation.isSuccess
+            ? "bg-success-50 text-success-600 cursor-default"
+            : "bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50"
+        )}
+      >
+        {inviteMutation.isSuccess ? "초대됨" : inviteMutation.isPending ? "…" : "초대"}
+      </button>
+    </div>
+  );
+}
+
+// ─── Invite Sheet ─────────────────────────────────────────────────────────────
+
 function InviteSheet({
   teamPublicId,
   open,
@@ -507,78 +557,71 @@ function InviteSheet({
   open: boolean;
   onClose: () => void;
 }) {
-  const t = useT();
-  const queryClient = useQueryClient();
-  const [phone, setPhone] = React.useState("");
-  const [feedback, setFeedback] = React.useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-
-  const inviteMutation = useMutation({
-    mutationFn: (p: string) => teamsApi.inviteMember(teamPublicId, p),
-    onSuccess: () => {
-      setFeedback({ type: "success", message: t("teamDetail.invSuccess") });
-      setPhone("");
-      queryClient.invalidateQueries({ queryKey: ["team", teamPublicId] });
-    },
-    onError: (err: any) => {
-      setFeedback({
-        type: "error",
-        message: err?.message || "초대에 실패했어요. 다시 시도해주세요.",
-      });
-    },
-  });
+  const [keyword, setKeyword] = React.useState("");
+  const [debouncedKeyword, setDebouncedKeyword] = React.useState("");
 
   React.useEffect(() => {
-    if (!open) { setPhone(""); setFeedback(null); }
+    const timer = setTimeout(() => setDebouncedKeyword(keyword), 400);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+
+  React.useEffect(() => {
+    if (!open) { setKeyword(""); setDebouncedKeyword(""); }
   }, [open]);
+
+  const workersQuery = useQuery({
+    queryKey: ["workers-invite-search", debouncedKeyword],
+    queryFn: () => getWorkers({ keyword: debouncedKeyword || undefined, page: 0, size: 20 }),
+    enabled: open,
+  });
 
   if (!open) return null;
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-white p-6 shadow-2xl lg:bottom-0 lg:right-0 lg:left-auto lg:top-0 lg:w-96 lg:rounded-none lg:rounded-l-2xl">
-        <div className="mb-5 flex items-center justify-between">
+      <div
+        className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl bg-white shadow-2xl sm:inset-auto sm:bottom-auto sm:right-0 sm:top-0 sm:h-full sm:w-96 sm:rounded-l-2xl sm:rounded-r-none"
+        style={{ maxHeight: "85dvh" }}
+      >
+        {/* Header */}
+        <div className="flex flex-shrink-0 items-center justify-between px-5 pt-5 pb-3">
           <div>
-            <h2 className="text-lg font-bold text-neutral-950">{t("teamDetail.invTitle")}</h2>
-            <p className="mt-0.5 text-sm text-neutral-500">{t("teamDetail.invSub")}</p>
+            <h2 className="text-lg font-bold text-neutral-950">팀원 초대</h2>
+            <p className="mt-0.5 text-sm text-neutral-500">이름으로 근로자를 검색하세요</p>
           </div>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
             <X className="h-4 w-4 text-neutral-600" />
           </button>
         </div>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-neutral-700">{t("teamDetail.invPhone")}</label>
-            <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="010-0000-0000"
-                className="w-full rounded-lg border border-neutral-200 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-              />
-            </div>
+
+        {/* Search input */}
+        <div className="flex-shrink-0 px-5 pb-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              type="text"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="이름으로 검색"
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+            />
           </div>
-          {feedback && (
-            <div className={cn("flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium",
-              feedback.type === "success" ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700")}>
-              {feedback.type === "success"
-                ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                : <X className="h-4 w-4 flex-shrink-0" />}
-              {feedback.message}
+        </div>
+
+        {/* Results */}
+        <div className="flex-1 overflow-y-auto divide-y divide-neutral-50 px-5 pb-4">
+          {workersQuery.isLoading && (
+            <div className="flex justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
             </div>
           )}
-          <button
-            onClick={() => inviteMutation.mutate(phone)}
-            disabled={!phone.trim() || inviteMutation.isPending}
-            className="w-full rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-50 active:scale-[0.98] transition-all"
-          >
-            {inviteMutation.isPending ? t("teamDetail.invSending") : t("teamDetail.invSend")}
-          </button>
+          {!workersQuery.isLoading && (workersQuery.data?.content ?? []).length === 0 && (
+            <p className="py-8 text-center text-sm text-neutral-400">검색 결과가 없어요</p>
+          )}
+          {(workersQuery.data?.content ?? []).map((worker) => (
+            <InviteWorkerRow key={worker.publicId} teamPublicId={teamPublicId} worker={worker} />
+          ))}
         </div>
       </div>
     </>
@@ -1035,7 +1078,7 @@ function TeamDetailContent({ id }: { id: string }) {
                   className="mt-4 w-full flex items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-600 active:scale-[0.98]"
                 >
                   <UserPlus className="h-4 w-4" />
-                  {t("teamDetail.inviteByPhone")}
+                  팀원 초대
                 </button>
               ) : isEmployer ? (
                 <button
