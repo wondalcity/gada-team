@@ -47,3 +47,4 @@ logs/
 # Firebase service account keys (secrets — never commit)
 **/firebase-service-account*.json
 **/service-account*.json
+.vercel

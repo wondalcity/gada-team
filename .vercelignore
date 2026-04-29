@@ -1,0 +1,8 @@
+**/node_modules
+apps/api
+apps/admin
+.git
+**/.next
+*.log
+.env.local
+.env*.local
