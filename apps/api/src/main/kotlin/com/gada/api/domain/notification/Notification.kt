@@ -91,4 +91,5 @@ enum class NotificationType {
     STATUS_CHANGE,
     SYSTEM,
     MARKETING,
+    CHAT,
 }

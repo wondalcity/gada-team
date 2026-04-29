@@ -11,8 +11,11 @@ import com.gada.api.domain.application.CompanySnapshot
 import com.gada.api.domain.application.TeamSnapshot
 import com.gada.api.domain.application.WorkerSnapshot
 import com.gada.api.domain.job.JobStatus
+import com.gada.api.domain.notification.Notification
+import com.gada.api.domain.notification.NotificationType
 import com.gada.api.infrastructure.persistence.application.ApplicationRepository
 import com.gada.api.infrastructure.persistence.job.JobRepository
+import com.gada.api.infrastructure.persistence.notification.NotificationRepository
 import com.gada.api.infrastructure.persistence.team.TeamMemberRepository
 import com.gada.api.infrastructure.persistence.team.TeamRepository
 import com.gada.api.infrastructure.persistence.user.EmployerProfileRepository
@@ -33,6 +36,7 @@ class ApplicationUseCase(
     private val teamMemberRepository: TeamMemberRepository,
     private val employerProfileRepository: EmployerProfileRepository,
     private val auditService: AuditService,
+    private val notificationRepository: NotificationRepository,
 ) {
 
     fun applyForJob(
@@ -133,7 +137,12 @@ class ApplicationUseCase(
 
     @Transactional(readOnly = true)
     fun getMyApplications(userId: Long, page: Int, size: Int): ApplicationListResponse {
-        val (apps, total) = applicationRepository.findByApplicantUserId(userId, page, size)
+        // 팀 지원도 포함: 사용자가 팀장 또는 활성 멤버인 팀의 지원 내역 포함
+        val ledTeamIds = teamRepository.findAllByLeaderId(userId).map { it.id }
+        val memberTeamIds = teamMemberRepository.findActiveByUserId(userId).map { it.teamId }
+        val allTeamIds = (ledTeamIds + memberTeamIds).distinct()
+
+        val (apps, total) = applicationRepository.findByApplicantUserIdOrTeamIds(userId, allTeamIds, page, size)
         val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
 
         return ApplicationListResponse(
@@ -156,7 +165,24 @@ class ApplicationUseCase(
         val app = applicationRepository.findByPublicId(publicId)
             ?: throw NotFoundException("Application", publicId)
 
-        if (app.applicantUserId != userId) {
+        // 개인 지원: applicantUserId 일치 확인
+        // 팀 지원: 팀장이거나 팀원인지 확인
+        val isAuthorized = when (app.applicationType) {
+            ApplicationType.INDIVIDUAL -> app.applicantUserId == userId
+            ApplicationType.TEAM -> {
+                val teamId = app.teamId ?: false
+                if (teamId is Long) {
+                    val team = teamRepository.findById(teamId)
+                    val isLeader = team?.leaderId == userId
+                    val isMember = teamMemberRepository.findActiveByUserId(userId)
+                        .any { it.teamId == teamId }
+                    isLeader || isMember
+                } else false
+            }
+            else -> app.applicantUserId == userId
+        }
+
+        if (!isAuthorized) {
             throw ForbiddenException("본인의 지원서만 취소할 수 있습니다")
         }
 
@@ -241,6 +267,36 @@ class ApplicationUseCase(
             actorId = employerUserId, actorRole = "EMPLOYER",
             newData = mapOf("status" to newStatus, "note" to (note ?: "")),
         )
+
+        // Send STATUS_CHANGE notification to applicant
+        val recipientUserId: Long? = when {
+            saved.applicantUserId != null -> saved.applicantUserId
+            saved.teamId != null -> teamRepository.findById(saved.teamId!!)?.leaderId
+            else -> null
+        }
+        if (recipientUserId != null) {
+            val statusLabel = when (status) {
+                ApplicationStatus.ACCEPTED -> "합격"
+                ApplicationStatus.REJECTED -> "불합격"
+                ApplicationStatus.REVIEWING -> "검토 중"
+                ApplicationStatus.INTERVIEW -> "면접 대기"
+                else -> status.name
+            }
+            runCatching {
+                val notif = Notification().apply {
+                    this.userId = recipientUserId
+                    this.type = NotificationType.STATUS_CHANGE
+                    this.title = "지원 현황이 업데이트되었습니다"
+                    this.body = "${job.title} 지원 상태가 '$statusLabel'(으)로 변경되었습니다."
+                    this.data = mapOf(
+                        "applicationPublicId" to saved.publicId.toString(),
+                        "jobTitle" to job.title,
+                        "status" to newStatus,
+                    )
+                }
+                notificationRepository.save(notif)
+            }
+        }
 
         return saved.toDetail(job.title, job.publicId, job.company?.name ?: "")
     }

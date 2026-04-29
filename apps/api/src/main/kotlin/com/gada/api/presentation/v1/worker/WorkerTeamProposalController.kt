@@ -9,6 +9,7 @@ import com.gada.api.common.exception.UnauthorizedException
 import com.gada.api.common.toResponseEntity
 import com.gada.api.config.CurrentUser
 import com.gada.api.config.GadaPrincipal
+import com.gada.api.application.application.ApplicationUseCase
 import com.gada.api.domain.points.TeamProposal
 import com.gada.api.infrastructure.persistence.points.PointsRepository
 import com.gada.api.infrastructure.persistence.team.TeamRepository
@@ -34,6 +35,7 @@ import kotlin.math.ceil
 class WorkerTeamProposalController(
     private val pointsRepository: PointsRepository,
     private val teamRepository: TeamRepository,
+    private val applicationUseCase: ApplicationUseCase,
 ) {
 
     @Operation(summary = "받은 채용 제안 목록 (팀장용)", security = [SecurityRequirement(name = "Bearer")])
@@ -41,15 +43,37 @@ class WorkerTeamProposalController(
     fun listReceivedProposals(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(required = false) teamPublicId: String?,
         @CurrentUser principal: GadaPrincipal,
     ): ResponseEntity<ApiResponse<PageResponse<WorkerTeamProposalItem>>> {
         val userId = principal.userId ?: throw UnauthorizedException()
 
-        val team = teamRepository.findByLeaderId(userId)
-            ?: throw NotFoundException("팀 — 팀장만 조회할 수 있습니다.")
+        val teams = teamRepository.findAllByLeaderId(userId)
+        if (teams.isEmpty()) {
+            return ApiResponse.ok(
+                PageResponse(
+                    content = emptyList<WorkerTeamProposalItem>(),
+                    page = page,
+                    size = size,
+                    totalElements = 0L,
+                    totalPages = 0,
+                    isFirst = true,
+                    isLast = true,
+                )
+            ).toResponseEntity()
+        }
 
-        val teamPublicId = team.publicId.toString()
-        val (proposals, total) = pointsRepository.findProposalsByTeamPublicId(teamPublicId, page, size)
+        val allTeamPublicIds = teams.map { it.publicId.toString() }
+
+        // If a specific team is requested, verify the caller is its leader
+        val targetIds = if (teamPublicId != null) {
+            if (teamPublicId !in allTeamPublicIds) throw ForbiddenException()
+            listOf(teamPublicId)
+        } else {
+            allTeamPublicIds
+        }
+
+        val (proposals, total) = pointsRepository.findProposalsByTeamPublicIds(targetIds, page, size)
         val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
 
         return ApiResponse.ok(
@@ -74,13 +98,14 @@ class WorkerTeamProposalController(
     ): ResponseEntity<ApiResponse<WorkerTeamProposalItem>> {
         val userId = principal.userId ?: throw UnauthorizedException()
 
-        val team = teamRepository.findByLeaderId(userId)
-            ?: throw NotFoundException("팀 — 팀장만 응답할 수 있습니다.")
+        val teams = teamRepository.findAllByLeaderId(userId)
+        if (teams.isEmpty()) throw NotFoundException("팀 — 팀장만 응답할 수 있습니다.")
 
         val proposal = pointsRepository.findProposalByPublicId(UUID.fromString(proposalPublicId))
             ?: throw NotFoundException("제안")
 
-        if (proposal.teamPublicId != team.publicId.toString()) throw ForbiddenException()
+        val teamPublicIds = teams.map { it.publicId.toString() }
+        if (proposal.teamPublicId !in teamPublicIds) throw ForbiddenException()
 
         if (proposal.status != "PENDING") {
             throw BusinessException("이미 처리된 제안입니다.", "ALREADY_RESPONDED")
@@ -89,6 +114,22 @@ class WorkerTeamProposalController(
         proposal.status = req.status
         proposal.respondedAt = Instant.now()
         val saved = pointsRepository.saveProposal(proposal)
+
+        // 수락 시 해당 채용 공고에 팀 자동 지원
+        if (req.status == "ACCEPTED") {
+            try {
+                applicationUseCase.applyForJob(
+                    userId = userId,
+                    jobPublicId = UUID.fromString(proposal.jobPublicId),
+                    applicationType = "TEAM",
+                    teamPublicId = UUID.fromString(proposal.teamPublicId),
+                    coverLetter = null,
+                )
+            } catch (e: BusinessException) {
+                // 이미 해당 팀으로 지원된 경우 무시
+                if (e.errorCode != "ALREADY_APPLIED") throw e
+            }
+        }
 
         return ApiResponse.ok(saved.toWorkerItem()).toResponseEntity()
     }

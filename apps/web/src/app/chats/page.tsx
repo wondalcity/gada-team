@@ -3,8 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { MessageCircle, ChevronRight, Building2 } from "lucide-react";
-import { workerChatApi, WorkerChatRoomSummary } from "@/lib/chat-api";
+import { MessageCircle, ChevronRight, Building2, User } from "lucide-react";
+import {
+  workerChatApi,
+  directChatApi,
+  WorkerChatRoomSummary,
+  DirectChatRoomSummary,
+} from "@/lib/chat-api";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -36,9 +41,9 @@ function RoomSkeleton() {
   );
 }
 
-// ─── Room Row ──────────────────────────────────────────────────────────────────
+// ─── Employer Room Row ─────────────────────────────────────────────────────────
 
-function RoomRow({ room }: { room: WorkerChatRoomSummary }) {
+function EmployerRoomRow({ room }: { room: WorkerChatRoomSummary }) {
   const t = useT();
   return (
     <Link
@@ -59,7 +64,7 @@ function RoomRow({ room }: { room: WorkerChatRoomSummary }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className={cn("truncate text-sm font-semibold", room.unreadCount > 0 ? "text-neutral-950" : "text-neutral-800")}>
-            {room.employerName ?? t("chats.employer")}
+            {room.employerName ?? "업체"}
           </span>
           <span className="flex-shrink-0 text-xs text-neutral-400">
             {formatTime(room.lastMessageAt)}
@@ -76,17 +81,92 @@ function RoomRow({ room }: { room: WorkerChatRoomSummary }) {
   );
 }
 
+// ─── Direct Room Row ───────────────────────────────────────────────────────────
+
+function DirectRoomRow({ room }: { room: DirectChatRoomSummary }) {
+  return (
+    <Link
+      href={`/chats/direct/${room.publicId}`}
+      className="flex items-center gap-4 px-5 py-4 hover:bg-neutral-50 transition-colors"
+    >
+      <div className="relative flex-shrink-0">
+        {room.otherProfileImageUrl ? (
+          <img
+            src={room.otherProfileImageUrl}
+            alt={room.otherName ?? ""}
+            className="h-12 w-12 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
+            <User className="h-6 w-6 text-primary-500" />
+          </div>
+        )}
+        {room.unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-danger-500 text-[10px] font-bold text-white">
+            {room.unreadCount > 9 ? "9+" : room.unreadCount}
+          </span>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className={cn("truncate text-sm font-semibold", room.unreadCount > 0 ? "text-neutral-950" : "text-neutral-800")}>
+            {room.otherName ?? "팀원"}
+          </span>
+          <span className="flex-shrink-0 text-xs text-neutral-400">
+            {formatTime(room.lastMessageAt)}
+          </span>
+        </div>
+        <p className="mt-0.5 truncate text-xs text-primary-400 font-medium">직접 채팅</p>
+        <p className={cn("mt-0.5 truncate text-sm", room.unreadCount > 0 ? "font-medium text-neutral-700" : "text-neutral-400")}>
+          {room.lastMessagePreview ?? ""}
+        </p>
+      </div>
+
+      <ChevronRight className="h-4 w-4 flex-shrink-0 text-neutral-300" />
+    </Link>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WorkerChatsPage() {
   const t = useT();
-  const { data, isLoading, isError } = useQuery({
+
+  const { data: employerData, isLoading: employerLoading } = useQuery({
     queryKey: ["worker-chats"],
     queryFn: () => workerChatApi.listRooms(0, 50),
     refetchInterval: 15000,
   });
 
-  const rooms = data?.content ?? [];
+  const { data: directData, isLoading: directLoading } = useQuery({
+    queryKey: ["direct-chat-rooms"],
+    queryFn: () => directChatApi.listRooms(0, 50),
+    refetchInterval: 15000,
+  });
+
+  const isLoading = employerLoading || directLoading;
+  const employerRooms = employerData?.content ?? [];
+  const directRooms = directData?.content ?? [];
+  const hasAny = employerRooms.length > 0 || directRooms.length > 0;
+
+  // Merge and sort by lastMessageAt desc for a unified view
+  type UnifiedItem =
+    | { kind: "employer"; room: WorkerChatRoomSummary; sortKey: number }
+    | { kind: "direct"; room: DirectChatRoomSummary; sortKey: number };
+
+  const unified: UnifiedItem[] = [
+    ...employerRooms.map((room) => ({
+      kind: "employer" as const,
+      room,
+      sortKey: room.lastMessageAt ? new Date(room.lastMessageAt).getTime() : new Date(room.createdAt).getTime(),
+    })),
+    ...directRooms.map((room) => ({
+      kind: "direct" as const,
+      room,
+      sortKey: room.lastMessageAt ? new Date(room.lastMessageAt).getTime() : new Date(room.createdAt).getTime(),
+    })),
+  ].sort((a, b) => b.sortKey - a.sortKey);
 
   return (
     <AppLayout>
@@ -99,19 +179,20 @@ export default function WorkerChatsPage() {
         <div className="overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-card-md divide-y divide-neutral-100">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <RoomSkeleton key={i} />)
-          ) : isError ? (
-            <div className="flex flex-col items-center py-16 text-center px-4">
-              <MessageCircle className="mb-3 h-10 w-10 text-neutral-200" />
-              <p className="text-sm text-neutral-500">{t("chats.loadError")}</p>
-            </div>
-          ) : rooms.length === 0 ? (
+          ) : !hasAny ? (
             <div className="flex flex-col items-center py-16 text-center px-4">
               <MessageCircle className="mb-3 h-10 w-10 text-neutral-200" />
               <p className="font-semibold text-neutral-700">{t("chats.empty")}</p>
               <p className="mt-1 text-sm text-neutral-400">{t("chats.emptySub")}</p>
             </div>
           ) : (
-            rooms.map((room) => <RoomRow key={room.publicId} room={room} />)
+            unified.map((item) =>
+              item.kind === "employer" ? (
+                <EmployerRoomRow key={`employer-${item.room.publicId}`} room={item.room} />
+              ) : (
+                <DirectRoomRow key={`direct-${item.room.publicId}`} room={item.room} />
+              )
+            )
           )}
         </div>
       </div>

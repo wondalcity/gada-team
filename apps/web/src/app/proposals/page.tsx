@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Inbox, Briefcase, UserPlus, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Inbox, Briefcase, UserPlus, CheckCircle2, XCircle, Clock, Users } from "lucide-react";
 import { workerTeamProposalApi, memberProposalApi, WorkerTeamProposalItem, MemberProposalItem } from "@/lib/chat-api";
+import { teamsApi, InvitationResponse } from "@/lib/teams-api";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/authStore";
 import { useT } from "@/lib/i18n";
@@ -163,6 +164,91 @@ function MemberProposalCard({ proposal }: { proposal: MemberProposalItem }) {
   );
 }
 
+// ─── Team Invitation Card ─────────────────────────────────────────────────────
+
+function TeamInvitationCard({ invitation }: { invitation: InvitationResponse }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+
+  const respondMutation = useMutation({
+    mutationFn: (action: "accept" | "reject") =>
+      action === "accept"
+        ? teamsApi.acceptInvitation(invitation.invitationId)
+        : teamsApi.rejectInvitation(invitation.invitationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["worker-invitations"] });
+    },
+  });
+
+  const isPending = invitation.status === "PENDING";
+
+  function getInitials(name?: string) {
+    return name ? name.charAt(0).toUpperCase() : "?";
+  }
+
+  return (
+    <div className="rounded-xl border border-neutral-100 bg-white p-5 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0">
+            {invitation.teamCoverImageUrl ? (
+              <img
+                src={invitation.teamCoverImageUrl}
+                alt={invitation.teamName}
+                className="h-10 w-10 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 text-lg font-extrabold text-white">
+                {getInitials(invitation.teamName)}
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-neutral-900">{invitation.teamName}</p>
+            {invitation.invitedByName && (
+              <p className="mt-0.5 text-xs text-neutral-400">
+                {invitation.invitedByName}{t("invite.invited")}
+              </p>
+            )}
+          </div>
+        </div>
+        {!isPending && (
+          <span className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+            invitation.status === "ACCEPTED"
+              ? "bg-success-50 text-success-700 border border-success-200"
+              : "bg-neutral-100 text-neutral-500 border border-neutral-200"
+          )}>
+            {invitation.status === "ACCEPTED"
+              ? <><CheckCircle2 className="h-3 w-3" />{t("invite.accepted")}</>
+              : <><XCircle className="h-3 w-3" />{t("invite.rejected")}</>
+            }
+          </span>
+        )}
+      </div>
+
+      {isPending && (
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={() => respondMutation.mutate("accept")}
+            disabled={respondMutation.isPending}
+            className="flex-1 rounded-lg bg-primary-500 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 transition-colors"
+          >
+            {t("invite.accept")}
+          </button>
+          <button
+            onClick={() => respondMutation.mutate("reject")}
+            disabled={respondMutation.isPending}
+            className="flex-1 rounded-lg border border-neutral-200 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-60 transition-colors"
+          >
+            {t("invite.reject")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function CardSkeleton() {
@@ -220,12 +306,14 @@ export default function ProposalsPage() {
   // Gate on mounted to avoid SSR/hydration mismatch: server always renders
   // the skeleton, auth-based content is added only after client mount.
   const isLeader = mounted && user?.role === "TEAM_LEADER";
-  const isNotLeader = mounted && user !== null && user?.role !== "TEAM_LEADER";
+  // Workers with WORKER role can also lead teams, so query proposals for them too.
+  const isWorker = mounted && (user?.role === "WORKER" || user?.role === "TEAM_LEADER");
 
   const jobProposalsQuery = useQuery({
     queryKey: ["worker-team-proposals"],
     queryFn: () => workerTeamProposalApi.listReceived(0, 50),
-    enabled: isLeader,
+    enabled: isWorker,
+    retry: false,
   });
 
   const memberProposalsQuery = useQuery({
@@ -234,8 +322,22 @@ export default function ProposalsPage() {
     enabled: isLeader,
   });
 
+  const invitationsQuery = useQuery({
+    queryKey: ["worker-invitations"],
+    queryFn: () => teamsApi.getMyInvitations(),
+    enabled: isWorker && !isLeader,
+    initialData: [],
+  });
+
   const jobProposals = jobProposalsQuery.data?.content ?? [];
   const memberProposals = memberProposalsQuery.data?.content ?? [];
+  const invitations = invitationsQuery.data ?? [];
+
+  // Show employer proposals section for TEAM_LEADER always,
+  // or for WORKER if they have proposals (means they lead a team).
+  const showJobProposals =
+    isLeader ||
+    (isWorker && !isLeader && !jobProposalsQuery.isLoading && jobProposals.length > 0);
 
   // Show loading skeleton until mount resolves auth state
   if (!mounted) {
@@ -252,24 +354,6 @@ export default function ProposalsPage() {
     );
   }
 
-  if (isNotLeader) {
-    return (
-      <AppLayout>
-        <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 text-center">
-          <Inbox className="mx-auto mb-4 h-12 w-12 text-neutral-200" />
-          <p className="font-semibold text-neutral-700">{t("proposals.notLeader")}</p>
-          <p className="mt-2 text-sm text-neutral-400">{t("proposals.notLeaderSub")}</p>
-          <Link
-            href="/teams"
-            className="mt-5 inline-block rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
-          >
-            {t("proposals.notLeaderLink")}
-          </Link>
-        </div>
-      </AppLayout>
-    );
-  }
-
   return (
     <AppLayout>
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 space-y-10">
@@ -278,29 +362,50 @@ export default function ProposalsPage() {
           <p className="mt-1 text-sm text-neutral-500">{t("proposals.sub")}</p>
         </div>
 
-        <Section
-          title={t("proposals.jobTitle")}
-          subtitle={t("proposals.jobSub")}
-          isEmpty={!jobProposalsQuery.isLoading && jobProposals.length === 0}
-          emptyMessage={t("proposals.jobEmpty")}
-        >
-          {jobProposalsQuery.isLoading
-            ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
-            : jobProposals.map((p) => <JobProposalCard key={p.publicId} proposal={p} />)
-          }
-        </Section>
+        {/* Team leader: employer job proposals */}
+        {showJobProposals && (
+          <Section
+            title={t("proposals.jobTitle")}
+            subtitle={t("proposals.jobSub")}
+            isEmpty={!jobProposalsQuery.isLoading && jobProposals.length === 0}
+            emptyMessage={t("proposals.jobEmpty")}
+          >
+            {jobProposalsQuery.isLoading
+              ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
+              : jobProposals.map((p) => <JobProposalCard key={p.publicId} proposal={p} />)
+            }
+          </Section>
+        )}
 
-        <Section
-          title={t("proposals.memberTitle")}
-          subtitle={t("proposals.memberSub")}
-          isEmpty={!memberProposalsQuery.isLoading && memberProposals.length === 0}
-          emptyMessage={t("proposals.memberEmpty")}
-        >
-          {memberProposalsQuery.isLoading
-            ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
-            : memberProposals.map((p) => <MemberProposalCard key={p.publicId} proposal={p} />)
-          }
-        </Section>
+        {/* Team leader: member proposals from workers */}
+        {isLeader && (
+          <Section
+            title={t("proposals.memberTitle")}
+            subtitle={t("proposals.memberSub")}
+            isEmpty={!memberProposalsQuery.isLoading && memberProposals.length === 0}
+            emptyMessage={t("proposals.memberEmpty")}
+          >
+            {memberProposalsQuery.isLoading
+              ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
+              : memberProposals.map((p) => <MemberProposalCard key={p.publicId} proposal={p} />)
+            }
+          </Section>
+        )}
+
+        {/* Worker (non-leader): team invitations received */}
+        {isWorker && !isLeader && (
+          <Section
+            title={t("proposals.inviteTitle")}
+            subtitle={t("proposals.inviteSub")}
+            isEmpty={!invitationsQuery.isLoading && invitations.length === 0}
+            emptyMessage={t("proposals.inviteEmpty")}
+          >
+            {invitationsQuery.isLoading
+              ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
+              : invitations.map((inv) => <TeamInvitationCard key={inv.invitationId} invitation={inv} />)
+            }
+          </Section>
+        )}
       </div>
     </AppLayout>
   );

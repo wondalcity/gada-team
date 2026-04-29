@@ -12,21 +12,23 @@ import {
   type UpdateCompanyPayload,
 } from "@/lib/employer-api";
 import { uploadImageToStorage } from "@/lib/firebase";
+import { useT } from "@/lib/i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
 function siteStatusLabel(
-  status: string
+  status: string,
+  t: ReturnType<typeof useT>
 ): { text: string; className: string } {
   const map: Record<string, { text: string; className: string }> = {
-    PLANNING: { text: "계획 중", className: "bg-primary-50 text-primary-600" },
-    ACTIVE: { text: "진행 중", className: "bg-success-100 text-success-700" },
+    PLANNING: { text: t("employer.siteStatusPlanning"), className: "bg-primary-50 text-primary-600" },
+    ACTIVE: { text: t("employer.siteStatusActive"), className: "bg-success-100 text-success-700" },
     COMPLETED: {
-      text: "완료",
+      text: t("employer.siteStatusCompleted"),
       className: "bg-neutral-100 text-neutral-500",
     },
     SUSPENDED: {
-      text: "중단",
+      text: t("employer.siteStatusSuspended"),
       className: "bg-danger-50 text-danger-700",
     },
   };
@@ -38,19 +40,19 @@ function siteStatusLabel(
   );
 }
 
-function companyStatusInfo(status: CompanyResponse["status"]) {
+function companyStatusInfo(status: CompanyResponse["status"], t: ReturnType<typeof useT>) {
   const map: Record<
     CompanyResponse["status"],
     { text: string; className: string }
   > = {
     PENDING: {
-      text: "승인 대기",
+      text: t("employer.companyStatusPending"),
       className: "bg-yellow-100 text-yellow-700",
     },
-    ACTIVE: { text: "활성", className: "bg-success-100 text-success-700" },
-    SUSPENDED: { text: "정지", className: "bg-danger-100 text-danger-700" },
+    ACTIVE: { text: t("employer.companyStatusActive"), className: "bg-success-100 text-success-700" },
+    SUSPENDED: { text: t("employer.companyStatusSuspended"), className: "bg-danger-100 text-danger-700" },
     CLOSED: {
-      text: "폐쇄",
+      text: t("employer.companyStatusClosed"),
       className: "bg-neutral-200 text-neutral-500",
     },
   };
@@ -89,7 +91,8 @@ function SiteCard({
   companyPublicId: string;
   onDelete: (id: string) => void;
 }) {
-  const badge = siteStatusLabel(site.status);
+  const t = useT();
+  const badge = siteStatusLabel(site.status, t);
   const [confirming, setConfirming] = useState(false);
 
   return (
@@ -116,7 +119,7 @@ function SiteCard({
               {badge.text}
             </span>
             <span className="text-xs text-neutral-400">
-              공고 {site.activeJobCount}건
+              {t("employer.siteJobCount", site.activeJobCount)}
             </span>
           </div>
         </div>
@@ -126,14 +129,14 @@ function SiteCard({
           href={`/employer/sites/${site.publicId}/edit?companyId=${companyPublicId}`}
           className="flex-1 text-center border border-neutral-200 rounded-lg text-neutral-700 text-xs font-semibold py-2 hover:bg-neutral-50 transition-colors"
         >
-          수정
+          {t("employer.edit")}
         </Link>
         {!confirming ? (
           <button
             onClick={() => setConfirming(true)}
             className="flex-1 text-center border border-danger-200 rounded-lg text-danger-500 text-xs font-semibold py-2 hover:bg-danger-50 transition-colors"
           >
-            삭제
+            {t("employer.delete")}
           </button>
         ) : (
           <button
@@ -143,7 +146,7 @@ function SiteCard({
             }}
             className="flex-1 text-center bg-danger-500 rounded-lg text-white text-xs font-semibold py-2 hover:bg-danger-700 transition-colors"
           >
-            정말 삭제
+            {t("employer.confirmDelete")}
           </button>
         )}
       </div>
@@ -171,6 +174,7 @@ export default function CompanyPage() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const t = useT();
 
   const {
     data: company,
@@ -209,13 +213,18 @@ export default function CompanyPage() {
     try {
       const ext = file.name.split(".").pop() ?? "jpg";
       const path = `profiles/companies/${company.publicId}_${Date.now()}.${ext}`;
-      const url = await uploadImageToStorage(file, path);
+      const uploadPromise = uploadImageToStorage(file, path);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("업로드 시간이 초과되었습니다. 다시 시도해주세요.")), 30_000)
+      );
+      const url = await Promise.race([uploadPromise, timeoutPromise]);
       setLogoUrl(url);
       await employerApi.updateMyCompany(company.publicId, { logoUrl: url });
       queryClient.invalidateQueries({ queryKey: ["employer", "company"] });
-      setToast("로고가 업로드되었습니다.");
-    } catch (err) {
+      setToast(t("employer.logoUpdated"));
+    } catch (err: any) {
       console.error("Logo upload failed:", err);
+      setToast(err?.message ?? "로고 업로드에 실패했습니다.");
     } finally {
       setIsUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
@@ -237,7 +246,10 @@ export default function CompanyPage() {
       employerApi.createCompany(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employer", "company"] });
-      setToast("회사가 등록되었습니다.");
+      setToast(t("employer.companyRegistered"));
+    },
+    onError: (err: any) => {
+      setToast(err?.message || t("common.error"));
     },
   });
 
@@ -247,7 +259,10 @@ export default function CompanyPage() {
       employerApi.updateMyCompany(company!.publicId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employer", "company"] });
-      setToast("회사 정보가 저장되었습니다.");
+      setToast(t("employer.companySaved"));
+    },
+    onError: (err: any) => {
+      setToast(err?.message || t("common.error"));
     },
   });
 
@@ -259,7 +274,7 @@ export default function CompanyPage() {
       queryClient.invalidateQueries({
         queryKey: ["employer", "sites", company?.publicId],
       });
-      setToast("현장이 삭제되었습니다.");
+      setToast(t("employer.siteDeleted"));
     },
   });
 
@@ -295,16 +310,16 @@ export default function CompanyPage() {
       )}
 
       <div className="mb-6">
-        <h1 className="text-xl font-extrabold text-neutral-950">회사 정보</h1>
+        <h1 className="text-xl font-extrabold text-neutral-950">{t("employer.companyInfo")}</h1>
         <p className="text-sm text-neutral-500 mt-0.5">
           {isCreateMode
-            ? "회사 정보를 등록하면 공고를 게시할 수 있습니다."
-            : "회사 프로필을 수정하세요."}
+            ? t("employer.companyInfoDesc")
+            : t("employer.companyProfileEdit")}
         </p>
       </div>
 
       {isLoading ? (
-        <div className="bg-white rounded-lg shadow-card-md p-6 animate-pulse">
+        <div className="max-w-2xl bg-white rounded-lg shadow-card-md p-6 animate-pulse">
           <div className="h-4 w-32 bg-neutral-200 rounded mb-4" />
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
@@ -313,11 +328,11 @@ export default function CompanyPage() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex flex-col xl:flex-row gap-6 items-start">
           {/* Form */}
           <form
             onSubmit={handleSubmit}
-            className="flex-1 bg-white rounded-lg shadow-card-md p-6"
+            className="w-full max-w-2xl bg-white rounded-lg shadow-card-md p-6"
           >
             {/* Logo upload */}
             <div className="flex items-center gap-4 mb-6 pb-6 border-b border-neutral-100">
@@ -329,7 +344,7 @@ export default function CompanyPage() {
                 ) : logoUrl ? (
                   <img
                     src={logoUrl}
-                    alt="로고"
+                    alt={t("employer.companyLogo")}
                     className="h-16 w-16 rounded-lg object-cover border border-neutral-200"
                   />
                 ) : (
@@ -341,7 +356,7 @@ export default function CompanyPage() {
                 )}
               </div>
               <div>
-                <p className="text-sm font-semibold text-neutral-900">회사 로고</p>
+                <p className="text-sm font-semibold text-neutral-900">{t("employer.companyLogo")}</p>
                 <p className="text-xs text-neutral-500 mt-0.5 mb-2">JPG, PNG (권장: 200×200px)</p>
                 <button
                   type="button"
@@ -349,10 +364,10 @@ export default function CompanyPage() {
                   onClick={() => logoInputRef.current?.click()}
                   className="text-xs font-medium text-primary-500 border border-primary-200 rounded-lg px-3 py-1.5 hover:bg-primary-500/5 disabled:opacity-50 transition-colors"
                 >
-                  로고 변경
+                  {t("employer.logoChange")}
                 </button>
                 {!company && (
-                  <p className="text-xs text-neutral-400 mt-1">회사를 먼저 등록해주세요</p>
+                  <p className="text-xs text-neutral-400 mt-1">{t("employer.logoRegisterFirst")}</p>
                 )}
               </div>
               <input
@@ -365,13 +380,13 @@ export default function CompanyPage() {
             </div>
 
             <h2 className="text-base font-semibold text-neutral-900 mb-4">
-              기본 정보
+              {t("employer.basicInfoLabel")}
             </h2>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                  회사명 <span className="text-danger-500">*</span>
+                  {t("employer.companyNameLabel")} <span className="text-danger-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -385,7 +400,7 @@ export default function CompanyPage() {
 
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                  사업자등록번호
+                  {t("employer.bizRegNumber")}
                 </label>
                 <input
                   type="text"
@@ -400,7 +415,7 @@ export default function CompanyPage() {
 
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                  대표자명
+                  {t("employer.ceoNameLabel")}
                 </label>
                 <input
                   type="text"
@@ -413,7 +428,7 @@ export default function CompanyPage() {
 
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                  주소
+                  {t("employer.addressLabel")}
                 </label>
                 <input
                   type="text"
@@ -427,12 +442,12 @@ export default function CompanyPage() {
 
             <div className="border-t border-neutral-100 pt-6 mt-6">
               <h2 className="text-base font-semibold text-neutral-900 mb-4">
-                연락처
+                {t("employer.contactInfoLabel")}
               </h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                    전화번호
+                    {t("employer.phoneLabel")}
                   </label>
                   <input
                     type="tel"
@@ -445,7 +460,7 @@ export default function CompanyPage() {
 
                 <div>
                   <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                    이메일
+                    {t("employer.emailLabel")}
                   </label>
                   <input
                     type="email"
@@ -458,7 +473,7 @@ export default function CompanyPage() {
 
                 <div>
                   <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                    웹사이트 URL
+                    {t("employer.websiteLabel")}
                   </label>
                   <input
                     type="url"
@@ -473,12 +488,12 @@ export default function CompanyPage() {
 
             <div className="border-t border-neutral-100 pt-6 mt-6">
               <h2 className="text-base font-semibold text-neutral-900 mb-4">
-                회사 소개
+                {t("employer.companyDescLabel")}
               </h2>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="회사 소개를 입력해주세요."
+                placeholder={t("employer.companyDescPlaceholder")}
                 rows={4}
                 className={`${inputClass} resize-none`}
               />
@@ -491,26 +506,26 @@ export default function CompanyPage() {
                 className="bg-primary-500 text-white rounded-lg py-3 px-6 font-semibold text-sm hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving
-                  ? "저장 중..."
+                  ? t("employer.saving")
                   : isCreateMode
-                  ? "회사 등록"
-                  : "저장"}
+                  ? t("employer.companyRegisterBtn")
+                  : t("employer.saveShort")}
               </button>
             </div>
           </form>
 
           {/* Status sidebar */}
           {!isCreateMode && company && (
-            <div className="w-full lg:w-64 shrink-0">
+            <div className="w-full xl:w-64 shrink-0">
               <div className="bg-white rounded-lg shadow-card-md p-6">
                 <h2 className="text-base font-semibold text-neutral-900 mb-4">
-                  상태
+                  {t("employer.companyStatusLabel")}
                 </h2>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">승인 상태</span>
+                    <span className="text-xs text-neutral-500">{t("employer.approvalStatusLabel")}</span>
                     {(() => {
-                      const info = companyStatusInfo(company.status);
+                      const info = companyStatusInfo(company.status, t);
                       return (
                         <span
                           className={`text-xs font-semibold px-2.5 py-1 rounded-full ${info.className}`}
@@ -521,7 +536,7 @@ export default function CompanyPage() {
                     })()}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">본인 인증</span>
+                    <span className="text-xs text-neutral-500">{t("employer.verificationLabel")}</span>
                     <span
                       className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                         company.isVerified
@@ -529,18 +544,18 @@ export default function CompanyPage() {
                           : "bg-neutral-100 text-neutral-500"
                       }`}
                     >
-                      {company.isVerified ? "완료" : "미완료"}
+                      {company.isVerified ? t("employer.verifiedLabel") : t("employer.notVerifiedLabel")}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">현장 수</span>
+                    <span className="text-xs text-neutral-500">{t("employer.siteCountLabel")}</span>
                     <span className="text-xs font-bold text-neutral-900">
                       {company.siteCount}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-neutral-500">
-                      게시 중 공고
+                      {t("employer.activeJobCountLabel")}
                     </span>
                     <span className="text-xs font-bold text-neutral-900">
                       {company.activeJobCount}
@@ -550,7 +565,7 @@ export default function CompanyPage() {
                 {company.status === "PENDING" && (
                   <div className="mt-4 bg-yellow-50 rounded-lg p-3">
                     <p className="text-xs text-yellow-700">
-                      승인 요청됨. 관리자 검토 후 활성화됩니다.
+                      {t("employer.pendingApprovalNote")}
                     </p>
                   </div>
                 )}
@@ -565,13 +580,13 @@ export default function CompanyPage() {
         <div className="border-t border-neutral-100 pt-6 mt-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-neutral-900">
-              우리 현장
+              {t("employer.ourSites")}
             </h2>
             <Link
               href="/employer/sites/new"
               className="text-xs bg-primary-500 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-primary-600 transition-colors"
             >
-              + 현장 추가
+              {t("employer.addSite")}
             </Link>
           </div>
 
@@ -587,13 +602,13 @@ export default function CompanyPage() {
           ) : !sites || sites.length === 0 ? (
             <div className="bg-white rounded-lg shadow-card border border-neutral-100 p-10 text-center">
               <p className="text-sm text-neutral-400 mb-4">
-                아직 등록된 현장이 없습니다.
+                {t("employer.noSites")}
               </p>
               <Link
                 href="/employer/sites/new"
                 className="inline-block bg-primary-500 text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-primary-600 transition-colors"
               >
-                + 현장 추가
+                {t("employer.addSite")}
               </Link>
             </div>
           ) : (

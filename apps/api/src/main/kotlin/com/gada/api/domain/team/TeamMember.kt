@@ -50,8 +50,8 @@ class TeamMember {
     @Column(name = "role", columnDefinition = "team_member_role", nullable = false)
     var role: TeamMemberRole = TeamMemberRole.MEMBER
 
-    @Column(name = "joined_at", nullable = false)
-    var joinedAt: Instant = Instant.now()
+    @Column(name = "joined_at")
+    var joinedAt: Instant? = null
 
     @Column(name = "left_at")
     var leftAt: Instant? = null

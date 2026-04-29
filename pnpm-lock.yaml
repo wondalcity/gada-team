@@ -104,6 +104,9 @@ importers:
       '@tanstack/react-query-devtools':
         specifier: ^5.62.16
         version: 5.96.0(@tanstack/react-query@5.96.0(react@19.2.4))(react@19.2.4)
+      '@tosspayments/tosspayments-sdk':
+        specifier: ^2.7.0
+        version: 2.7.0
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -766,6 +769,9 @@ packages:
     resolution: {integrity: sha512-6qbjdm1K5kizVKv9TNqhIN3doq2anRhdF2XaFMFSn4m8L22S69RV+FilvlyVT4RoJyMxtPU5rs4RpdFa/PEC7A==}
     peerDependencies:
       react: ^18 || ^19
+
+  '@tosspayments/tosspayments-sdk@2.7.0':
+    resolution: {integrity: sha512-qpVIMpxdmKNOKwOZuSbkyGO5CpbF3+kqJcHLjGsTdyOsNex8ai+ceQc7zyCJhq+qZf9jglJpx9Q0bGVWwGjcbQ==}
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -3012,6 +3018,8 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.96.0
       react: 19.2.4
+
+  '@tosspayments/tosspayments-sdk@2.7.0': {}
 
   '@tybys/wasm-util@0.10.1':
     dependencies:

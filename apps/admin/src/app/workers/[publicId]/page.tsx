@@ -15,7 +15,9 @@ import {
   AlertTriangle,
   User,
   Briefcase,
+  CheckCircle2,
 } from "lucide-react";
+import { cn } from "@gada/ui";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
@@ -44,7 +46,14 @@ const HEALTH_LABELS: Record<string, string> = {
   COMPLETED: "완료", NOT_DONE: "미완료", EXPIRED: "만료",
 };
 
-const STATUS_OPTIONS = ["PENDING", "ACTIVE", "SUSPENDED", "INACTIVE"];
+const STATUS_OPTIONS = ["PENDING", "ACTIVE", "SUSPENDED", "INACTIVE"] as const;
+
+const STATUS_META: Record<string, { label: string; activeClass: string; currentClass: string }> = {
+  PENDING:   { label: "대기중",  activeClass: "bg-yellow-500 text-white border-yellow-500",  currentClass: "bg-yellow-50 text-yellow-700 border-yellow-300" },
+  ACTIVE:    { label: "활성",   activeClass: "bg-green-500 text-white border-green-500",    currentClass: "bg-green-50 text-green-700 border-green-300" },
+  SUSPENDED: { label: "정지",   activeClass: "bg-red-500 text-white border-red-500",        currentClass: "bg-red-50 text-red-700 border-red-300" },
+  INACTIVE:  { label: "비활성", activeClass: "bg-neutral-500 text-white border-neutral-500", currentClass: "bg-neutral-100 text-neutral-600 border-neutral-300" },
+};
 
 // ─── Sub-components ─────────────────────────────────────────────
 
@@ -290,29 +299,55 @@ export default function WorkerDetailPage() {
 
         {/* Status change */}
         <div className="bg-white rounded-2xl border border-neutral-200 shadow-card p-6">
-          <h2 className="text-sm font-semibold text-neutral-700 mb-4">상태 변경</h2>
+          <h2 className="text-sm font-semibold text-neutral-700 mb-1">상태 변경</h2>
+          <p className="text-xs text-neutral-400 mb-4">변경할 상태를 선택하고 확인 버튼을 누르세요.</p>
           {statusMutation.isError && (
             <p className="text-xs text-red-600 mb-3">오류: {(statusMutation.error as Error).message}</p>
           )}
-          <div className="flex items-center gap-3">
-            <select
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-brand-blue bg-white text-neutral-700"
-            >
-              <option value="">상태 선택...</option>
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => { if (newStatus) statusMutation.mutate(newStatus); }}
-              disabled={!newStatus || statusMutation.isPending}
-              className="px-4 py-2 rounded-lg bg-brand-blue text-white text-sm font-semibold hover:bg-brand-blue-dark disabled:opacity-50 transition-colors"
-            >
-              {statusMutation.isPending ? "처리 중..." : "변경"}
-            </button>
+          {statusMutation.isSuccess && (
+            <div className="flex items-center gap-1.5 text-xs text-green-600 mb-3">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              상태가 변경되었습니다.
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {STATUS_OPTIONS.map((s) => {
+              const meta = STATUS_META[s];
+              const isCurrent = data.status === s;
+              const isSelected = newStatus === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setNewStatus(isSelected ? "" : s)}
+                  disabled={isCurrent}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold border transition-all",
+                    isCurrent
+                      ? meta.currentClass + " cursor-default"
+                      : isSelected
+                      ? meta.activeClass
+                      : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
+                  )}
+                >
+                  {isCurrent && <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />}
+                  {meta.label}
+                  {isCurrent && <span className="text-[10px] font-normal opacity-60">(현재)</span>}
+                </button>
+              );
+            })}
           </div>
+          {newStatus && (
+            <button
+              onClick={() => statusMutation.mutate(newStatus)}
+              disabled={statusMutation.isPending}
+              className="px-5 py-2 rounded-xl bg-brand-blue text-white text-sm font-semibold hover:bg-brand-blue-dark disabled:opacity-50 transition-colors"
+            >
+              {statusMutation.isPending
+                ? "처리 중..."
+                : `'${STATUS_META[newStatus]?.label}'(으)로 변경`}
+            </button>
+          )}
         </div>
 
         {/* Danger zone */}

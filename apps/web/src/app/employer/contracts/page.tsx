@@ -17,12 +17,14 @@ import {
 } from "lucide-react";
 import { contractsApi } from "@/lib/contracts-api";
 import { uploadImageToStorage } from "@/lib/firebase";
+import { useT } from "@/lib/i18n";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 // NOTE: employer/layout.tsx already wraps in <AppLayout>, so we do NOT add it here.
 
 export default function EmployerContractTemplatePage() {
   const queryClient = useQueryClient();
+  const t = useT();
   const [saved, setSaved] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [uploadingDoc, setUploadingDoc] = React.useState(false);
@@ -60,11 +62,11 @@ export default function EmployerContractTemplatePage() {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "application/haansofthwp", "application/x-hwp"];
     if (!allowed.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|hwp)$/i)) {
-      setUploadError("PDF, Word(.docx), HWP 파일만 업로드할 수 있어요");
+      setUploadError(t("employer.contractFileTypes"));
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
-      setUploadError("파일 크기는 20MB 이하여야 해요");
+      setUploadError(t("employer.contractFileSizeLimit"));
       return;
     }
     setUploadError(null);
@@ -74,7 +76,7 @@ export default function EmployerContractTemplatePage() {
       const url = await uploadImageToStorage(file, path);
       setForm((f) => ({ ...f, documentUrl: url }));
     } catch {
-      setUploadError("업로드에 실패했어요. 다시 시도해주세요.");
+      setUploadError(t("employer.contractUploadFailed"));
     } finally {
       setUploadingDoc(false);
       // Reset file input so same file can be re-selected
@@ -120,15 +122,15 @@ export default function EmployerContractTemplatePage() {
           className="mb-4 inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
-          돌아가기
+          {t("employer.backShort")}
         </Link>
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50">
             <ClipboardSignature className="h-5 w-5 text-primary-500" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-neutral-950">계약서 양식 관리</h1>
-            <p className="text-sm text-neutral-500">채용 확정 후 계약서 발송 시 자동으로 채워지는 기본 양식이에요</p>
+            <h1 className="text-xl font-extrabold text-neutral-950">{t("employer.contractTitle")}</h1>
+            <p className="text-sm text-neutral-500">{t("employer.contractDesc")}</p>
           </div>
         </div>
       </div>
@@ -137,7 +139,7 @@ export default function EmployerContractTemplatePage() {
       {saved && (
         <div className="mb-4 flex items-center gap-2 rounded-xl bg-success-50 border border-success-200 px-4 py-3">
           <CheckCircle2 className="h-5 w-5 text-success-600 flex-shrink-0" />
-          <p className="text-sm font-medium text-success-700">계약서 양식이 저장되었습니다.</p>
+          <p className="text-sm font-medium text-success-700">{t("employer.contractSaved")}</p>
         </div>
       )}
 
@@ -158,15 +160,15 @@ export default function EmployerContractTemplatePage() {
       ) : (
         <div className="rounded-xl border border-neutral-100 bg-white shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-neutral-100">
-            <h2 className="text-sm font-bold text-neutral-800">기본 계약 조건</h2>
-            <p className="text-xs text-neutral-500 mt-0.5">입력한 내용은 계약서 발송 시 양식으로 자동 채워져요</p>
+            <h2 className="text-sm font-bold text-neutral-800">{t("employer.contractTermsLabel")}</h2>
+            <p className="text-xs text-neutral-500 mt-0.5">{t("employer.contractTermsDesc")}</p>
           </div>
 
           <div className="px-5 py-5 space-y-5">
             {/* Pay */}
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="mb-1.5 block text-sm font-semibold text-neutral-700">급여 (원)</label>
+                <label className="mb-1.5 block text-sm font-semibold text-neutral-700">{t("employer.payAmountLabel")}</label>
                 <input
                   type="number"
                   value={form.payAmount}
@@ -176,22 +178,22 @@ export default function EmployerContractTemplatePage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-neutral-700">단위</label>
+                <label className="mb-1.5 block text-sm font-semibold text-neutral-700">{t("employer.payUnitLabel")}</label>
                 <select
                   value={form.payUnit}
                   onChange={(e) => setForm((f) => ({ ...f, payUnit: e.target.value }))}
                   className="h-[42px] rounded-lg border border-neutral-200 px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-200"
                 >
-                  <option value="DAILY">일급</option>
-                  <option value="MONTHLY">월급</option>
-                  <option value="HOURLY">시급</option>
+                  <option value="DAILY">{t("employer.payUnitDaily")}</option>
+                  <option value="MONTHLY">{t("employer.payUnitMonthly")}</option>
+                  <option value="HOURLY">{t("employer.payUnitHourly")}</option>
                 </select>
               </div>
             </div>
 
             {/* Terms */}
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">계약 조건 (선택)</label>
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">{t("employer.contractTermsOpt")}</label>
               <textarea
                 value={form.terms}
                 onChange={(e) => setForm((f) => ({ ...f, terms: e.target.value }))}
@@ -203,7 +205,7 @@ export default function EmployerContractTemplatePage() {
 
             {/* Contract document — file upload */}
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">계약서 문서 (선택)</label>
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">{t("employer.contractDocOpt")}</label>
 
               {/* Hidden file input */}
               <input
@@ -229,7 +231,7 @@ export default function EmployerContractTemplatePage() {
                       className="inline-flex items-center gap-1 text-xs text-primary-500 hover:underline mt-0.5"
                     >
                       <ExternalLink className="h-3 w-3" />
-                      문서 열기
+                      {t("employer.contractFileOpen")}
                     </a>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -239,7 +241,7 @@ export default function EmployerContractTemplatePage() {
                       disabled={uploadingDoc}
                       className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
                     >
-                      교체
+                      {t("employer.contractFileReplace")}
                     </button>
                     <button
                       type="button"
@@ -261,13 +263,13 @@ export default function EmployerContractTemplatePage() {
                   {uploadingDoc ? (
                     <>
                       <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
-                      <p className="text-sm font-medium text-primary-600">업로드 중...</p>
+                      <p className="text-sm font-medium text-primary-600">{t("employer.contractUploading")}</p>
                     </>
                   ) : (
                     <>
                       <Upload className="h-6 w-6 text-neutral-400" />
-                      <p className="text-sm font-medium text-neutral-600">계약서 파일 선택</p>
-                      <p className="text-xs text-neutral-400">PDF, Word(.docx), HWP · 최대 20MB</p>
+                      <p className="text-sm font-medium text-neutral-600">{t("employer.contractFileSelect")}</p>
+                      <p className="text-xs text-neutral-400">{t("employer.contractUploadHint")}</p>
                     </>
                   )}
                 </button>
@@ -286,7 +288,7 @@ export default function EmployerContractTemplatePage() {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 py-3.5 text-sm font-bold text-white hover:bg-primary-600 disabled:opacity-60 transition-colors"
             >
               <Save className="h-4 w-4" />
-              {saveMutation.isPending ? "저장 중..." : "양식 저장"}
+              {saveMutation.isPending ? t("employer.saving") : t("employer.contractSaveBtn")}
             </button>
           </div>
         </div>
@@ -294,10 +296,9 @@ export default function EmployerContractTemplatePage() {
 
       {/* Info card */}
       <div className="mt-4 rounded-xl border border-primary-100 bg-primary-50 px-4 py-3">
-        <p className="text-xs font-semibold text-primary-700 mb-1">채팅으로 계약서 발송</p>
+        <p className="text-xs font-semibold text-primary-700 mb-1">{t("employer.contractChatSend")}</p>
         <p className="text-xs text-primary-600 leading-relaxed">
-          채용 확정 후 계약서를 발송하면 팀 채팅방에 계약서 메시지가 자동으로 전송됩니다.
-          근로자는 채팅 또는 지원 현황 페이지에서 계약서를 확인하고 서명할 수 있어요.
+          {t("employer.contractChatDesc")}
         </p>
       </div>
     </div>

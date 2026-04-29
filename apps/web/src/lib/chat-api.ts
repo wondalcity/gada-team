@@ -96,7 +96,7 @@ export const workerChatApi = {
     api.post<ChatMessageItem>(`/worker/chats/rooms/${roomPublicId}/messages`, { content }),
 };
 
-// ── Worker Team Proposal API (팀장이 받은 고용주 채용 제안) ─────────────────────────────
+// ── Worker Team Proposal API (팀장이 받은 업체 채용 제안) ─────────────────────────────
 
 export interface WorkerTeamProposalItem {
   publicId: string;
@@ -110,8 +110,11 @@ export interface WorkerTeamProposalItem {
 }
 
 export const workerTeamProposalApi = {
-  listReceived: (page = 0, size = 20) =>
-    api.get<PageResponse<WorkerTeamProposalItem>>(`/worker/teams/proposals?page=${page}&size=${size}`),
+  listReceived: (page = 0, size = 20, teamPublicId?: string) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (teamPublicId) params.set("teamPublicId", teamPublicId);
+    return api.get<PageResponse<WorkerTeamProposalItem>>(`/worker/teams/proposals?${params}`);
+  },
 
   respond: (proposalPublicId: string, status: "ACCEPTED" | "DECLINED") =>
     api.put<WorkerTeamProposalItem>(`/worker/teams/proposals/${proposalPublicId}`, { status }),
@@ -157,11 +160,28 @@ export const directChatApi = {
   listRooms: (page = 0, size = 20) =>
     api.get<PageResponse<DirectChatRoomSummary>>(`/worker/direct-chats/rooms?page=${page}&size=${size}`),
 
+  getRoom: (roomPublicId: string) =>
+    api.get<DirectChatRoomSummary>(`/worker/direct-chats/rooms/${roomPublicId}`),
+
   getMessages: (roomPublicId: string, page = 0, size = 50) =>
     api.get<PageResponse<DirectChatMessageItem>>(`/worker/direct-chats/rooms/${roomPublicId}/messages?page=${page}&size=${size}`),
 
   sendMessage: (roomPublicId: string, content: string) =>
     api.post<DirectChatMessageItem>(`/worker/direct-chats/rooms/${roomPublicId}/messages`, { content }),
+};
+
+// ── Worker Points API (team leader balance) ────────────────────────────────────
+
+export interface TlPointBalanceResponse {
+  balance: number;
+  totalCharged: number;
+  totalUsed: number;
+  updatedAt: string;
+}
+
+export const workerPointsApi = {
+  getBalance: () =>
+    api.get<TlPointBalanceResponse>("/worker/points"),
 };
 
 // ── Member Proposal API ────────────────────────────────────────────────────────

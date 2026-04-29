@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { isMockMode, MOCK_EMPLOYER_USER } from "@/lib/employer-mock";
+import { useT } from "@/lib/i18n";
 
 export default function EmployerLayout({
   children,
@@ -15,6 +16,7 @@ export default function EmployerLayout({
   const setUser = useAuthStore((s) => s.setUser);
   const router = useRouter();
   const [mockActive, setMockActive] = useState(false);
+  const t = useT();
 
   // Inject mock EMPLOYER user when demo mode is enabled and no real user exists
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function EmployerLayout({
       {mockActive && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center">
           <p className="text-xs text-amber-700 font-medium">
-            데모 모드 — 더미 데이터가 표시됩니다.{" "}
+            {t("employer.demoMode")}{" "}
             <button
               onClick={() => {
                 localStorage.removeItem("gada_mock_employer");
@@ -58,7 +60,7 @@ export default function EmployerLayout({
               }}
               className="underline hover:no-underline ml-1"
             >
-              해제
+              {t("employer.demoDisable")}
             </button>
           </p>
         </div>

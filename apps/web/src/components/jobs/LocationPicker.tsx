@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ export function LocationPicker({
   onRadiusChange,
   onClear,
 }: LocationPickerProps) {
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +40,7 @@ export function LocationPicker({
 
   function handleGetLocation() {
     if (typeof window === "undefined" || !navigator.geolocation) {
-      setError("이 브라우저는 위치 정보를 지원하지 않습니다.");
+      setError(t("filter.locationUnsupported"));
       return;
     }
     setLoading(true);
@@ -52,7 +54,7 @@ export function LocationPicker({
         setLoading(false);
       },
       () => {
-        setError("위치 정보를 가져올 수 없습니다. 브라우저 권한을 확인해주세요.");
+        setError(t("filter.locationError"));
         setLoading(false);
       },
       { timeout: 10000, maximumAge: 300000 }
@@ -88,7 +90,7 @@ export function LocationPicker({
             <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         )}
-        {hasLocation ? "현재 위치 설정됨" : "현재 위치로 검색"}
+        {loading ? t("filter.locationLoading") : hasLocation ? t("filter.locationSet") : t("filter.locationBtn")}
       </button>
 
       {error && <p className="text-xs text-danger-500">{error}</p>}
@@ -96,7 +98,7 @@ export function LocationPicker({
       {/* Radius selector — only shown when location is set */}
       {hasLocation && (
         <div>
-          <p className="text-xs text-neutral-500 mb-2">반경 설정</p>
+          <p className="text-xs text-neutral-500 mb-2">{t("filter.locationRadius")}</p>
           <div className="flex gap-2 flex-wrap">
             {RADIUS_OPTIONS.map((opt) => (
               <button
@@ -118,7 +120,7 @@ export function LocationPicker({
             onClick={onClear}
             className="mt-2 text-xs text-neutral-400 hover:text-neutral-600 underline"
           >
-            위치 초기화
+            {t("filter.locationClear")}
           </button>
         </div>
       )}

@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Send, AlertCircle } from "lucide-react";
-import { directChatApi, DirectChatMessageItem } from "@/lib/chat-api";
+import { directChatApi, DirectChatMessageItem, DirectChatRoomSummary } from "@/lib/chat-api";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
 
@@ -177,14 +177,13 @@ export default function DirectChatRoomPage({
 }) {
   const { id } = React.use(params);
 
-  // Decode otherName from query if available
-  const [otherName, setOtherName] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const sp = new URLSearchParams(window.location.search);
-      setOtherName(sp.get("name"));
-    }
-  }, []);
+  const { data: room } = useQuery({
+    queryKey: ["direct-chat-room", id],
+    queryFn: () => directChatApi.getRoom(id),
+    retry: false,
+  });
+
+  const otherName = room?.otherName ?? null;
 
   return (
     <AppLayout>

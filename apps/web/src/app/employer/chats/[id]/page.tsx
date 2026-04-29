@@ -7,6 +7,7 @@ import { ChevronLeft, Send, AlertCircle, ClipboardSignature, CheckCircle2 } from
 import { chatApi, ChatMessageItem } from "@/lib/chat-api";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ function isSameDay(a: string, b: string): boolean {
 // ─── Contract Message Card ─────────────────────────────────────────────────────
 
 function ContractMessageCard({ msg }: { msg: ChatMessageItem }) {
+  const t = useT();
   return (
     <div className={cn("flex", msg.isMine ? "justify-end" : "justify-start")}>
       <div className="max-w-[80%] space-y-0.5">
@@ -37,7 +39,7 @@ function ContractMessageCard({ msg }: { msg: ChatMessageItem }) {
           <div className="flex items-center gap-2">
             <ClipboardSignature className={cn("h-4 w-4", msg.isMine ? "text-white/80" : "text-primary-500")} />
             <p className={cn("text-sm font-bold", msg.isMine ? "text-white" : "text-primary-900")}>
-              계약서 발송됨
+              {t("employer.chatContractSent")}
             </p>
           </div>
           <p className={cn("text-xs leading-relaxed", msg.isMine ? "text-white/80" : "text-primary-700")}>
@@ -46,7 +48,7 @@ function ContractMessageCard({ msg }: { msg: ChatMessageItem }) {
           {msg.isMine && (
             <p className="text-xs text-white/60 flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3" />
-              근로자가 서명 대기 중
+              {t("employer.chatWaitingSign")}
             </p>
           )}
         </div>
@@ -100,6 +102,7 @@ function DateDivider({ date }: { date: string }) {
 // ─── Chat Room Content ────────────────────────────────────────────────────────
 
 function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
+  const t = useT();
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
   const [input, setInput] = React.useState("");
@@ -156,7 +159,7 @@ function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center px-4">
         <AlertCircle className="h-10 w-10 text-neutral-300" />
-        <p className="text-sm text-neutral-500">채팅 내역을 불러오지 못했어요.</p>
+        <p className="text-sm text-neutral-500">{t("employer.chatLoadFailed")}</p>
       </div>
     );
   }
@@ -167,7 +170,7 @@ function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-sm text-neutral-400">채팅을 시작해보세요!</p>
+            <p className="text-sm text-neutral-400">{t("employer.chatRoomEmpty")}</p>
           </div>
         )}
         {messages.map((msg, idx) => (
@@ -188,7 +191,7 @@ function ChatRoomContent({ roomPublicId }: { roomPublicId: string }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="메시지를 입력하세요"
+            placeholder={t("employer.chatInputPlaceholder")}
             rows={1}
             className="flex-1 resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all max-h-32"
             style={{ overflowY: input.split("\n").length > 3 ? "auto" : "hidden" }}
@@ -213,6 +216,7 @@ export default function EmployerChatRoomPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useT();
   const { id } = React.use(params);
 
   const { data: room } = useQuery({
@@ -233,10 +237,10 @@ export default function EmployerChatRoomPage({
         </Link>
         <div>
           <h1 className="text-sm font-bold text-neutral-950">
-            {room?.teamName ?? "채팅"}
+            {room?.teamName ?? t("employer.chatTitle")}
           </h1>
           {room?.teamName && (
-            <p className="text-xs text-neutral-400">팀과의 채팅</p>
+            <p className="text-xs text-neutral-400">{t("employer.chatWith")}</p>
           )}
         </div>
       </div>

@@ -85,10 +85,11 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
   const [paymentMethod, setPaymentMethod] = React.useState<"CASH" | "CARD">("CASH");
   const [toast, setToast] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [tossLoading, setTossLoading] = React.useState(false);
 
   const mutation = useMutation({
     mutationFn: () => {
-      if (!selectedAmount) throw new Error("금액을 선택해주세요");
+      if (!selectedAmount) throw new Error(t("employer.loadFailed"));
       return employerApi.requestCharge(selectedAmount, paymentMethod);
     },
     onSuccess: () => {
@@ -102,6 +103,47 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
       setTimeout(() => setError(null), 5000);
     },
   });
+
+  async function handleCardPayment() {
+    if (!selectedAmount) return;
+    setTossLoading(true);
+    setError(null);
+    try {
+      const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
+      const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+      if (!clientKey) throw new Error("토스페이먼츠 클라이언트 키가 설정되지 않았습니다.");
+      const tossPayments = await loadTossPayments(clientKey);
+      // payment() requires an "API 개별 연동 키" and a unique per-transaction customerKey.
+      // ANONYMOUS is only supported for widgets(), not payment().
+      const customerKey = crypto.randomUUID();
+      const payment = tossPayments.payment({ customerKey });
+      const orderId = crypto.randomUUID();
+      const opts = CHARGE_AMOUNTS.find((a) => a.value === selectedAmount)!;
+      await payment.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: selectedAmount },
+        orderId,
+        orderName: `가다 포인트 ${opts.points}P 충전`,
+        successUrl: `${window.location.origin}/employer/points/payment/success`,
+        failUrl: `${window.location.origin}/employer/points/payment/fail`,
+      });
+    } catch (err: any) {
+      // 사용자가 취소하거나 실패한 경우
+      if (err?.code !== "USER_CANCEL") {
+        setError(err?.message ?? "결제 중 오류가 발생했습니다.");
+      }
+    } finally {
+      setTossLoading(false);
+    }
+  }
+
+  function handleSubmit() {
+    if (paymentMethod === "CARD") {
+      handleCardPayment();
+    } else {
+      mutation.mutate();
+    }
+  }
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -165,7 +207,7 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
               <p className={cn("text-sm font-semibold", paymentMethod === "CASH" ? "text-primary-700" : "text-neutral-800")}>
                 {t("employer.paymentCash")}
               </p>
-              <p className="text-xs text-neutral-500">은행 계좌 이체</p>
+              <p className="text-xs text-neutral-500">{t("employer.bankTransfer")}</p>
             </div>
           </button>
           <button
@@ -185,7 +227,7 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
               <p className={cn("text-sm font-semibold", paymentMethod === "CARD" ? "text-primary-700" : "text-neutral-800")}>
                 {t("employer.paymentCard")}
               </p>
-              <p className="text-xs text-neutral-500">신용/체크 카드</p>
+              <p className="text-xs text-neutral-500">{t("employer.creditCard")}</p>
             </div>
           </button>
         </div>
@@ -195,17 +237,17 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
       {selectedAmount && (
         <div className="mb-5 rounded-xl border border-primary-200 bg-primary-50/60 p-4">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-neutral-600">충전 금액</span>
+            <span className="text-neutral-600">{t("employer.chargeAmountSummary")}</span>
             <span className="font-semibold text-neutral-900">{fmtKrw(selectedAmount)}</span>
           </div>
           <div className="flex items-center justify-between text-sm mt-1.5">
-            <span className="text-neutral-600">지급 포인트</span>
+            <span className="text-neutral-600">{t("employer.pointsGranted")}</span>
             <span className="font-bold text-primary-600">
               +{CHARGE_AMOUNTS.find((a) => a.value === selectedAmount)?.points}P
             </span>
           </div>
           <div className="flex items-center justify-between text-sm mt-1.5">
-            <span className="text-neutral-600">결제 방법</span>
+            <span className="text-neutral-600">{t("employer.paymentMethodSummary")}</span>
             <span className="font-medium text-neutral-700">
               {paymentMethod === "CASH" ? t("employer.paymentCash") : t("employer.paymentCard")}
             </span>
@@ -229,16 +271,20 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
 
       <button
         type="button"
-        disabled={!selectedAmount || mutation.isPending}
-        onClick={() => mutation.mutate()}
+        disabled={!selectedAmount || mutation.isPending || tossLoading}
+        onClick={handleSubmit}
         className={cn(
           "w-full rounded-xl py-3 text-sm font-semibold transition-all",
-          selectedAmount && !mutation.isPending
+          selectedAmount && !mutation.isPending && !tossLoading
             ? "bg-primary-500 text-white hover:bg-primary-600 shadow-sm"
             : "bg-neutral-100 text-neutral-400 cursor-not-allowed"
         )}
       >
-        {mutation.isPending ? "처리 중..." : t("employer.pointChargeRequest")}
+        {mutation.isPending || tossLoading
+          ? t("employer.processingBtn")
+          : paymentMethod === "CARD"
+          ? "카드 결제하기"
+          : t("employer.pointChargeRequest")}
       </button>
     </div>
   );
@@ -274,7 +320,7 @@ export default function EmployerPointsPage() {
         className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        팀 찾기로 돌아가기
+        {t("employer.pointsBack")}
       </Link>
 
       {/* Balance card */}
@@ -297,7 +343,7 @@ export default function EmployerPointsPage() {
           {pendingCount > 0 && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-50 border border-yellow-200 px-3 py-1.5 text-xs font-semibold text-yellow-700">
               <Clock className="h-3 w-3" />
-              승인 대기 {pendingCount}건
+              {t("employer.pendingCountLabel", pendingCount)}
             </span>
           )}
         </div>
@@ -333,12 +379,12 @@ export default function EmployerPointsPage() {
       {/* Recent charge history (compact) */}
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
-          <h2 className="text-sm font-semibold text-neutral-800">최근 충전 내역</h2>
+          <h2 className="text-sm font-semibold text-neutral-800">{t("employer.recentCharges")}</h2>
           <Link
             href="/employer/payments"
             className="text-xs text-primary-500 hover:text-primary-700 font-medium transition-colors"
           >
-            전체 보기 →
+            {t("employer.viewAll")}
           </Link>
         </div>
 
@@ -357,7 +403,7 @@ export default function EmployerPointsPage() {
         ) : !history?.content.length ? (
           <div className="py-10 text-center">
             <Coins className="h-8 w-8 text-neutral-200 mx-auto mb-2" />
-            <p className="text-sm text-neutral-400">충전 내역이 없습니다</p>
+            <p className="text-sm text-neutral-400">{t("employer.noChargeHistory")}</p>
           </div>
         ) : (
           <div className="divide-y divide-neutral-100">
@@ -372,7 +418,7 @@ export default function EmployerPointsPage() {
                       +{item.pointsToAdd}P
                     </span>
                     <span className="text-xs text-neutral-400">
-                      {item.paymentMethod === "CASH" ? "현금" : "카드"}
+                      {item.paymentMethod === "CASH" ? t("employer.paymentCashShort") : t("employer.paymentCardShort")}
                     </span>
                   </div>
                   <p className="text-xs text-neutral-500 mt-0.5">{fmtDatetime(item.createdAt)}</p>
@@ -394,8 +440,8 @@ export default function EmployerPointsPage() {
             <Receipt className="h-4 w-4 text-neutral-500 group-hover:text-primary-500 transition-colors" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-neutral-800">결제 관리</p>
-            <p className="text-xs text-neutral-500 mt-0.5">충전 요청 및 결제 내역 확인</p>
+            <p className="text-sm font-semibold text-neutral-800">{t("employer.paymentMgmtLabel")}</p>
+            <p className="text-xs text-neutral-500 mt-0.5">{t("employer.chargeHistoryDesc")}</p>
           </div>
           <ChevronRight className="h-4 w-4 text-neutral-300 group-hover:text-neutral-500 ml-auto transition-colors" />
         </Link>
@@ -408,7 +454,7 @@ export default function EmployerPointsPage() {
           </div>
           <div>
             <p className="text-sm font-semibold text-neutral-800">{t("employer.proposalHistory")}</p>
-            <p className="text-xs text-neutral-500 mt-0.5">팀에 보낸 채용 제안 현황</p>
+            <p className="text-xs text-neutral-500 mt-0.5">{t("employer.proposalSentDesc")}</p>
           </div>
           <ChevronRight className="h-4 w-4 text-neutral-300 group-hover:text-neutral-500 ml-auto transition-colors" />
         </Link>

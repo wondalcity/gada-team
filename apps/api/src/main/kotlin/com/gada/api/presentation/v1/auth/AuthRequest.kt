@@ -37,8 +37,7 @@ data class PasswordLoginRequest(
 )
 
 data class OnboardRequest(
-    @field:NotBlank(message = "idToken is required")
-    val idToken: String,
+    val idToken: String? = null,
 
     val role: UserRole,
 

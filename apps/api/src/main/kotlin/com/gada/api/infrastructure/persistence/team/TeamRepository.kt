@@ -3,6 +3,7 @@ package com.gada.api.infrastructure.persistence.team
 import com.gada.api.domain.team.QTeam
 import com.gada.api.domain.team.Team
 import com.gada.api.domain.team.TeamStatus
+import com.gada.api.domain.team.TeamType
 import com.querydsl.jpa.impl.JPAQueryFactory
 import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Repository
@@ -32,17 +33,35 @@ class TeamRepository(
         size: Int,
         status: TeamStatus? = null,
         keyword: String? = null,
+        sido: String? = null,
+        teamType: TeamType? = null,
+        isNationwide: Boolean? = null,
     ): Pair<List<Team>, Long> {
-        val statusPred = status?.let { t.status.eq(it) }
-        val keywordPred = keyword?.takeIf { it.isNotBlank() }?.let { t.name.containsIgnoreCase(it) }
-        val total = qf.select(t.count()).from(t)
-            .where(t.deletedAt.isNull, statusPred, keywordPred).fetchOne() ?: 0L
-        val content = qf.selectFrom(t)
-            .where(t.deletedAt.isNull, statusPred, keywordPred)
-            .orderBy(t.createdAt.desc())
-            .offset((page * size).toLong())
-            .limit(size.toLong())
-            .fetch()
+        val conditions = mutableListOf("t.deletedAt IS NULL")
+        if (status != null) conditions.add("t.status = :status")
+        if (!keyword.isNullOrBlank()) conditions.add("LOWER(t.name) LIKE :keyword")
+        if (!sido.isNullOrBlank()) conditions.add("CAST(t.regions AS string) LIKE :sidoPattern")
+        if (teamType != null) conditions.add("t.teamType = :teamType")
+        if (isNationwide == true) conditions.add("t.isNationwide = true")
+
+        val where = "WHERE ${conditions.joinToString(" AND ")}"
+        val countJpql = "SELECT COUNT(t) FROM Team t $where"
+        val dataJpql  = "SELECT t FROM Team t LEFT JOIN FETCH t.company $where ORDER BY t.createdAt DESC"
+
+        fun <T> applyParams(q: jakarta.persistence.TypedQuery<T>): jakarta.persistence.TypedQuery<T> {
+            if (status != null) q.setParameter("status", status)
+            if (!keyword.isNullOrBlank()) q.setParameter("keyword", "%${keyword.trim().lowercase()}%")
+            if (!sido.isNullOrBlank()) q.setParameter("sidoPattern", "%${sido}%")
+            if (teamType != null) q.setParameter("teamType", teamType)
+            return q
+        }
+
+        val total = applyParams(em.createQuery(countJpql, Long::class.javaObjectType)).singleResult
+        val content = applyParams(em.createQuery(dataJpql, Team::class.java))
+            .setFirstResult(page * size)
+            .setMaxResults(size)
+            .resultList
+
         return Pair(content, total)
     }
 

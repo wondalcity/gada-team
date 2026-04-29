@@ -103,6 +103,23 @@ class AuthUseCase(
             )
         }
 
+        // Phone may already exist but without a linked Firebase UID (e.g. password-based user).
+        // Link the UID instead of creating a duplicate and causing a constraint violation.
+        val existingByPhone = userRepository.findByPhone(phone)
+        if (existingByPhone != null) {
+            if (existingByPhone.firebaseUid == null) {
+                existingByPhone.firebaseUid = uid
+                userRepository.save(existingByPhone)
+            }
+            return AuthResponse(
+                userId = existingByPhone.id,
+                phone = existingByPhone.phone,
+                role = existingByPhone.role,
+                status = existingByPhone.status,
+                isNewUser = false,
+            )
+        }
+
         val user = User().apply {
             this.phone = phone
             this.firebaseUid = uid
@@ -230,15 +247,17 @@ class AuthUseCase(
             userRepository.findById(principal.userId)
                 ?: throw UnauthorizedException("사용자를 찾을 수 없습니다.")
         } else {
+            val token = request.idToken?.takeIf { it.isNotBlank() }
+                ?: throw UnauthorizedException("인증 토큰이 필요합니다.")
             val firebaseUid = if (devAuthBypass) {
-                val claims = try { decodeJwtPayload(request.idToken) } catch (e: Exception) {
+                val claims = try { decodeJwtPayload(token) } catch (e: Exception) {
                     throw UnauthorizedException("유효하지 않은 인증 토큰입니다.")
                 }
                 (claims["sub"] as? String)?.takeIf { it.isNotBlank() }
                     ?: throw UnauthorizedException("유효하지 않은 인증 토큰입니다.")
             } else {
                 try {
-                    FirebaseAuth.getInstance(firebaseApp).verifyIdToken(request.idToken).uid
+                    FirebaseAuth.getInstance(firebaseApp).verifyIdToken(token).uid
                 } catch (e: Exception) {
                     throw UnauthorizedException("유효하지 않은 인증 토큰입니다.")
                 }

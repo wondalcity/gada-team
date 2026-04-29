@@ -14,7 +14,10 @@ import {
   RefreshCw,
   Megaphone,
   CheckCheck,
+  MessageCircle,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   getMyNotifications,
@@ -25,6 +28,7 @@ import {
 } from "@/lib/notifications-api";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
+import { useAuthStore } from "@/store/authStore";
 
 // ─── Type config ──────────────────────────────────────────────────────────────
 
@@ -57,7 +61,34 @@ const TYPE_CONFIG: Record<
     color: "text-primary-600",
     bg: "bg-primary-50",
   },
+  CHAT: {
+    icon: MessageCircle,
+    color: "text-primary-600",
+    bg: "bg-primary-50",
+  },
 };
+
+/** Resolve a deep-link href from notification type + data */
+function resolveHref(notification: WorkerNotification): string | null {
+  const d = notification.data as Record<string, string>;
+  switch (notification.type) {
+    case "SCOUT":
+      return "/proposals";
+    case "APPLICATION":
+    case "STATUS_CHANGE":
+      return "/applications";
+    case "CHAT":
+      if (d?.chatType === "direct" && d?.chatRoomId) {
+        return `/chats/direct/${d.chatRoomId}`;
+      }
+      if (d?.chatRoomId) {
+        return `/chats/${d.chatRoomId}`;
+      }
+      return "/chats";
+    default:
+      return null;
+  }
+}
 
 // ─── Date grouping ────────────────────────────────────────────────────────────
 
@@ -142,19 +173,25 @@ function NotificationCard({
   onRead: (publicId: string) => void;
 }) {
   const t = useT();
+  const router = useRouter();
   const cfg = TYPE_CONFIG[notification.type] ?? TYPE_CONFIG.SYSTEM;
   const Icon = cfg.icon;
+  const href = resolveHref(notification);
+
+  function handleClick() {
+    if (!notification.isRead) onRead(notification.publicId);
+    if (href) router.push(href);
+  }
 
   return (
     <button
-      onClick={() => {
-        if (!notification.isRead) onRead(notification.publicId);
-      }}
+      onClick={handleClick}
       className={cn(
         "w-full rounded-lg p-4 text-left shadow-sm transition-all hover:shadow-md active:scale-[0.99]",
         notification.isRead
           ? "bg-neutral-100"
-          : "border-l-2 border-primary-200 bg-white"
+          : "border-l-2 border-primary-200 bg-white",
+        href && "cursor-pointer"
       )}
     >
       <div className="flex items-start gap-3">
@@ -225,6 +262,12 @@ function EmptyState() {
 function NotificationsContent() {
   const t = useT();
   const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteQuery({
@@ -235,6 +278,7 @@ function NotificationsContent() {
         const nextPage = lastPage.page + 1;
         return nextPage < lastPage.totalPages ? nextPage : undefined;
       },
+      enabled: mounted && !!user,
     });
 
   const allNotifications = data?.pages.flatMap((p) => p.content) ?? [];
@@ -352,8 +396,29 @@ function NotificationsContent() {
         )}
       </div>
 
-      {/* Loading */}
-      {isLoading ? (
+      {/* Before mount: skeleton to avoid hydration mismatch */}
+      {!mounted ? (
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <NotificationSkeleton key={i} />
+          ))}
+        </div>
+      ) : !user ? (
+        /* Guest state */
+        <div className="flex flex-col items-center justify-center rounded-xl border border-neutral-100 bg-white py-24 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
+            <Bell className="h-8 w-8 text-neutral-400" />
+          </div>
+          <p className="text-base font-bold text-neutral-700">{t("notif.loginRequired")}</p>
+          <p className="mt-1.5 text-sm text-neutral-500">{t("notif.loginRequiredSub")}</p>
+          <Link
+            href="/login"
+            className="mt-6 rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
+          >
+            {t("notif.loginBtn")}
+          </Link>
+        </div>
+      ) : isLoading ? (
         <div className="flex flex-col gap-3">
           {[1, 2, 3, 4, 5].map((i) => (
             <NotificationSkeleton key={i} />

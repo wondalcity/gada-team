@@ -3,6 +3,8 @@ package com.gada.api.infrastructure.persistence.points
 import com.gada.api.domain.points.ChargeStatus
 import com.gada.api.domain.points.EmployerPointAccount
 import com.gada.api.domain.points.PointChargeRequest
+import com.gada.api.domain.points.TeamLeaderPointAccount
+import com.gada.api.domain.points.TeamLeaderPointChargeRequest
 import com.gada.api.domain.points.TeamProposal
 import jakarta.persistence.EntityManager
 import jakarta.persistence.NoResultException
@@ -106,6 +108,13 @@ class PointsRepository(private val em: EntityManager) {
         return Pair(content, total)
     }
 
+    fun existsByTossPaymentKey(paymentKey: String): Boolean =
+        em.createQuery(
+            "SELECT COUNT(r) FROM PointChargeRequest r WHERE r.tossPaymentKey = :key",
+            Long::class.javaObjectType
+        ).setParameter("key", paymentKey)
+            .singleResult > 0
+
     // ── TeamProposal ─────────────────────────────────────────
 
     fun saveProposal(proposal: TeamProposal): TeamProposal {
@@ -172,10 +181,101 @@ class PointsRepository(private val em: EntityManager) {
         return Pair(content, total)
     }
 
+    fun findProposalsByTeamPublicIds(
+        teamPublicIds: List<String>,
+        page: Int,
+        size: Int,
+    ): Pair<List<TeamProposal>, Long> {
+        if (teamPublicIds.isEmpty()) return Pair(emptyList(), 0L)
+
+        val total = em.createQuery(
+            "SELECT COUNT(p) FROM TeamProposal p WHERE p.teamPublicId IN :teams",
+            Long::class.javaObjectType
+        ).setParameter("teams", teamPublicIds)
+            .singleResult
+
+        val content = em.createQuery(
+            "SELECT p FROM TeamProposal p WHERE p.teamPublicId IN :teams ORDER BY p.createdAt DESC",
+            TeamProposal::class.java
+        ).setParameter("teams", teamPublicIds)
+            .setFirstResult(page * size)
+            .setMaxResults(size)
+            .resultList
+
+        return Pair(content, total)
+    }
+
     fun findProposalByPublicId(publicId: java.util.UUID): TeamProposal? =
         em.createQuery(
             "SELECT p FROM TeamProposal p WHERE p.publicId = :pid",
             TeamProposal::class.java
         ).setParameter("pid", publicId)
             .resultList.firstOrNull()
+
+    // ── TeamLeaderPointAccount ───────────────────────────────
+
+    fun findTeamLeaderAccount(userId: Long): TeamLeaderPointAccount? =
+        em.createQuery(
+            "SELECT a FROM TeamLeaderPointAccount a WHERE a.userId = :uid",
+            TeamLeaderPointAccount::class.java
+        ).setParameter("uid", userId)
+            .resultList.firstOrNull()
+
+    fun findOrCreateTeamLeaderAccount(userId: Long): TeamLeaderPointAccount {
+        return findTeamLeaderAccount(userId) ?: run {
+            val account = TeamLeaderPointAccount().also { it.userId = userId }
+            em.persist(account)
+            em.flush()
+            account
+        }
+    }
+
+    fun saveTeamLeaderAccount(account: TeamLeaderPointAccount): TeamLeaderPointAccount {
+        val merged = if (account.id == 0L) {
+            em.persist(account); account
+        } else {
+            em.merge(account)
+        }
+        em.flush()
+        return merged
+    }
+
+    // ── TeamLeaderPointChargeRequest ─────────────────────────
+
+    fun saveTeamLeaderChargeRequest(req: TeamLeaderPointChargeRequest): TeamLeaderPointChargeRequest {
+        val merged = if (req.id == 0L) {
+            em.persist(req); req
+        } else {
+            em.merge(req)
+        }
+        em.flush()
+        return merged
+    }
+
+    fun findTeamLeaderChargeRequestsByUserId(
+        userId: Long,
+        page: Int,
+        size: Int,
+    ): Pair<List<TeamLeaderPointChargeRequest>, Long> {
+        val total = em.createQuery(
+            "SELECT COUNT(r) FROM TeamLeaderPointChargeRequest r WHERE r.userId = :uid",
+            Long::class.javaObjectType
+        ).setParameter("uid", userId).singleResult
+
+        val content = em.createQuery(
+            "SELECT r FROM TeamLeaderPointChargeRequest r WHERE r.userId = :uid ORDER BY r.createdAt DESC",
+            TeamLeaderPointChargeRequest::class.java
+        ).setParameter("uid", userId)
+            .setFirstResult(page * size)
+            .setMaxResults(size)
+            .resultList
+
+        return Pair(content, total)
+    }
+
+    fun existsByTossPaymentKeyForTeamLeader(paymentKey: String): Boolean =
+        em.createQuery(
+            "SELECT COUNT(r) FROM TeamLeaderPointChargeRequest r WHERE r.tossPaymentKey = :key",
+            Long::class.javaObjectType
+        ).setParameter("key", paymentKey).singleResult > 0
 }

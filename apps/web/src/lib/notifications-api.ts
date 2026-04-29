@@ -7,7 +7,8 @@ export type NotificationType =
   | "SCOUT"
   | "STATUS_CHANGE"
   | "SYSTEM"
-  | "MARKETING";
+  | "MARKETING"
+  | "CHAT";
 
 export interface WorkerNotification {
   publicId: string;

@@ -29,6 +29,11 @@ export interface TeamMemberResponse {
   phone?: string;
 }
 
+export interface PhoneInviteResponse {
+  type: "INVITED" | "SMS_SENT";
+  member?: TeamMemberResponse;
+}
+
 export interface TeamResponse {
   publicId: string;
   name: string;
@@ -141,6 +146,52 @@ function buildTeamsQuery(filter: TeamsFilter): URLSearchParams {
   return params;
 }
 
+// ─── Work Schedule types ──────────────────────────────────────────────────────
+
+export type WorkScheduleStatus = "PLANNED" | "ONGOING" | "COMPLETED";
+
+export interface WorkScheduleResponse {
+  publicId: string;
+  jobPublicId: string | null;
+  siteName: string;
+  siteAddress: string | null;
+  workDescription: string;
+  startDate: string;   // yyyy-MM-dd
+  endDate: string | null;
+  status: WorkScheduleStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobSiteItem {
+  jobPublicId: string;
+  jobTitle: string;
+  jobStatus: string;
+  siteName: string | null;
+  siteAddress: string | null;
+  sidoSigungu: string | null;
+}
+
+export interface CreateSchedulePayload {
+  jobPublicId?: string;
+  siteName?: string;
+  siteAddress?: string;
+  workDescription: string;
+  startDate: string;
+  endDate?: string;
+  status?: WorkScheduleStatus;
+}
+
+export interface UpdateSchedulePayload {
+  siteName?: string;
+  siteAddress?: string;
+  workDescription?: string;
+  startDate?: string;
+  endDate?: string;
+  clearEndDate?: boolean;
+  status?: WorkScheduleStatus;
+}
+
 export const teamsApi = {
   getTeams: (filter: TeamsFilter) =>
     api.get<TeamListResponse>(`/teams?${buildTeamsQuery(filter).toString()}`),
@@ -151,8 +202,22 @@ export const teamsApi = {
   updateTeam: (publicId: string, payload: UpdateTeamPayload) =>
     api.put<TeamResponse>(`/teams/${publicId}`, payload),
   disbandTeam: (publicId: string) => api.delete<void>(`/teams/${publicId}`),
+
+  // ─── Work Schedules ────────────────────────────────────────────────────────
+  getSchedules: (teamPublicId: string) =>
+    api.get<WorkScheduleResponse[]>(`/teams/${teamPublicId}/schedules`),
+  createSchedule: (teamPublicId: string, payload: CreateSchedulePayload) =>
+    api.post<WorkScheduleResponse>(`/teams/${teamPublicId}/schedules`, payload),
+  updateSchedule: (teamPublicId: string, schedulePublicId: string, payload: UpdateSchedulePayload) =>
+    api.put<WorkScheduleResponse>(`/teams/${teamPublicId}/schedules/${schedulePublicId}`, payload),
+  deleteSchedule: (teamPublicId: string, schedulePublicId: string) =>
+    api.delete<void>(`/teams/${teamPublicId}/schedules/${schedulePublicId}`),
+  searchJobsForSchedule: (keyword: string) =>
+    api.get<JobSiteItem[]>(`/worker/jobs/for-schedule?keyword=${encodeURIComponent(keyword)}&size=20`),
   inviteMember: (publicId: string, phone: string) =>
-    api.post<TeamMemberResponse>(`/teams/${publicId}/invitations`, { phone }),
+    api.post<PhoneInviteResponse>(`/teams/${publicId}/invitations`, { phone }),
+  inviteMemberByProfile: (teamPublicId: string, workerProfilePublicId: string) =>
+    api.post<TeamMemberResponse>(`/teams/${teamPublicId}/invitations/by-profile`, { workerProfilePublicId }),
   removeMember: (publicId: string, userId: number) =>
     api.delete<void>(`/teams/${publicId}/members/${userId}`),
   getMyInvitations: () => api.get<InvitationResponse[]>("/invitations/mine"),

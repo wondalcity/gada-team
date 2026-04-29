@@ -10,48 +10,41 @@ import {
   type CreateJobPayload,
 } from "@/lib/employer-api";
 import { CustomSelect } from "@/components/ui/CustomSelect";
+import { DateInput } from "@/components/ui/DateInput";
+import { useT } from "@/lib/i18n";
 
 // ─── Constants ────────────────────────────────────────────────────
 
-const APPLICATION_TYPES = [
-  {
-    key: "INDIVIDUAL",
-    label: "개인 지원",
-    subtitle: "혼자 지원하는 개인 근로자",
-    icon: "👤",
-  },
-  {
-    key: "TEAM",
-    label: "팀 지원",
-    subtitle: "팀 단위로 지원하는 근로자",
-    icon: "👥",
-  },
-  {
-    key: "COMPANY",
-    label: "기업 채용",
-    subtitle: "기업 소속 근로자 채용",
-    icon: "🏢",
-  },
-];
+function getApplicationTypes(t: ReturnType<typeof useT>) {
+  return [
+    { key: "INDIVIDUAL", label: t("employer.appTypeIndividual"), subtitle: t("employer.appTypeIndividualSub"), icon: "👤" },
+    { key: "TEAM", label: t("employer.appTypeTeam"), subtitle: t("employer.appTypeTeamSub"), icon: "👥" },
+    { key: "COMPANY", label: t("employer.appTypeCompany"), subtitle: t("employer.appTypeCompanySub"), icon: "🏢" },
+  ];
+}
 
-const PAY_UNITS = [
-  { key: "HOURLY", label: "시급" },
-  { key: "DAILY", label: "일급" },
-  { key: "WEEKLY", label: "주급" },
-  { key: "MONTHLY", label: "월급" },
-  { key: "LUMP_SUM", label: "일시불" },
-];
+function getPayUnits(t: ReturnType<typeof useT>) {
+  return [
+    { key: "HOURLY", label: t("employer.payUnitHourly") },
+    { key: "DAILY", label: t("employer.payUnitDaily") },
+    { key: "WEEKLY", label: t("employer.payUnitWeekly") },
+    { key: "MONTHLY", label: t("employer.payUnitMonthly") },
+    { key: "LUMP_SUM", label: t("employer.payUnitLumpSum") },
+  ];
+}
 
-const VISA_TYPES = [
-  { key: "CITIZEN", label: "내국인" },
-  { key: "H2", label: "방문취업 H-2" },
-  { key: "E9", label: "비전문 E-9" },
-  { key: "E7", label: "특정활동 E-7" },
-  { key: "F4", label: "재외동포 F-4" },
-  { key: "F5", label: "영주 F-5" },
-  { key: "F6", label: "결혼이민 F-6" },
-  { key: "OTHER", label: "기타" },
-];
+function getVisaTypes(t: ReturnType<typeof useT>) {
+  return [
+    { key: "CITIZEN", label: t("employer.visaCitizen") },
+    { key: "H2", label: t("employer.visaH2") },
+    { key: "E9", label: t("employer.visaE9") },
+    { key: "E7", label: t("employer.visaE7") },
+    { key: "F4", label: t("employer.visaF4") },
+    { key: "F5", label: t("employer.visaF5") },
+    { key: "F6", label: t("employer.visaF6") },
+    { key: "OTHER", label: t("employer.visaOther") },
+  ];
+}
 
 // ─── Site selector ────────────────────────────────────────────────
 
@@ -64,17 +57,19 @@ function SiteSelector({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
+
   if (sites.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-neutral-500 text-sm mb-4">
-          먼저 현장을 등록해주세요.
+          {t("employer.siteNotRegistered")}
         </p>
         <a
           href="/employer/company"
           className="inline-block bg-primary-500 text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-primary-600 transition-colors"
         >
-          현장 등록하러 가기
+          {t("employer.goRegisterSite")}
         </a>
       </div>
     );
@@ -120,7 +115,7 @@ function SiteSelector({
                 </span>
               )}
               <span className="text-xs text-neutral-400">
-                공고 {site.activeJobCount}건
+                {t("employer.siteJobCount", site.activeJobCount)}
               </span>
             </div>
           </button>
@@ -185,6 +180,10 @@ function ToggleCard({
 
 export default function NewJobPage() {
   const router = useRouter();
+  const t = useT();
+  const APPLICATION_TYPES = getApplicationTypes(t);
+  const PAY_UNITS = getPayUnits(t);
+  const VISA_TYPES = getVisaTypes(t);
 
   // Step
   const [siteSelected, setSiteSelected] = useState(false);
@@ -303,19 +302,19 @@ export default function NewJobPage() {
     e.preventDefault();
 
     if (!title.trim()) {
-      setValidationError("공고 제목을 입력해주세요.");
+      setValidationError(t("employer.jobTitleRequired"));
       return;
     }
     if (applicationTypes.length === 0) {
-      setValidationError("지원 방식을 하나 이상 선택해주세요.");
+      setValidationError(t("employer.appTypeRequired"));
       return;
     }
     if (!alwaysOpen && publishStatus !== "DRAFT" && !startDate) {
-      setValidationError("근무 시작일을 입력해주세요.");
+      setValidationError(t("employer.startDateRequired"));
       return;
     }
     if (!sitePublicId) {
-      setValidationError("현장을 선택해주세요.");
+      setValidationError(t("employer.siteRequired"));
       return;
     }
 
@@ -358,17 +357,17 @@ export default function NewJobPage() {
             onClick={() => router.back()}
             className="text-xs text-neutral-500 hover:text-neutral-700 mb-2 flex items-center gap-1"
           >
-            ← 뒤로
+            {t("employer.back")}
           </button>
-          <h1 className="text-xl font-extrabold text-neutral-950">공고 등록</h1>
+          <h1 className="text-xl font-extrabold text-neutral-950">{t("employer.jobPostTitle")}</h1>
           <p className="text-sm text-neutral-500 mt-0.5">
-            공고를 게시할 현장을 선택해주세요.
+            {t("employer.siteSelectDesc")}
           </p>
         </div>
 
         <div className="bg-white rounded-lg shadow-card-md p-6">
           <h2 className="text-base font-semibold text-neutral-900 mb-4">
-            현장 선택
+            {t("employer.selectSiteTitle")}
           </h2>
           {sitesLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -393,7 +392,7 @@ export default function NewJobPage() {
                 onClick={handleContinue}
                 className="w-full bg-primary-500 text-white rounded-lg py-3 font-semibold text-sm hover:bg-primary-600 transition-colors"
               >
-                다음 단계로
+                {t("employer.nextStep")}
               </button>
             </div>
           )}
@@ -428,7 +427,7 @@ export default function NewJobPage() {
             onClick={() => setSiteSelected(false)}
             className="ml-auto text-xs text-primary-500 font-semibold hover:underline"
           >
-            변경하기
+            {t("employer.changeSite")}
           </button>
         </div>
 
@@ -440,11 +439,11 @@ export default function NewJobPage() {
 
         <div className="bg-white rounded-lg shadow-card-md p-6">
           {/* Section 1 — 기본 정보 */}
-          <Section title="기본 정보">
+          <Section title={t("employer.secBasicInfo")}>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                  공고 제목 <span className="text-danger-500">*</span>
+                  {t("employer.jobTitleLabel")} <span className="text-danger-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -458,19 +457,19 @@ export default function NewJobPage() {
 
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                  직종 카테고리
+                  {t("employer.jobCategoryLabel")}
                 </label>
                 <CustomSelect
                   options={(categories as CategoryItem[] | undefined)?.map(cat => ({ value: String(cat.id), label: cat.nameKo })) ?? []}
                   value={categoryId != null ? String(categoryId) : ""}
                   onChange={(v) => setCategoryId(v ? Number(v) : null)}
-                  placeholder="카테고리 선택 (선택사항)"
+                  placeholder={t("employer.categoryPlaceholder")}
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                  모집 인원
+                  {t("employer.requiredCountLabel")}
                 </label>
                 <input
                   type="number"
@@ -483,12 +482,12 @@ export default function NewJobPage() {
 
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                  공고 내용
+                  {t("employer.jobContentLabel")}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="업무 내용, 근무 조건 등 자세한 내용을 작성해주세요."
+                  placeholder={t("employer.jobContentPlaceholder")}
                   rows={4}
                   className={`${inputClass} resize-none`}
                 />
@@ -497,32 +496,32 @@ export default function NewJobPage() {
           </Section>
 
           {/* Section 2 — 지원 방식 */}
-          <Section title="지원 방식">
+          <Section title={t("employer.secAppType")}>
             <div className="flex gap-3">
-              {APPLICATION_TYPES.map((t) => (
+              {APPLICATION_TYPES.map((appType) => (
                 <ToggleCard
-                  key={t.key}
-                  icon={t.icon}
-                  label={t.label}
-                  subtitle={t.subtitle}
-                  selected={applicationTypes.includes(t.key)}
-                  onClick={() => toggleApplicationType(t.key)}
+                  key={appType.key}
+                  icon={appType.icon}
+                  label={appType.label}
+                  subtitle={appType.subtitle}
+                  selected={applicationTypes.includes(appType.key)}
+                  onClick={() => toggleApplicationType(appType.key)}
                 />
               ))}
             </div>
             {applicationTypes.length === 0 && (
               <p className="text-xs text-danger-500 mt-2">
-                하나 이상의 지원 방식을 선택해주세요.
+                {t("employer.selectAtLeastOne")}
               </p>
             )}
           </Section>
 
           {/* Section 3 — 급여 */}
-          <Section title="급여 조건">
+          <Section title={t("employer.secPayCondition")}>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-2">
-                  급여 유형
+                  {t("employer.payTypeLabel")}
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {PAY_UNITS.map((u) => (
@@ -549,14 +548,14 @@ export default function NewJobPage() {
                   onChange={(e) => setPayNegotiable(e.target.checked)}
                   className="w-4 h-4 rounded border-neutral-300 text-primary-500 focus:ring-primary-500"
                 />
-                <span className="text-sm text-neutral-700">협의 가능</span>
+                <span className="text-sm text-neutral-700">{t("employer.negotiableLabel")}</span>
               </label>
 
               {!payNegotiable && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                      최소 금액 (선택)
+                      {t("employer.payMinLabel")}
                     </label>
                     <input
                       type="number"
@@ -569,7 +568,7 @@ export default function NewJobPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                      최대 금액 (선택)
+                      {t("employer.payMaxLabel")}
                     </label>
                     <input
                       type="number"
@@ -586,7 +585,7 @@ export default function NewJobPage() {
           </Section>
 
           {/* Section 4 — 근무 일정 */}
-          <Section title="근무 일정">
+          <Section title={t("employer.secWorkSchedule")}>
             <div className="space-y-4">
               <label className="flex items-center gap-3 cursor-pointer">
                 <div
@@ -601,31 +600,29 @@ export default function NewJobPage() {
                     }`}
                   />
                 </div>
-                <span className="text-sm text-neutral-700">상시 모집</span>
+                <span className="text-sm text-neutral-700">{t("employer.alwaysOpenLabel")}</span>
               </label>
 
               {!alwaysOpen && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                      시작일
+                      {t("employer.startDateLabel")}
                     </label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className={inputClass}
+                      onChange={setStartDate}
+                      placeholder={t("employer.startDateLabel")}
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                      종료일
+                      {t("employer.endDateLabel")}
                     </label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className={inputClass}
+                      onChange={setEndDate}
+                      placeholder={t("employer.endDateLabel")}
                     />
                   </div>
                 </div>
@@ -634,13 +631,13 @@ export default function NewJobPage() {
           </Section>
 
           {/* Section 5 — 지원 요건 */}
-          <Section title="지원 요건">
+          <Section title={t("employer.secRequirements")}>
             <div className="space-y-5">
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-2">
-                  비자 조건{" "}
+                  {t("employer.visaConditionLabel")}{" "}
                   <span className="text-neutral-400 font-normal">
-                    (미선택 시 모든 비자 허용)
+                    {t("employer.visaAllAllowed")}
                   </span>
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -663,7 +660,7 @@ export default function NewJobPage() {
 
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-2">
-                  자격증 요건
+                  {t("employer.certRequirementLabel")}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -676,7 +673,7 @@ export default function NewJobPage() {
                         addCertification();
                       }
                     }}
-                    placeholder="자격증명 입력 후 Enter"
+                    placeholder={t("employer.certPlaceholder")}
                     className={`${inputClass} flex-1`}
                   />
                   <button
@@ -684,7 +681,7 @@ export default function NewJobPage() {
                     onClick={addCertification}
                     className="border border-neutral-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
                   >
-                    추가
+                    {t("employer.certAddBtn")}
                   </button>
                 </div>
                 {certifications.length > 0 && (
@@ -715,29 +712,29 @@ export default function NewJobPage() {
                   onChange={(e) => setHealthCheckRequired(e.target.checked)}
                   className="w-4 h-4 rounded border-neutral-300 text-primary-500 focus:ring-primary-500"
                 />
-                <span className="text-sm text-neutral-700">건강검진 필요</span>
+                <span className="text-sm text-neutral-700">{t("employer.healthCheckLabel")}</span>
               </label>
             </div>
           </Section>
 
           {/* Section 6 — 복지 혜택 */}
-          <Section title="복지 혜택">
+          <Section title={t("employer.secBenefits")}>
             <div className="flex gap-3">
               <ToggleCard
                 icon="🏠"
-                label="숙소 제공"
+                label={t("employer.accommodationLabel")}
                 selected={accommodationProvided}
                 onClick={() => setAccommodationProvided((v) => !v)}
               />
               <ToggleCard
                 icon="🍚"
-                label="식사 제공"
+                label={t("employer.mealLabel")}
                 selected={mealProvided}
                 onClick={() => setMealProvided((v) => !v)}
               />
               <ToggleCard
                 icon="🚌"
-                label="교통 제공"
+                label={t("employer.transportationLabel")}
                 selected={transportationProvided}
                 onClick={() => setTransportationProvided((v) => !v)}
               />
@@ -745,7 +742,7 @@ export default function NewJobPage() {
           </Section>
 
           {/* Section 7 — 게시 설정 */}
-          <Section title="게시 설정">
+          <Section title={t("employer.secPublishSettings")}>
             <div className="flex gap-3">
               <button
                 type="button"
@@ -758,10 +755,10 @@ export default function NewJobPage() {
               >
                 <span className="text-2xl">📝</span>
                 <span className="text-xs font-semibold text-neutral-900">
-                  임시 저장
+                  {t("employer.publishDraftLabel")}
                 </span>
                 <span className="text-xs text-neutral-500">
-                  바로 게시하지 않고 저장
+                  {t("employer.publishDraftDesc")}
                 </span>
               </button>
               <button
@@ -775,10 +772,10 @@ export default function NewJobPage() {
               >
                 <span className="text-2xl">🚀</span>
                 <span className="text-xs font-semibold text-neutral-900">
-                  지금 게시
+                  {t("employer.publishNowLabel")}
                 </span>
                 <span className="text-xs text-neutral-500">
-                  즉시 공고를 게시합니다
+                  {t("employer.publishNowDesc")}
                 </span>
               </button>
             </div>
@@ -792,15 +789,15 @@ export default function NewJobPage() {
               className="w-full bg-primary-500 text-white rounded-lg py-3 font-semibold text-sm hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createMutation.isPending
-                ? "등록 중..."
+                ? t("employer.jobPosting")
                 : publishStatus === "DRAFT"
-                ? "임시저장"
-                : "공고 등록하기"}
+                ? t("employer.publishDraftLabel")
+                : t("employer.jobPostBtn")}
             </button>
             {createMutation.isError && (
               <p className="text-xs text-danger-500 mt-2 text-center">
                 {(createMutation.error as Error)?.message ||
-                  "공고 등록에 실패했습니다. 다시 시도해주세요."}
+                  t("employer.jobPostFailed")}
               </p>
             )}
           </div>
@@ -811,61 +808,61 @@ export default function NewJobPage() {
       <div className="hidden lg:block w-64 shrink-0 sticky top-20">
         <div className="bg-white rounded-lg shadow-card-md p-5">
           <h3 className="text-sm font-semibold text-neutral-900 mb-3">
-            게시 미리보기
+            {t("employer.jobPreviewTitle")}
           </h3>
           <div className="space-y-2">
             <div>
-              <p className="text-xs text-neutral-400">공고 제목</p>
+              <p className="text-xs text-neutral-400">{t("employer.previewTitleLabel")}</p>
               <p className="text-sm font-semibold text-neutral-900 mt-0.5">
                 {title || "—"}
               </p>
             </div>
             <div>
-              <p className="text-xs text-neutral-400">현장</p>
+              <p className="text-xs text-neutral-400">{t("employer.previewSiteLabel")}</p>
               <p className="text-sm text-neutral-700 mt-0.5">
                 {selectedSite?.name ?? "—"}
               </p>
             </div>
             <div>
-              <p className="text-xs text-neutral-400">급여</p>
+              <p className="text-xs text-neutral-400">{t("employer.previewPayLabel")}</p>
               <p className="text-sm text-neutral-700 mt-0.5">
                 {payNegotiable
-                  ? "협의"
+                  ? t("employer.negotiateShort")
                   : payMin || payMax
                   ? `${payMin ? Number(payMin).toLocaleString("ko-KR") + "원" : ""}${payMin && payMax ? " ~ " : ""}${payMax ? Number(payMax).toLocaleString("ko-KR") + "원" : ""}`
-                  : "미입력"}
+                  : t("employer.noInputLabel")}
                 {" "}
                 {PAY_UNITS.find((u) => u.key === payUnit)?.label ?? ""}
               </p>
             </div>
             <div>
-              <p className="text-xs text-neutral-400">모집 인원</p>
+              <p className="text-xs text-neutral-400">{t("employer.previewHeadcountLabel")}</p>
               <p className="text-sm text-neutral-700 mt-0.5">
                 {requiredCount}명
               </p>
             </div>
             <div>
-              <p className="text-xs text-neutral-400">복지</p>
+              <p className="text-xs text-neutral-400">{t("employer.previewBenefitsLabel")}</p>
               <div className="flex flex-wrap gap-1 mt-0.5">
                 {accommodationProvided && (
                   <span className="text-xs bg-primary-50 text-primary-500 px-2 py-0.5 rounded-full">
-                    🏠 숙소
+                    🏠 {t("employer.accommodationLabel")}
                   </span>
                 )}
                 {mealProvided && (
                   <span className="text-xs bg-primary-50 text-primary-500 px-2 py-0.5 rounded-full">
-                    🍚 식사
+                    🍚 {t("employer.mealLabel")}
                   </span>
                 )}
                 {transportationProvided && (
                   <span className="text-xs bg-primary-50 text-primary-500 px-2 py-0.5 rounded-full">
-                    🚌 교통
+                    🚌 {t("employer.transportationLabel")}
                   </span>
                 )}
                 {!accommodationProvided &&
                   !mealProvided &&
                   !transportationProvided && (
-                    <span className="text-xs text-neutral-400">없음</span>
+                    <span className="text-xs text-neutral-400">{t("employer.noCountLabel")}</span>
                   )}
               </div>
             </div>
@@ -878,7 +875,7 @@ export default function NewJobPage() {
         <div className="flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-neutral-900 truncate">
-              {title || "공고 제목 미입력"}
+              {title || t("employer.jobTitleNoInput")}
             </p>
             <p className="text-xs text-neutral-500 truncate">
               {selectedSite?.name ?? ""}
@@ -897,7 +894,7 @@ export default function NewJobPage() {
             onClick={handleSubmit}
             className="bg-primary-500 text-white rounded-lg py-2.5 px-5 font-semibold text-sm hover:bg-primary-600 transition-colors disabled:opacity-50"
           >
-            공고 등록하기
+            {t("employer.jobPostBtn")}
           </button>
         </div>
       </div>

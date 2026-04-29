@@ -445,9 +445,9 @@ export default function HomePage() {
                 <div>
                   <h4 className="mb-3 font-semibold text-neutral-700">{t("home.footer.support")}</h4>
                   <ul className="space-y-2 text-neutral-400">
-                      <li><span className="cursor-default">{t("home.footer.help")}</span></li>
-                    <li><span className="cursor-default">{t("home.footer.terms")}</span></li>
-                    <li><span className="cursor-default">{t("home.footer.privacy")}</span></li>
+                    <li><span className="cursor-default">{t("home.footer.help")}</span></li>
+                    <li><Link href="/terms" className="hover:text-neutral-700 transition-colors">{t("home.footer.terms")}</Link></li>
+                    <li><Link href="/privacy" className="hover:text-neutral-700 transition-colors">{t("home.footer.privacy")}</Link></li>
                   </ul>
                 </div>
               </div>

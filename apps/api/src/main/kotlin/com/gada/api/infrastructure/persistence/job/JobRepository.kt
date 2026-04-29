@@ -164,6 +164,22 @@ class JobRepository(
         return Pair(content, total)
     }
 
+    /** 스케쥴 등록용 — 마감된 공고 포함, 현장 정보 함께 로드 */
+    fun findForScheduleSearch(keyword: String, page: Int, size: Int): List<Job> {
+        val kw = keyword.lowercase()
+        val jpql = buildString {
+            append("SELECT j FROM Job j LEFT JOIN FETCH j.site")
+            append(" WHERE j.deletedAt IS NULL AND j.status <> 'DRAFT'")
+            if (kw.isNotBlank()) append(" AND (LOWER(j.title) LIKE :kw OR LOWER(j.site.name) LIKE :kw)")
+            append(" ORDER BY j.createdAt DESC")
+        }
+        return em.createQuery(jpql, Job::class.java).apply {
+            if (kw.isNotBlank()) setParameter("kw", "%$kw%")
+            firstResult = page * size
+            maxResults = size
+        }.resultList
+    }
+
     fun save(job: Job): Job {
         return if (job.id == 0L) {
             em.persist(job)

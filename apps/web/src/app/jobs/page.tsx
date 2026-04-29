@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Search, Briefcase, SlidersHorizontal, MapPin } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { JobCard, JobCardSkeleton } from "@/components/jobs/JobCard";
 import {
@@ -150,15 +151,29 @@ function JobsContent() {
                 </span>
               )}
             </div>
-            <select
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 focus:border-primary-500 focus:outline-none"
-            >
-              <option value="latest">{t("jobs.sortRecent")}</option>
-              <option value="pay">{t("jobs.sortPay")}</option>
-              {hasLocation && <option value="distance">{t("jobs.sortDistance")}</option>}
-            </select>
+            <div className="flex items-center gap-0.5 rounded-lg border border-neutral-200 bg-neutral-50 p-0.5">
+              {(
+                [
+                  { value: "latest", label: t("jobs.sortRecent") },
+                  { value: "pay", label: t("jobs.sortPay") },
+                  ...(hasLocation ? [{ value: "distance", label: t("jobs.sortDistance") }] : []),
+                ] as { value: SortKey; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSortKey(opt.value)}
+                  className={cn(
+                    "rounded-md px-3 py-1 text-xs font-medium transition-all",
+                    sortKey === opt.value
+                      ? "bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-200"
+                      : "text-neutral-500 hover:text-neutral-700"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Cards */}

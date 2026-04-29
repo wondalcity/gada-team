@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -13,8 +13,9 @@ import { useAuthStore } from "@/store/authStore";
 import type { ConfirmationResult } from "firebase/auth";
 import type { AuthResponse } from "@/lib/api";
 import Link from "next/link";
-import { HardHat, Eye, EyeOff } from "lucide-react";
+import { HardHat, Eye, EyeOff, Globe, ChevronDown } from "lucide-react";
 import { useT } from "@/lib/i18n";
+import { useLocaleStore, type Locale } from "@/store/localeStore";
 
 // ─── Country data ──────────────────────────────────────────────────
 
@@ -164,34 +165,84 @@ function CountryDropdown({
 
 // ─── Dev users ────────────────────────────────────────────────────
 
+// V21 migration assigns IDs 1-7 to WORKER users (010-xxx format phones)
 const DEV_WORKERS: Array<AuthResponse & { label: string; devId: number; desc: string }> = [
-  { devId: 1,  label: "김철수",       desc: "한국인 · 콘크리트 경력 8년",     userId: 1,  phone: "+82-10-1001-0001", role: "WORKER",      status: "ACTIVE", isNewUser: false },
-  { devId: 2,  label: "Nguyen Van A", desc: "베트남 · E9 · 콘크리트/일반",    userId: 2,  phone: "+82-10-1002-0002", role: "WORKER",      status: "ACTIVE", isNewUser: false },
-  { devId: 3,  label: "이민호",       desc: "한국인 · 철근 전문",             userId: 3,  phone: "+82-10-1004-0004", role: "WORKER",      status: "ACTIVE", isNewUser: false },
-  { devId: 4,  label: "Tran Thi B",   desc: "베트남 · E9 · 타일/미장",        userId: 4,  phone: "+82-10-1005-0005", role: "WORKER",      status: "ACTIVE", isNewUser: false },
-  { devId: 12, label: "홍길동",       desc: "한국인 · 방수 전문",             userId: 12, phone: "+82-10-1008-0008", role: "WORKER",      status: "ACTIVE", isNewUser: false },
-  { devId: 18, label: "윤재원",       desc: "한국인 · 거푸집 전문 14년",      userId: 18, phone: "+82-10-1014-0014", role: "WORKER",      status: "ACTIVE", isNewUser: false },
+  { devId: 1,  label: "응우옌 반 안", desc: "베트남 · E9 · 굴삭기/콘크리트",   userId: 1,  phone: "010-1001-0001", role: "WORKER",      status: "ACTIVE", isNewUser: false },
+  { devId: 2,  label: "쩐 민 호앙",   desc: "베트남 · H2 · 철근/비계",         userId: 2,  phone: "010-1001-0002", role: "WORKER",      status: "ACTIVE", isNewUser: false },
+  { devId: 3,  label: "레 티 마이",   desc: "베트남 · E9 · 타일/미장",          userId: 3,  phone: "010-1001-0003", role: "WORKER",      status: "ACTIVE", isNewUser: false },
+  { devId: 4,  label: "팜 반 득",     desc: "베트남 · H2 · 크레인/안전기사",   userId: 4,  phone: "010-1001-0004", role: "WORKER",      status: "ACTIVE", isNewUser: false },
+  { devId: 5,  label: "도 티 흐엉",   desc: "베트남 · E9 · 도장/방수",          userId: 5,  phone: "010-1001-0005", role: "WORKER",      status: "ACTIVE", isNewUser: false },
+  { devId: 6,  label: "장민준",       desc: "한국인 · 콘크리트/철근 7년",       userId: 6,  phone: "010-1001-0006", role: "WORKER",      status: "ACTIVE", isNewUser: false },
 ];
 
+// V21 migration assigns:
+//   ID 8 → dev-worker-8 김철수 TEAM_LEADER
+//   ID 9 → dev-employer-1 박건설 EMPLOYER
+//   ID 10 → dev-employer-2 이현우 EMPLOYER
+//   ID 11 → dev-employer-3 최미영 EMPLOYER
 const DEV_TEAM_LEADERS: Array<AuthResponse & { label: string; devId: number; desc: string }> = [
-  { devId: 6,  label: "박팀장",  desc: "콘크리트팀 · 2인 · 수도권",         userId: 6,  phone: "+82-10-1003-0003", role: "TEAM_LEADER", status: "ACTIVE", isNewUser: false },
-  { devId: 7,  label: "정수진",  desc: "전기팀 · 단독 · 서울/용인",         userId: 7,  phone: "+82-10-1007-0007", role: "TEAM_LEADER", status: "ACTIVE", isNewUser: false },
-  { devId: 20, label: "오재현",  desc: "전기팀 · 전기산업기사 · 전국",      userId: 20, phone: "+82-10-1016-0016", role: "TEAM_LEADER", status: "ACTIVE", isNewUser: false },
-  { devId: 21, label: "김민석",  desc: "도장팀 · 인테리어 마감 전문",       userId: 21, phone: "+82-10-1017-0017", role: "TEAM_LEADER", status: "ACTIVE", isNewUser: false },
+  { devId: 8,  label: "김철수",  desc: "건설팀 팀장 · TEAM_LEADER",  userId: 8,  phone: "010-1001-0008", role: "TEAM_LEADER", status: "ACTIVE", isNewUser: false },
 ];
 
 const DEV_EMPLOYERS: Array<AuthResponse & { label: string; devId: number; desc: string }> = [
-  { devId: 8,  label: "이사장",  desc: "(주)GADA건설 · 대표",        userId: 8,  phone: "+82-10-2001-0001", role: "EMPLOYER", status: "ACTIVE", isNewUser: false },
-  { devId: 9,  label: "김부장",  desc: "신흥건설(주) · 인사팀장",    userId: 9,  phone: "+82-10-2002-0002", role: "EMPLOYER", status: "ACTIVE", isNewUser: false },
-  { devId: 10, label: "최대표",  desc: "한국건설개발(주) · 대표",    userId: 10, phone: "+82-10-2003-0003", role: "EMPLOYER", status: "ACTIVE", isNewUser: false },
+  { devId: 9,  label: "박건설",  desc: "(주)한국건설 · 대표",         userId: 9,  phone: "010-2001-0001", role: "EMPLOYER", status: "ACTIVE", isNewUser: false },
+  { devId: 10, label: "이현우",  desc: "대성종합건설(주) · 인사팀장", userId: 10, phone: "010-2001-0002", role: "EMPLOYER", status: "ACTIVE", isNewUser: false },
+  { devId: 11, label: "최미영",  desc: "미래건설산업(주) · 채용담당자", userId: 11, phone: "010-2001-0003", role: "EMPLOYER", status: "ACTIVE", isNewUser: false },
 ];
 
-const IS_LOCAL_DEV = process.env.NODE_ENV === "development";
+const IS_LOCAL_DEV = true; // Show test accounts always
 
 type Mode = "login" | "signup";
 type LoginTab = "worker" | "employer";
 // Signup steps: phone → otp → password
 type SignupStep = "phone" | "otp" | "password";
+
+// ─── Locale switcher ──────────────────────────────────────────────
+
+function LocaleSwitcher() {
+  const { locale, setLocale } = useLocaleStore();
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const LOCALE_LABELS: Record<Locale, string> = { ko: "한국어", en: "EN", vi: "VI" };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-100 transition-colors"
+      >
+        <Globe className="h-4 w-4" />
+        <span className="text-xs font-semibold">{LOCALE_LABELS[locale]}</span>
+        <ChevronDown className="h-3 w-3 text-neutral-400" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 w-36 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg z-50">
+          {(["ko", "en", "vi"] as Locale[]).map((loc) => (
+            <button
+              key={loc}
+              onClick={() => { setLocale(loc); setOpen(false); }}
+              className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                locale === loc ? "bg-primary-50 font-semibold text-primary-600" : "text-neutral-700 hover:bg-neutral-50"
+              }`}
+            >
+              <span className="text-base leading-none">{loc === "ko" ? "🇰🇷" : loc === "en" ? "🇺🇸" : "🇻🇳"}</span>
+              {loc === "ko" ? "한국어" : loc === "en" ? "English" : "Tiếng Việt"}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────
 
@@ -268,14 +319,14 @@ export default function LoginPage() {
       setUser(authData);
       router.replace(authData.status === "PENDING" ? "/onboarding" : "/");
     } catch (err: any) {
-      setError(err.message || "로그인에 실패했습니다.");
+      setError(err.message || t("auth.loginFailed"));
     } finally { setLoading(false); }
   }
 
   // ── Signup: send OTP ──
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
-    if (!signupName.trim()) { setError("이름을 입력해주세요."); return; }
+    if (!signupName.trim()) { setError(t("auth.nameRequired")); return; }
     setError(""); setLoading(true);
     try {
       if (!recaptchaRef.current) {
@@ -308,7 +359,7 @@ export default function LoginPage() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     if (signupPassword !== signupPasswordConfirm) {
-      setError("비밀번호가 일치하지 않습니다."); return;
+      setError(t("auth.passwordMismatch")); return;
     }
     setError(""); setLoading(true);
     try {
@@ -321,7 +372,7 @@ export default function LoginPage() {
       setUser(authData);
       router.replace("/onboarding");
     } catch (err: any) {
-      setError(err.message || "회원가입에 실패했습니다.");
+      setError(err.message || t("auth.registerFailed"));
     } finally { setLoading(false); }
   }
 
@@ -384,7 +435,11 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 overflow-y-auto">
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 overflow-y-auto relative">
+        {/* Language switcher top-right */}
+        <div className="absolute top-4 right-4">
+          <LocaleSwitcher />
+        </div>
         {/* Mobile logo */}
         <div className="lg:hidden mb-8 text-center">
           <Link href="/" className="inline-flex flex-col items-center gap-1">
@@ -443,7 +498,7 @@ export default function LoginPage() {
                   <form onSubmit={handleLogin} className="space-y-3">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-neutral-600">
-                        전화번호
+                        {t("auth.phone")}
                       </label>
                       <div className={`flex items-center rounded-md border bg-white transition-colors focus-within:ring-2 border-neutral-200 ${accentFocus}`}>
                         <button
@@ -479,14 +534,14 @@ export default function LoginPage() {
 
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-neutral-600">
-                        비밀번호
+                        {t("auth.password")}
                       </label>
                       <div className={`flex items-center rounded-md border border-neutral-200 bg-white focus-within:ring-2 ${accentFocus}`}>
                         <input
                           type={showLoginPw ? "text" : "password"}
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
-                          placeholder="비밀번호 입력"
+                          placeholder={t("auth.passwordPlaceholder")}
                           autoComplete="current-password"
                           required
                           className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
@@ -509,7 +564,7 @@ export default function LoginPage() {
                       disabled={loading || loginLocal.replace(/\D/g, "").length < 7 || !loginPassword}
                       className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${btnClass}`}
                     >
-                      {loading ? "로그인 중…" : t("auth.loginBtn")}
+                      {loading ? t("auth.loginLoading") : t("auth.loginBtn")}
                     </button>
                   </form>
 
@@ -590,7 +645,7 @@ export default function LoginPage() {
                         </div>
                       ))}
                       <span className="ml-1 text-xs text-neutral-400">
-                        {signupStep === "phone" ? "전화번호 입력" : signupStep === "otp" ? "인증번호 확인" : "비밀번호 설정"}
+                        {signupStep === "phone" ? t("auth.stepPhone") : signupStep === "otp" ? t("auth.stepOtp") : t("auth.stepPassword")}
                       </span>
                     </div>
                   </div>
@@ -599,12 +654,12 @@ export default function LoginPage() {
                   {signupStep === "phone" && (
                     <form onSubmit={handleSendOtp} className="space-y-3">
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">이름</label>
+                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">{t("auth.name")}</label>
                         <input
                           type="text"
                           value={signupName}
                           onChange={(e) => setSignupName(e.target.value)}
-                          placeholder="실명을 입력하세요"
+                          placeholder={t("auth.namePlaceholder")}
                           autoComplete="name"
                           required
                           className={`w-full rounded-md border border-neutral-200 px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-${isEmployer ? "warning" : "primary"}-500 focus:ring-2 focus:ring-${isEmployer ? "warning" : "primary"}-100`}
@@ -612,7 +667,7 @@ export default function LoginPage() {
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">전화번호</label>
+                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">{t("auth.phone")}</label>
                         <div className={`flex items-center rounded-md border bg-white transition-colors focus-within:ring-2 border-neutral-200 ${accentFocus}`}>
                           <button
                             ref={countryBtnRef}
@@ -652,7 +707,7 @@ export default function LoginPage() {
                         disabled={loading || !signupName.trim() || signupLocal.replace(/\D/g, "").length < 7}
                         className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${btnClass}`}
                       >
-                        {loading ? "전송 중…" : "인증번호 받기"}
+                        {loading ? t("auth.sending") : t("auth.sendOtp")}
                       </button>
                     </form>
                   )}
@@ -661,10 +716,10 @@ export default function LoginPage() {
                   {signupStep === "otp" && (
                     <div className="space-y-3">
                       <button onClick={() => { setSignupStep("phone"); setSignupOtp(""); setError(""); }} className="mb-1 text-sm text-neutral-400 hover:text-neutral-600">
-                        ← 뒤로
+                        {t("auth.backBtn")}
                       </button>
                       <p className="text-sm text-neutral-500">
-                        <span className="font-semibold text-neutral-900">{toE164(signupCountry, signupLocal)}</span>로 전송된 인증번호를 입력하세요.
+                        <span className="font-semibold text-neutral-900">{toE164(signupCountry, signupLocal)}</span>{t("auth.otpSentTo")}
                       </p>
                       <form onSubmit={handleVerifyOtp} className="space-y-3">
                         <input
@@ -673,7 +728,7 @@ export default function LoginPage() {
                           maxLength={6}
                           value={signupOtp}
                           onChange={(e) => setSignupOtp(e.target.value.replace(/\D/g, ""))}
-                          placeholder="인증번호 6자리"
+                          placeholder={t("auth.otpCodeLabel")}
                           autoFocus
                           className="w-full rounded-md border border-neutral-200 px-3.5 py-2.5 text-center text-sm font-semibold tracking-[0.4em] text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                         />
@@ -683,7 +738,7 @@ export default function LoginPage() {
                           disabled={loading || signupOtp.length !== 6}
                           className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${btnClass}`}
                         >
-                          {loading ? "확인 중…" : "인증번호 확인"}
+                          {loading ? t("auth.verifying") : t("auth.verifyOtp")}
                         </button>
                         <button
                           type="button"
@@ -691,7 +746,7 @@ export default function LoginPage() {
                           disabled={otpCountdown > 0}
                           className="w-full py-2 text-sm text-neutral-400 disabled:opacity-40"
                         >
-                          {otpCountdown > 0 ? `재발송 (${otpCountdown}초)` : "재발송"}
+                          {otpCountdown > 0 ? t("auth.resendCooldown", otpCountdown) : t("auth.resend")}
                         </button>
                       </form>
                     </div>
@@ -701,13 +756,13 @@ export default function LoginPage() {
                   {signupStep === "password" && (
                     <form onSubmit={handleRegister} className="space-y-3">
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">비밀번호 설정</label>
+                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">{t("auth.passwordNew")}</label>
                         <div className={`flex items-center rounded-md border border-neutral-200 bg-white focus-within:ring-2 ${accentFocus}`}>
                           <input
                             type={showSignupPw ? "text" : "password"}
                             value={signupPassword}
                             onChange={(e) => setSignupPassword(e.target.value)}
-                            placeholder="6자 이상"
+                            placeholder={t("auth.passwordNewPlaceholder")}
                             autoComplete="new-password"
                             required
                             minLength={6}
@@ -721,12 +776,12 @@ export default function LoginPage() {
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">비밀번호 확인</label>
+                        <label className="mb-1.5 block text-xs font-medium text-neutral-600">{t("auth.passwordConfirm")}</label>
                         <input
                           type="password"
                           value={signupPasswordConfirm}
                           onChange={(e) => setSignupPasswordConfirm(e.target.value)}
-                          placeholder="비밀번호 재입력"
+                          placeholder={t("auth.passwordConfirmPlaceholder")}
                           autoComplete="new-password"
                           required
                           className={`w-full rounded-md border px-3 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:ring-2 ${
@@ -736,7 +791,7 @@ export default function LoginPage() {
                           }`}
                         />
                         {signupPasswordConfirm && signupPassword !== signupPasswordConfirm && (
-                          <p className="mt-1 text-xs text-danger-500">비밀번호가 일치하지 않습니다.</p>
+                          <p className="mt-1 text-xs text-danger-500">{t("auth.passwordMismatch")}</p>
                         )}
                       </div>
 
@@ -747,7 +802,7 @@ export default function LoginPage() {
                         disabled={loading || signupPassword.length < 6 || signupPassword !== signupPasswordConfirm}
                         className={`w-full rounded-md py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${btnClass}`}
                       >
-                        {loading ? "가입 중…" : "가입 완료"}
+                        {loading ? t("auth.registering") : t("auth.registerComplete")}
                       </button>
                     </form>
                   )}
@@ -777,8 +832,8 @@ export default function LoginPage() {
 
           <p className="mt-4 text-center text-xs text-neutral-400">
             {t("auth.termsPrefix")}{" "}
-            <a href="#" className="underline hover:text-neutral-600">{t("auth.terms")}</a>과{" "}
-            <a href="#" className="underline hover:text-neutral-600">{t("auth.privacy")}</a>{t("common.agreeTo")}
+            <Link href="/terms" className="underline hover:text-neutral-600">{t("auth.terms")}</Link>{t("auth.termsAnd")}{" "}
+            <Link href="/privacy" className="underline hover:text-neutral-600">{t("auth.privacy")}</Link>{t("common.agreeTo")}
           </p>
         </div>
       </div>

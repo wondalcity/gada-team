@@ -5,11 +5,11 @@ import { QueryProvider } from "@/components/providers/QueryProvider";
 
 export const metadata: Metadata = {
   title: {
-    default: "GADA 가다 — 건설 현장 구인구직",
-    template: "%s | GADA 가다",
+    default: "가다 Team — 건설 현장 구인구직",
+    template: "%s | 가다 Team",
   },
   description:
-    "건설 현장 전문 구인구직 플랫폼. 근로자, 팀, 기업이 함께하는 GADA.",
+    "건설 현장 전문 구인구직 플랫폼. 근로자, 팀, 기업이 함께하는 가다 Team.",
   keywords: [
     "건설",
     "구인구직",
@@ -24,16 +24,24 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "GADA Inc." }],
   creator: "GADA Inc.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
   openGraph: {
-    title: "GADA 가다 — 건설 현장 구인구직",
+    title: "가다 Team — 건설 현장 구인구직",
     description: "건설 현장 전문 구인구직 플랫폼",
     type: "website",
     locale: "ko_KR",
-    siteName: "GADA",
+    siteName: "가다 Team",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GADA 가다",
+    title: "가다 Team",
     description: "건설 현장 전문 구인구직 플랫폼",
   },
   robots: {

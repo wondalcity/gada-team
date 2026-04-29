@@ -29,9 +29,10 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { teamsApi, TeamResponse, TeamMemberResponse } from "@/lib/teams-api";
+import { teamsApi, TeamResponse, TeamMemberResponse, WorkScheduleResponse } from "@/lib/teams-api";
 import { equipmentLabel } from "@/lib/equipment-labels";
 import { chatApi, memberProposalApi, workerTeamProposalApi } from "@/lib/chat-api";
+import { employerApi } from "@/lib/employer-api";
 import { useAuthStore } from "@/store/authStore";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,48 @@ function getInitials(name?: string): string {
   return name.charAt(0).toUpperCase();
 }
 
+// Maps common nationality strings to ISO 3166-1 alpha-2 codes for flag emoji
+const NATIONALITY_TO_CODE: Record<string, string> = {
+  "베트남": "VN", "VIETNAM": "VN", "VN": "VN",
+  "한국": "KR", "KOREA": "KR", "KR": "KR", "대한민국": "KR",
+  "중국": "CN", "CHINA": "CN", "CN": "CN",
+  "필리핀": "PH", "PHILIPPINES": "PH", "PH": "PH",
+  "인도네시아": "ID", "INDONESIA": "ID", "ID": "ID",
+  "태국": "TH", "THAILAND": "TH", "TH": "TH",
+  "미얀마": "MM", "MYANMAR": "MM", "MM": "MM",
+  "캄보디아": "KH", "CAMBODIA": "KH", "KH": "KH",
+  "몽골": "MN", "MONGOLIA": "MN", "MN": "MN",
+  "스리랑카": "LK", "SRI LANKA": "LK", "LK": "LK",
+  "네팔": "NP", "NEPAL": "NP", "NP": "NP",
+  "방글라데시": "BD", "BANGLADESH": "BD", "BD": "BD",
+  "우즈베키스탄": "UZ", "UZBEKISTAN": "UZ", "UZ": "UZ",
+  "카자흐스탄": "KZ", "KAZAKHSTAN": "KZ", "KZ": "KZ",
+  "키르기스스탄": "KG", "KYRGYZSTAN": "KG", "KG": "KG",
+};
+
+function countryFlag(nationality?: string | null): string {
+  if (!nationality) return "";
+  const code = NATIONALITY_TO_CODE[nationality.trim().toUpperCase()] ?? NATIONALITY_TO_CODE[nationality.trim()];
+  if (!code) return "";
+  // Convert ISO code to flag emoji (regional indicator symbols)
+  return code
+    .toUpperCase()
+    .split("")
+    .map((c) => String.fromCodePoint(0x1f1e6 - 65 + c.charCodeAt(0)))
+    .join("");
+}
+
+function NationalityDisplay({ nationality }: { nationality?: string | null }) {
+  if (!nationality) return <span className="text-neutral-400">-</span>;
+  const flag = countryFlag(nationality);
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {flag && <span className="text-base leading-none">{flag}</span>}
+      <span className="text-sm text-neutral-700">{nationality}</span>
+    </span>
+  );
+}
+
 function formatDate(dateStr?: string): string {
   if (!dateStr) return "";
   return new Date(dateStr).toLocaleDateString("ko-KR", {
@@ -52,11 +95,11 @@ function formatDate(dateStr?: string): string {
   });
 }
 
-function formatPay(min?: number, max?: number, unit?: string): string {
+function formatPay(min?: number, max?: number, unit?: string, t?: ReturnType<typeof useT>): string {
   const unitLabel: Record<string, string> = {
-    DAILY: "일",
-    MONTHLY: "월",
-    HOURLY: "시간",
+    DAILY: t ? t("filter.payDaily") : "일",
+    MONTHLY: t ? t("filter.payMonthly") : "월",
+    HOURLY: t ? t("filter.payHourly") : "시간",
   };
   const unitStr = unit ? unitLabel[unit] ?? unit : "";
   if (!min && !max) return "–";
@@ -112,18 +155,19 @@ function TeamDetailSkeleton() {
 // ─── Health Badge ─────────────────────────────────────────────────────────────
 
 function HealthBadge({ status }: { status?: string }) {
+  const t = useT();
   if (!status) return null;
   const config: Record<string, { label: string; className: string }> = {
     COMPLETED: {
-      label: "완료",
+      label: t("profile.health.done"),
       className: "bg-success-50 text-success-700",
     },
     NOT_DONE: {
-      label: "미완료",
+      label: t("profile.health.notDone"),
       className: "bg-neutral-100 text-neutral-500",
     },
     EXPIRED: {
-      label: "만료",
+      label: t("profile.health.expired"),
       className: "bg-danger-50 text-danger-700",
     },
   };
@@ -160,6 +204,7 @@ function RoleBadge({ role }: { role: string }) {
 // ─── Expandable Section ────────────────────────────────────────────────────────
 
 function ExpandableText({ text }: { text: string }) {
+  const t = useT();
   const [expanded, setExpanded] = React.useState(false);
   const isLong = text.length > 200;
   const display = isLong && !expanded ? text.slice(0, 200) + "..." : text;
@@ -176,11 +221,11 @@ function ExpandableText({ text }: { text: string }) {
         >
           {expanded ? (
             <>
-              접기 <ChevronUp className="h-3.5 w-3.5" />
+              {t("teamDetail.collapse")} <ChevronUp className="h-3.5 w-3.5" />
             </>
           ) : (
             <>
-              더 보기 <ChevronDown className="h-3.5 w-3.5" />
+              {t("teamDetail.expand")} <ChevronDown className="h-3.5 w-3.5" />
             </>
           )}
         </button>
@@ -207,25 +252,47 @@ function EmployerChatSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const router = useRouter();
   const [status, setStatus] = React.useState<"idle" | "loading" | "error">("idle");
   const [errorMsg, setErrorMsg] = React.useState("");
+  const [isInsufficient, setIsInsufficient] = React.useState(false);
+
+  const { data: balance, refetch: refetchBalance } = useQuery({
+    queryKey: ["pointBalance"],
+    queryFn: employerApi.getPointBalance,
+    enabled: open,
+  });
+
+  const hasBalance = (balance?.balance ?? 0) > 0;
 
   React.useEffect(() => {
-    if (!open) { setStatus("idle"); setErrorMsg(""); }
-  }, [open]);
+    if (!open) {
+      setStatus("idle");
+      setErrorMsg("");
+      setIsInsufficient(false);
+    } else {
+      refetchBalance();
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open) return null;
 
   async function handleStartChat() {
     setStatus("loading");
     setErrorMsg("");
+    setIsInsufficient(false);
     try {
       const room = await chatApi.openRoom(teamPublicId);
       router.push(`/employer/chats/${room.publicId}`);
     } catch (err: any) {
       setStatus("error");
-      setErrorMsg(err?.message || "채팅 시작에 실패했어요. 다시 시도해주세요.");
+      if (err?.code === "INSUFFICIENT_POINTS" || err?.message?.includes("포인트 잔액")) {
+        setIsInsufficient(true);
+        setErrorMsg("포인트 잔액이 부족합니다. 포인트를 충전해 주세요.");
+      } else {
+        setErrorMsg(err?.message || "채팅 시작에 실패했어요. 다시 시도해주세요.");
+      }
     }
   }
 
@@ -235,7 +302,7 @@ function EmployerChatSheet({
       <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-white p-6 shadow-2xl lg:bottom-0 lg:right-0 lg:left-auto lg:top-0 lg:w-96 lg:rounded-none lg:rounded-l-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-neutral-950">팀장에게 채팅하기</h2>
+            <h2 className="text-lg font-bold text-neutral-950">{t("teamDetail.chatTitle")}</h2>
             <p className="mt-0.5 text-sm text-neutral-500">{teamName}</p>
           </div>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
@@ -244,7 +311,7 @@ function EmployerChatSheet({
         </div>
 
         {/* Leader info */}
-        <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 mb-5">
+        <div className="flex items-center gap-3 rounded-lg bg-neutral-50 p-4 mb-4">
           {leaderProfileImageUrl ? (
             <img src={leaderProfileImageUrl} alt={leaderName} className="h-12 w-12 rounded-full object-cover flex-shrink-0" />
           ) : (
@@ -253,38 +320,50 @@ function EmployerChatSheet({
             </div>
           )}
           <div>
-            <p className="font-semibold text-neutral-900">{leaderName ?? "이름 없음"}</p>
-            <span className="inline-block rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700 mt-0.5">팀장</span>
+            <p className="font-semibold text-neutral-900">{leaderName ?? t("teamDetail.noName")}</p>
+            <span className="inline-block rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700 mt-0.5">{t("teamDetail.leaderLabel")}</span>
           </div>
         </div>
 
-        {/* Point notice */}
-        <div className="flex items-start gap-3 rounded-lg border border-amber-100 bg-amber-50 p-4 mb-5">
-          <Coins className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
-          <div className="text-sm text-amber-700">
-            <p className="font-semibold">채팅 개설 시 1포인트가 차감됩니다</p>
-            <p className="mt-0.5 text-amber-600">이미 채팅 중인 팀에는 추가 포인트가 필요하지 않아요.</p>
-          </div>
+        {/* Point balance row */}
+        <div className={cn(
+          "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm mb-4",
+          hasBalance ? "bg-primary-50 text-primary-700" : "bg-danger-50 text-danger-600"
+        )}>
+          <Coins className="h-4 w-4 flex-shrink-0" />
+          <span className="font-medium flex-1">잔액 {balance?.balance ?? "…"}P · 채팅 개설 시 1P 차감</span>
+          {!hasBalance && (
+            <Link href="/employer/points" onClick={onClose} className="flex-shrink-0 text-xs font-semibold underline">
+              충전하기
+            </Link>
+          )}
         </div>
 
         {status === "error" && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
-            <X className="h-4 w-4 flex-shrink-0" />
-            {errorMsg}
+          <div className="mb-4 flex items-center justify-between gap-2 rounded-lg bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
+            <span className="flex items-center gap-2">
+              <X className="h-4 w-4 flex-shrink-0" />
+              {errorMsg}
+            </span>
+            {isInsufficient && (
+              <Link href="/employer/points" onClick={onClose} className="flex-shrink-0 text-xs font-semibold underline">
+                충전하기
+              </Link>
+            )}
           </div>
         )}
 
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">
-            취소
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleStartChat}
-            disabled={status === "loading"}
+            disabled={status === "loading" || !hasBalance}
             className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 transition-all active:scale-[0.98]"
           >
             <MessageCircle className="h-4 w-4" />
-            {status === "loading" ? "연결 중..." : "채팅 시작하기"}
+            {status === "loading" ? t("teamDetail.chatConnecting") : t("teamDetail.chatStart")}
           </button>
         </div>
       </div>
@@ -310,6 +389,7 @@ function WorkerProposalSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const [message, setMessage] = React.useState("");
   const [status, setStatus] = React.useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = React.useState("");
@@ -338,7 +418,7 @@ function WorkerProposalSheet({
       <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-white p-6 shadow-2xl lg:bottom-0 lg:right-0 lg:left-auto lg:top-0 lg:w-96 lg:rounded-none lg:rounded-l-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-neutral-950">팀원으로 제안하기</h2>
+            <h2 className="text-lg font-bold text-neutral-950">{t("teamDetail.proposeTitle")}</h2>
             <p className="mt-0.5 text-sm text-neutral-500">{teamName}</p>
           </div>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
@@ -356,8 +436,8 @@ function WorkerProposalSheet({
             </div>
           )}
           <div>
-            <p className="font-semibold text-neutral-900">{leaderName ?? "이름 없음"}</p>
-            <span className="inline-block rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700 mt-0.5">팀장</span>
+            <p className="font-semibold text-neutral-900">{leaderName ?? t("teamDetail.noName")}</p>
+            <span className="inline-block rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700 mt-0.5">{t("teamDetail.leaderLabel")}</span>
           </div>
         </div>
 
@@ -367,23 +447,23 @@ function WorkerProposalSheet({
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success-50">
                 <CheckCircle2 className="h-7 w-7 text-success-600" />
               </div>
-              <p className="font-semibold text-neutral-900">제안을 보냈어요!</p>
-              <p className="text-sm text-neutral-500">팀장의 응답을 기다려주세요.</p>
+              <p className="font-semibold text-neutral-900">{t("teamDetail.proposeSent")}</p>
+              <p className="text-sm text-neutral-500">{t("teamDetail.proposeSentSub")}</p>
             </div>
             <button onClick={onClose} className="w-full rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 transition-colors">
-              확인
+              {t("common.confirm")}
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
-                메시지 <span className="font-normal text-neutral-400">(선택)</span>
+                {t("teamDetail.proposeMsgLabel")} <span className="font-normal text-neutral-400">{t("teamDetail.proposeMsgOptional")}</span>
               </label>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="자기소개나 합류 의사를 짧게 적어보세요."
+                placeholder={t("teamDetail.proposeMsgPlaceholder")}
                 rows={4}
                 className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm outline-none resize-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
               />
@@ -398,7 +478,7 @@ function WorkerProposalSheet({
 
             <div className="flex gap-3">
               <button onClick={onClose} className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors">
-                취소
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleSend}
@@ -406,7 +486,7 @@ function WorkerProposalSheet({
                 className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 transition-all active:scale-[0.98]"
               >
                 <Send className="h-4 w-4" />
-                {status === "loading" ? "전송 중..." : "제안 보내기"}
+                {status === "loading" ? t("teamDetail.proposeSending") : t("teamDetail.proposeSendBtn")}
               </button>
             </div>
           </div>
@@ -427,6 +507,7 @@ function InviteSheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [phone, setPhone] = React.useState("");
   const [feedback, setFeedback] = React.useState<{
@@ -437,7 +518,7 @@ function InviteSheet({
   const inviteMutation = useMutation({
     mutationFn: (p: string) => teamsApi.inviteMember(teamPublicId, p),
     onSuccess: () => {
-      setFeedback({ type: "success", message: "초대장을 발송했어요!" });
+      setFeedback({ type: "success", message: t("teamDetail.invSuccess") });
       setPhone("");
       queryClient.invalidateQueries({ queryKey: ["team", teamPublicId] });
     },
@@ -461,8 +542,8 @@ function InviteSheet({
       <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-white p-6 shadow-2xl lg:bottom-0 lg:right-0 lg:left-auto lg:top-0 lg:w-96 lg:rounded-none lg:rounded-l-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-neutral-950">팀원 초대</h2>
-            <p className="mt-0.5 text-sm text-neutral-500">전화번호로 팀원을 초대하세요</p>
+            <h2 className="text-lg font-bold text-neutral-950">{t("teamDetail.invTitle")}</h2>
+            <p className="mt-0.5 text-sm text-neutral-500">{t("teamDetail.invSub")}</p>
           </div>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
             <X className="h-4 w-4 text-neutral-600" />
@@ -470,7 +551,7 @@ function InviteSheet({
         </div>
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-neutral-700">전화번호</label>
+            <label className="mb-1.5 block text-sm font-semibold text-neutral-700">{t("teamDetail.invPhone")}</label>
             <div className="relative">
               <Phone className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
               <input
@@ -496,7 +577,7 @@ function InviteSheet({
             disabled={!phone.trim() || inviteMutation.isPending}
             className="w-full rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-50 active:scale-[0.98] transition-all"
           >
-            {inviteMutation.isPending ? "발송 중..." : "초대장 보내기"}
+            {inviteMutation.isPending ? t("teamDetail.invSending") : t("teamDetail.invSend")}
           </button>
         </div>
       </div>
@@ -530,7 +611,7 @@ function ReceivedProposalsSection({ teamPublicId }: { teamPublicId: string }) {
 
   const { data, isLoading } = useQuery({
     queryKey: ["team-received-proposals", teamPublicId],
-    queryFn: () => workerTeamProposalApi.listReceived(0, 20),
+    queryFn: () => workerTeamProposalApi.listReceived(0, 20, teamPublicId),
   });
 
   const proposals = data?.content ?? [];
@@ -617,6 +698,73 @@ function ReceivedProposalsSection({ teamPublicId }: { teamPublicId: string }) {
   );
 }
 
+// ─── Team Schedule Section ────────────────────────────────────────────────────
+
+function statusConfig(status: string) {
+  if (status === "ONGOING") return { label: "투입 중", className: "bg-success-100 text-success-700" };
+  if (status === "COMPLETED") return { label: "완료", className: "bg-neutral-100 text-neutral-500" };
+  return { label: "예정", className: "bg-primary-50 text-primary-600" };
+}
+
+function TeamScheduleSection({ teamPublicId }: { teamPublicId: string }) {
+  const { data: schedules, isLoading } = useQuery({
+    queryKey: ["team-schedules", teamPublicId],
+    queryFn: () => teamsApi.getSchedules(teamPublicId),
+    staleTime: 60_000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
+        <div className="h-4 w-28 animate-pulse rounded bg-neutral-200 mb-4" />
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-lg bg-neutral-100" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const list = schedules ?? [];
+  if (list.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card-md">
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-neutral-800">
+        <Briefcase className="h-4 w-4 text-primary-500" />
+        현장 투입 스케쥴
+      </h2>
+      <div className="space-y-3">
+        {list.map((s) => {
+          const cfg = statusConfig(s.status);
+          return (
+            <div key={s.publicId} className="rounded-lg border border-neutral-100 bg-neutral-50 p-4">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <p className="text-sm font-semibold text-neutral-900 leading-tight">{s.siteName}</p>
+                <span className={cn("flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold", cfg.className)}>
+                  {cfg.label}
+                </span>
+              </div>
+              {s.siteAddress && (
+                <p className="flex items-center gap-1 text-xs text-neutral-500 mb-1.5">
+                  <MapPin className="h-3 w-3 flex-shrink-0" />
+                  {s.siteAddress}
+                </p>
+              )}
+              <p className="text-xs text-neutral-600 leading-relaxed mb-2">{s.workDescription}</p>
+              <p className="flex items-center gap-1 text-xs text-neutral-400">
+                <Calendar className="h-3 w-3" />
+                {s.startDate}{s.endDate ? ` ~ ${s.endDate}` : " ~"}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Team Detail Content ──────────────────────────────────────────────────────
 
 function TeamDetailContent({ id }: { id: string }) {
@@ -693,7 +841,7 @@ function TeamDetailContent({ id }: { id: string }) {
           <div className="flex items-center gap-1.5 text-xs text-white/70">
             <span>GADA</span>
             <ChevronRight className="h-3 w-3" />
-            <span>팀</span>
+            <span>{t("teamDetail.breadcrumb")}</span>
             <ChevronRight className="h-3 w-3" />
             <span className="text-white font-medium">{team.name}</span>
           </div>
@@ -724,7 +872,7 @@ function TeamDetailContent({ id }: { id: string }) {
           <div className="mt-1 flex items-center gap-3 text-white/80 text-sm">
             <span className="flex items-center gap-1">
               <Users className="h-4 w-4" />
-              {team.memberCount}명
+              {t("teamDetail.memberN", team.memberCount)}
             </span>
             {team.companyName && (
               <span className="flex items-center gap-1">
@@ -754,7 +902,7 @@ function TeamDetailContent({ id }: { id: string }) {
               )}
               {team.introLong && <ExpandableText text={team.introLong} />}
               {!team.introShort && !team.introLong && (
-                <p className="text-sm text-neutral-400">소개가 없어요</p>
+                <p className="text-sm text-neutral-400">{t("teamDetail.noIntro")}</p>
               )}
             </div>
 
@@ -782,7 +930,7 @@ function TeamDetailContent({ id }: { id: string }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-neutral-400">지역 정보가 없어요</p>
+                <p className="text-sm text-neutral-400">{t("teamDetail.noRegion")}</p>
               )}
             </div>
 
@@ -805,6 +953,9 @@ function TeamDetailContent({ id }: { id: string }) {
                 </div>
               </div>
             )}
+
+            {/* 현장 투입 스케쥴 */}
+            <TeamScheduleSection teamPublicId={team.publicId} />
 
             {/* 포트폴리오 */}
             {hasPortfolio && (
@@ -871,7 +1022,7 @@ function TeamDetailContent({ id }: { id: string }) {
                 )}
                 <div>
                   <p className="font-semibold text-neutral-900">
-                    {team.leaderName ?? "이름 없음"}
+                    {team.leaderName ?? t("teamDetail.noName")}
                   </p>
                   <span className="inline-block rounded-md bg-warning-100 px-2 py-0.5 text-xs font-semibold text-warning-700 mt-0.5">
                     {t("teamDetail.leaderLabel")}
@@ -937,7 +1088,7 @@ function TeamDetailContent({ id }: { id: string }) {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-neutral-500">{t("teamDetail.headcount")}</span>
                     <span className="font-semibold text-neutral-900">
-                      {team.memberCount}명 / {team.headcountTarget}명
+                      {t("teamDetail.memberN", team.memberCount)} / {t("teamDetail.memberN", team.headcountTarget)}
                     </span>
                   </div>
                 )}
@@ -948,7 +1099,8 @@ function TeamDetailContent({ id }: { id: string }) {
                       {formatPay(
                         team.desiredPayMin,
                         team.desiredPayMax,
-                        team.desiredPayUnit
+                        team.desiredPayUnit,
+                        t
                       )}
                     </span>
                   </div>
@@ -1006,16 +1158,16 @@ function TeamDetailContent({ id }: { id: string }) {
                         href={`/workers/${m.workerProfilePublicId}`}
                         className="flex items-center gap-1.5 text-xs text-primary-600 hover:underline"
                       >
-                        {m.fullName ?? "이름 없음"}
+                        {m.fullName ?? t("teamDetail.noName")}
                         {m.role === "LEADER" && (
-                          <span className="text-warning-700">(팀장)</span>
+                          <span className="text-warning-700">({t("teamDetail.leaderLabel")})</span>
                         )}
                       </Link>
                     ) : (
                       <p key={m.memberId} className="text-xs text-neutral-600">
-                        {m.fullName ?? "이름 없음"}
+                        {m.fullName ?? t("teamDetail.noName")}
                         {m.role === "LEADER" && (
-                          <span className="ml-1 text-warning-700">(팀장)</span>
+                          <span className="ml-1 text-warning-700">({t("teamDetail.leaderLabel")})</span>
                         )}
                       </p>
                     )
@@ -1086,12 +1238,19 @@ function TeamDetailContent({ id }: { id: string }) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-semibold text-neutral-900">
-                          {m.fullName ?? "이름 없음"}
+                          {m.fullName ?? t("teamDetail.noName")}
                         </span>
                         <RoleBadge role={m.role} />
                       </div>
-                      <p className="mt-0.5 text-xs text-neutral-500">
-                        {[m.nationality, m.visaType].filter(Boolean).join(" · ")}
+                      <p className="mt-0.5 text-xs text-neutral-500 flex items-center gap-1">
+                        {m.nationality && (
+                          <>
+                            <span className="text-sm leading-none">{countryFlag(m.nationality)}</span>
+                            <span>{m.nationality}</span>
+                            {m.visaType && <span>·</span>}
+                          </>
+                        )}
+                        {m.visaType && <span>{m.visaType}</span>}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1123,22 +1282,19 @@ function TeamDetailContent({ id }: { id: string }) {
                 <thead>
                   <tr className="border-b border-neutral-100 bg-neutral-50">
                     <th className="px-5 py-3 text-left text-xs font-semibold text-neutral-500">
-                      이름
+                      {t("teamDetail.colName")}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500">
-                      역할
+                      {t("teamDetail.colRole")}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500">
-                      연락처
+                      {t("teamDetail.colNationality")}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500">
-                      국적
+                      {t("teamDetail.colHealth")}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500">
-                      건강검진
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500">
-                      합류일
+                      {t("teamDetail.colJoinedAt")}
                     </th>
                   </tr>
                 </thead>
@@ -1159,7 +1315,7 @@ function TeamDetailContent({ id }: { id: string }) {
                             </div>
                           )}
                           <span className="font-medium text-neutral-900">
-                            {m.fullName ?? "이름 없음"}
+                            {m.fullName ?? t("teamDetail.noName")}
                           </span>
                           {m.workerProfilePublicId && <ChevronRight className="h-3.5 w-3.5 text-neutral-300" />}
                         </div>
@@ -1168,20 +1324,7 @@ function TeamDetailContent({ id }: { id: string }) {
                         <RoleBadge role={m.role} />
                       </td>
                       <td className="px-4 py-3.5">
-                        {m.phone ? (
-                          <a
-                            href={`tel:${m.phone}`}
-                            className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
-                          >
-                            <Phone className="h-3.5 w-3.5 shrink-0" />
-                            {m.phone}
-                          </a>
-                        ) : (
-                          <span className="text-neutral-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-neutral-600">
-                        {m.nationality ?? "-"}
+                        <NationalityDisplay nationality={m.nationality} />
                       </td>
                       <td className="px-4 py-3.5">
                         <HealthBadge status={m.healthCheckStatus} />

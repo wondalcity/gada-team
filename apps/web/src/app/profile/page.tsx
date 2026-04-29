@@ -17,6 +17,9 @@ import { getMyWorkerProfile, updateMyWorkerProfile, WorkerProfile } from "@/lib/
 import { teamsApi, TeamResponse } from "@/lib/teams-api";
 import { uploadImageToStorage } from "@/lib/firebase";
 import { equipmentLabel } from "@/lib/equipment-labels";
+import { useT } from "@/lib/i18n";
+import { CustomSelect } from "@/components/ui/CustomSelect";
+import { DateInput } from "@/components/ui/DateInput";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,7 +50,17 @@ const NATIONALITY_OPTIONS = [
   { value: "OTHER", label: "기타" },
 ];
 
-const VISA_OPTIONS = ["E-7", "E-9", "H-2", "F-4", "F-5", "F-6", "D-10", "기타"];
+const VISA_OPTIONS = [
+  { value: "CITIZEN", label: "내국인" },
+  { value: "E-9",     label: "E-9 비전문취업" },
+  { value: "E-7",     label: "E-7 특정활동" },
+  { value: "H-2",     label: "H-2 방문취업" },
+  { value: "F-4",     label: "F-4 재외동포" },
+  { value: "F-5",     label: "F-5 영주" },
+  { value: "F-6",     label: "F-6 결혼이민" },
+  { value: "D-10",    label: "D-10 구직" },
+  { value: "기타",    label: "기타" },
+];
 const LANGUAGE_OPTIONS = [
   { value: "ko", label: "한국어" },
   { value: "vi", label: "베트남어" },
@@ -66,6 +79,77 @@ const PAY_UNIT_OPTIONS = [
   { value: "WEEKLY", label: "주급" },
   { value: "MONTHLY", label: "월급" },
 ];
+
+const CONSTRUCTION_CERTS = [
+  "굴삭기운전기능사", "지게차운전기능사", "기중기운전기능사", "크레인운전기능사",
+  "건설기계정비기능사", "건설기계정비기사", "건설기계기술사",
+  "철근기능사", "비계기능사", "콘크리트기능사", "콘크리트기사",
+  "용접기능사", "특수용접기능사",
+  "도장기능사", "미장기능사", "타일기능사", "방수기능사",
+  "배관기능사", "수도배관기능사", "조적기능사", "석공기능사",
+  "도배기능사", "판금제관기능사",
+  "건축기사", "건축산업기사", "건축시공기술사",
+  "토목기사", "토목산업기사", "토목시공기술사",
+  "건설안전기사", "건설안전기술사", "산업안전기사", "산업안전산업기사",
+  "전기기능사", "전기기사", "전기산업기사",
+  "건설재료시험기사", "건설재료시험기능사",
+  "측량기능사", "일반기계기사",
+];
+
+// ─── Certification search combobox ────────────────────────────────────────────
+
+function CertSearchInput({ value, onChange, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = value.trim() === ""
+    ? CONSTRUCTION_CERTS.slice(0, 12)
+    : CONSTRUCTION_CERTS.filter((c) => c.includes(value.trim())).slice(0, 12);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+        autoComplete="off"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-neutral-200 bg-white shadow-lg overflow-hidden">
+          <div className="max-h-44 overflow-y-auto">
+            {filtered.map((cert) => (
+              <button
+                key={cert}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); onChange(cert); setOpen(false); }}
+                className="w-full px-3 py-2.5 text-left text-sm text-neutral-800 hover:bg-primary-50 hover:text-primary-700 transition-colors border-b border-neutral-50 last:border-0"
+              >
+                {cert}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Section header ───────────────────────────────────────────────────────────
 
@@ -92,44 +176,54 @@ function SectionCard({ title, icon: Icon, children, action }: {
 // ─── Worker profile sections ──────────────────────────────────────────────────
 
 function WorkerProfileContent({ profile }: { profile: WorkerProfile }) {
-  const health = HEALTH_LABELS[profile.healthCheckStatus ?? ""] ?? null;
+  const t = useT();
+  const health = profile.healthCheckStatus
+    ? {
+        label: profile.healthCheckStatus === "COMPLETED"
+          ? t("profile.health.done")
+          : profile.healthCheckStatus === "NOT_DONE"
+            ? t("profile.health.notDone")
+            : t("profile.health.expired"),
+        color: HEALTH_LABELS[profile.healthCheckStatus]?.color ?? "",
+      }
+    : null;
   const payLabel = profile.desiredPayMin
-    ? `${profile.desiredPayMin.toLocaleString()}~${(profile.desiredPayMax ?? 0).toLocaleString()}원 / ${PAY_UNIT_LABELS[profile.desiredPayUnit ?? ""] ?? profile.desiredPayUnit}`
+    ? `${profile.desiredPayMin.toLocaleString()}~${(profile.desiredPayMax ?? 0).toLocaleString()}${t("filter.currencyUnit")} / ${PAY_UNIT_LABELS[profile.desiredPayUnit ?? ""] ?? profile.desiredPayUnit}`
     : null;
 
   return (
     <>
       {/* Basic info */}
-      <SectionCard title="기본 정보" icon={User}>
+      <SectionCard title={t("worker.basicInfo")} icon={User}>
         <div className="grid grid-cols-2 gap-x-4 gap-y-4">
           <div>
-            <p className="text-xs text-neutral-400 mb-1">국적</p>
+            <p className="text-xs text-neutral-400 mb-1">{t("worker.nationality")}</p>
             <p className="text-sm font-medium text-neutral-900">
-              {NATIONALITY_LABELS[profile.nationality ?? ""] ?? profile.nationality ?? "미입력"}
+              {NATIONALITY_LABELS[profile.nationality ?? ""] ?? profile.nationality ?? t("profile.notEntered")}
             </p>
           </div>
           <div>
-            <p className="text-xs text-neutral-400 mb-1">비자</p>
-            <p className="text-sm font-medium text-neutral-900">{profile.visaType ?? "미입력"}</p>
+            <p className="text-xs text-neutral-400 mb-1">{t("worker.visa")}</p>
+            <p className="text-sm font-medium text-neutral-900">{profile.visaType ?? t("profile.notEntered")}</p>
           </div>
           <div>
-            <p className="text-xs text-neutral-400 mb-1">생년월일</p>
-            <p className="text-sm font-medium text-neutral-900">{profile.birthDate ?? "미입력"}</p>
+            <p className="text-xs text-neutral-400 mb-1">{t("profile.birthDate")}</p>
+            <p className="text-sm font-medium text-neutral-900">{profile.birthDate ?? t("profile.notEntered")}</p>
           </div>
           <div>
-            <p className="text-xs text-neutral-400 mb-1">건강검진</p>
+            <p className="text-xs text-neutral-400 mb-1">{t("worker.health")}</p>
             {health ? (
               <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${health.color}`}>
-                {health.label === "완료" ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                {profile.healthCheckStatus === "COMPLETED" ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
                 {health.label}
               </span>
             ) : (
-              <p className="text-sm text-neutral-400">미입력</p>
+              <p className="text-sm text-neutral-400">{t("profile.notEntered")}</p>
             )}
           </div>
           {payLabel && (
             <div className="col-span-2">
-              <p className="text-xs text-neutral-400 mb-1">희망 급여</p>
+              <p className="text-xs text-neutral-400 mb-1">{t("worker.desiredPay")}</p>
               <p className="text-sm font-medium text-neutral-900">{payLabel}</p>
             </div>
           )}
@@ -138,7 +232,7 @@ function WorkerProfileContent({ profile }: { profile: WorkerProfile }) {
 
       {/* Languages */}
       {profile.languages && profile.languages.length > 0 && (
-        <SectionCard title="언어 능력" icon={Globe}>
+        <SectionCard title={t("worker.languages")} icon={Globe}>
           <div className="flex flex-wrap gap-2">
             {profile.languages.map((lang, i) => (
               <span key={i} className="inline-flex items-center gap-1.5 rounded-lg bg-primary-50 border border-primary-200 px-3 py-1.5 text-sm text-primary-700">
@@ -153,7 +247,7 @@ function WorkerProfileContent({ profile }: { profile: WorkerProfile }) {
 
       {/* Certifications */}
       {profile.certifications && profile.certifications.length > 0 && (
-        <SectionCard title="자격증" icon={Award}>
+        <SectionCard title={t("worker.certifications")} icon={Award}>
           <div className="space-y-2">
             {profile.certifications.map((cert, i) => (
               <div key={i} className="flex items-center justify-between">
@@ -172,7 +266,7 @@ function WorkerProfileContent({ profile }: { profile: WorkerProfile }) {
 
       {/* Equipment */}
       {profile.equipment && profile.equipment.length > 0 && (
-        <SectionCard title="보유 장비" icon={Briefcase}>
+        <SectionCard title={t("worker.equipment")} icon={Briefcase}>
           <div className="flex flex-wrap gap-2">
             {profile.equipment.map((eq, i) => (
               <span key={i} className="inline-flex items-center rounded-lg bg-neutral-100 px-3 py-1.5 text-sm text-neutral-700">
@@ -185,7 +279,7 @@ function WorkerProfileContent({ profile }: { profile: WorkerProfile }) {
 
       {/* Portfolio */}
       {profile.portfolio && profile.portfolio.length > 0 && (
-        <SectionCard title="포트폴리오" icon={ImageIcon}>
+        <SectionCard title={t("worker.portfolio")} icon={ImageIcon}>
           <div className="space-y-4">
             {profile.portfolio.map((item, i) => (
               <div key={i} className="border border-neutral-100 rounded-lg overflow-hidden">
@@ -217,6 +311,7 @@ function WorkerProfileContent({ profile }: { profile: WorkerProfile }) {
 // ─── Team membership section ──────────────────────────────────────────────────
 
 function TeamSection({ profile }: { profile: WorkerProfile }) {
+  const t = useT();
   const { data: team, isLoading } = useQuery<TeamResponse>({
     queryKey: ["my-team"],
     queryFn: () => teamsApi.getMyTeam(),
@@ -234,26 +329,26 @@ function TeamSection({ profile }: { profile: WorkerProfile }) {
 
   if (!team) {
     return (
-      <SectionCard title={profile.role === "TEAM_LEADER" ? "내 팀" : "팀 소속"} icon={Users}>
+      <SectionCard title={profile.role === "TEAM_LEADER" ? t("profile.myTeam") : t("worker.team")} icon={Users}>
         <div className="text-center py-4">
           <p className="text-sm text-neutral-500 mb-3">
             {profile.role === "TEAM_LEADER"
-              ? "아직 팀을 만들지 않았어요."
-              : "아직 소속된 팀이 없어요."}
+              ? t("profile.noTeamLeader")
+              : t("profile.noTeamMember")}
           </p>
           {profile.role === "TEAM_LEADER" ? (
             <Link
               href="/teams/new"
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
             >
-              + 팀 만들기
+              + {t("profile.createTeam")}
             </Link>
           ) : (
             <Link
               href="/teams"
               className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
             >
-              팀 찾기
+              {t("profile.findTeam")}
             </Link>
           )}
         </div>
@@ -263,11 +358,11 @@ function TeamSection({ profile }: { profile: WorkerProfile }) {
 
   return (
     <SectionCard
-      title={profile.role === "TEAM_LEADER" ? "내 팀 (팀장)" : "소속 팀"}
+      title={profile.role === "TEAM_LEADER" ? t("profile.myTeamLeader") : t("worker.team")}
       icon={Users}
       action={
         <Link href={`/teams/${team.publicId}`} className="text-xs text-primary-500 font-medium hover:underline">
-          팀 페이지 →
+          {t("profile.teamPage")}
         </Link>
       }
     >
@@ -282,7 +377,7 @@ function TeamSection({ profile }: { profile: WorkerProfile }) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-neutral-900 truncate">{team.name}</p>
           <p className="text-xs text-neutral-500 mt-0.5">
-            팀원 {team.memberCount}명 · {team.isNationwide ? "전국" : "지역"} 활동
+            {t("profile.memberCount", team.memberCount)} · {team.isNationwide ? t("profile.nationwide") : t("profile.regional")} 활동
           </p>
           {team.introShort && (
             <p className="text-xs text-neutral-400 mt-1 truncate">{team.introShort}</p>
@@ -293,7 +388,7 @@ function TeamSection({ profile }: { profile: WorkerProfile }) {
       {/* Members preview */}
       {team.members && team.members.length > 0 && (
         <div className="mt-3 pt-3 border-t border-neutral-50">
-          <p className="text-xs text-neutral-400 mb-2">팀원</p>
+          <p className="text-xs text-neutral-400 mb-2">{t("worker.memberBadge")}</p>
           <div className="flex flex-wrap gap-2">
             {team.members.slice(0, 5).map((m) => (
               <div key={m.userId} className="flex items-center gap-1.5 rounded-full bg-neutral-50 border border-neutral-100 px-2.5 py-1">
@@ -301,15 +396,15 @@ function TeamSection({ profile }: { profile: WorkerProfile }) {
                   {m.fullName?.[0] ?? "?"}
                 </div>
                 <span className="text-xs text-neutral-700 font-medium">
-                  {m.fullName ?? "미등록"}
+                  {m.fullName ?? t("profile.notRegistered")}
                 </span>
                 {m.role === "LEADER" && (
-                  <span className="text-[10px] text-primary-500 font-semibold">팀장</span>
+                  <span className="text-[10px] text-primary-500 font-semibold">{t("worker.leaderBadge")}</span>
                 )}
               </div>
             ))}
             {team.members.length > 5 && (
-              <span className="text-xs text-neutral-400 self-center">+{team.members.length - 5}명</span>
+              <span className="text-xs text-neutral-400 self-center">+{team.members.length - 5}{t("common.persons")}</span>
             )}
           </div>
         </div>
@@ -344,6 +439,13 @@ function ProfileSkeleton() {
       ))}
     </div>
   );
+}
+
+// ─── Date format helper ───────────────────────────────────────────────────────
+// Normalise "2024.12.31" or "2024/12/31" → "2024-12-31" for <input type="date">
+function toDateInput(v: string): string {
+  if (!v) return "";
+  return v.replace(/[./]/g, "-");
 }
 
 // ─── Edit Drawer ──────────────────────────────────────────────────────────────
@@ -389,7 +491,10 @@ function EditDrawer({
   onSave: (values: Omit<EditValues, "newEquipment">) => void;
   isSaving: boolean;
 }) {
+  const t = useT();
   const [vals, setVals] = useState<EditValues>(() => initEditValues(profile));
+  // Track Korean IME composition to prevent partial character from being added as a tag
+  const isComposingRef = useRef(false);
 
   function setField<K extends keyof EditValues>(key: K, value: EditValues[K]) {
     setVals((prev) => ({ ...prev, [key]: value }));
@@ -466,15 +571,15 @@ function EditDrawer({
   const labelClass = "block text-xs font-medium text-neutral-500 mb-1.5";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center md:p-6">
       {/* Backdrop */}
-      <div className="flex-1 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* Sheet */}
-      <div className="bg-neutral-50 rounded-t-3xl shadow-2xl flex flex-col max-h-[90vh]">
+      {/* Sheet — bottom sheet on mobile, centred modal on md+ */}
+      <div className="relative bg-neutral-50 rounded-t-3xl md:rounded-2xl shadow-2xl flex flex-col w-full md:max-w-lg max-h-[92vh] md:max-h-[85vh]">
         {/* Handle + Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 bg-white rounded-t-3xl border-b border-neutral-100 flex-shrink-0">
-          <h2 className="text-base font-bold text-neutral-900">프로필 수정</h2>
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 bg-white rounded-t-3xl md:rounded-t-2xl border-b border-neutral-100 flex-shrink-0">
+          <h2 className="text-base font-bold text-neutral-900">{t("profile.editTitle")}</h2>
           <button
             onClick={onClose}
             className="h-8 w-8 rounded-full flex items-center justify-center text-neutral-500 hover:bg-neutral-100 transition-colors"
@@ -487,12 +592,12 @@ function EditDrawer({
         <div className="overflow-y-auto flex-1 px-5 py-5 space-y-5">
           {/* Full name */}
           <div>
-            <label className={labelClass}>이름</label>
+            <label className={labelClass}>{t("profile.editName")}</label>
             <input
               type="text"
               value={vals.fullName}
               onChange={(e) => setField("fullName", e.target.value)}
-              placeholder="홍길동"
+              placeholder={t("profile.editNamePlaceholder")}
               className={inputClass}
             />
           </div>
@@ -500,42 +605,28 @@ function EditDrawer({
           {/* Nationality + Visa */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>국적</label>
-              <div className="relative">
-                <select
-                  value={vals.nationality}
-                  onChange={(e) => setField("nationality", e.target.value)}
-                  className={selectClass}
-                >
-                  <option value="">선택</option>
-                  {NATIONALITY_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-              </div>
+              <label className={labelClass}>{t("worker.nationality")}</label>
+              <CustomSelect
+                options={NATIONALITY_OPTIONS}
+                value={vals.nationality}
+                onChange={(v) => setField("nationality", v)}
+                placeholder={t("profile.editSelect")}
+              />
             </div>
             <div>
-              <label className={labelClass}>비자 종류</label>
-              <div className="relative">
-                <select
-                  value={vals.visaType}
-                  onChange={(e) => setField("visaType", e.target.value)}
-                  className={selectClass}
-                >
-                  <option value="">선택</option>
-                  {VISA_OPTIONS.map((v) => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-              </div>
+              <label className={labelClass}>{t("profile.editVisa")}</label>
+              <CustomSelect
+                options={VISA_OPTIONS}
+                value={vals.visaType}
+                onChange={(v) => setField("visaType", v)}
+                placeholder={t("profile.editSelect")}
+              />
             </div>
           </div>
 
           {/* Desired pay */}
           <div>
-            <label className={labelClass}>희망 급여</label>
+            <label className={labelClass}>{t("worker.desiredPay")}</label>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -545,7 +636,7 @@ function EditDrawer({
                   const raw = e.target.value.replace(/[^\d]/g, "")
                   setField("desiredPayMin", raw)
                 }}
-                placeholder="최소"
+                placeholder={t("profile.payMin")}
                 className={`${inputClass} flex-1`}
               />
               <span className="text-neutral-400 text-sm flex-shrink-0">~</span>
@@ -557,7 +648,7 @@ function EditDrawer({
                   const raw = e.target.value.replace(/[^\d]/g, "")
                   setField("desiredPayMax", raw)
                 }}
-                placeholder="최대"
+                placeholder={t("profile.payMax")}
                 className={`${inputClass} flex-1`}
               />
               <div className="relative flex-shrink-0 w-24">
@@ -578,14 +669,14 @@ function EditDrawer({
           {/* Languages */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className={`${labelClass} mb-0`}>언어 능력</label>
+              <label className={`${labelClass} mb-0`}>{t("worker.languages")}</label>
               <button
                 type="button"
                 onClick={addLanguage}
                 className="flex items-center gap-1 text-xs text-primary-500 font-medium hover:underline"
               >
                 <Plus className="h-3.5 w-3.5" />
-                추가
+                {t("profile.editAdd")}
               </button>
             </div>
             <div className="space-y-2">
@@ -625,7 +716,7 @@ function EditDrawer({
                 </div>
               ))}
               {vals.languages.length === 0 && (
-                <p className="text-xs text-neutral-400 py-2 text-center">언어를 추가해주세요</p>
+                <p className="text-xs text-neutral-400 py-2 text-center">{t("profile.editAddLang")}</p>
               )}
             </div>
           </div>
@@ -633,51 +724,51 @@ function EditDrawer({
           {/* Certifications */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className={`${labelClass} mb-0`}>자격증</label>
+              <label className={`${labelClass} mb-0`}>{t("worker.certifications")}</label>
               <button
                 type="button"
                 onClick={addCert}
                 className="flex items-center gap-1 text-xs text-primary-500 font-medium hover:underline"
               >
                 <Plus className="h-3.5 w-3.5" />
-                추가
+                {t("profile.editAdd")}
               </button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {vals.certifications.map((cert, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={cert.name}
-                    onChange={(e) => updateCert(i, "name", e.target.value)}
-                    placeholder="자격증명"
-                    className={`${inputClass} flex-1`}
-                  />
-                  <input
-                    type="text"
-                    value={cert.issueDate}
-                    onChange={(e) => updateCert(i, "issueDate", e.target.value)}
-                    placeholder="취득일"
-                    className={`${inputClass} w-28 flex-shrink-0`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeCert(i)}
-                    className="h-9 w-9 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 hover:text-danger-500 hover:border-danger-200 flex-shrink-0 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                <div key={i} className="rounded-lg border border-neutral-200 bg-white p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CertSearchInput
+                      value={cert.name}
+                      onChange={(v) => updateCert(i, "name", v)}
+                      placeholder={t("profile.editCertName")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCert(i)}
+                      className="h-9 w-9 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 hover:text-danger-500 hover:border-danger-200 flex-shrink-0 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="w-48">
+                    <DateInput
+                      value={toDateInput(cert.issueDate)}
+                      onChange={(v) => updateCert(i, "issueDate", v)}
+                      placeholder="취득일 선택"
+                    />
+                  </div>
                 </div>
               ))}
               {vals.certifications.length === 0 && (
-                <p className="text-xs text-neutral-400 py-2 text-center">자격증을 추가해주세요</p>
+                <p className="text-xs text-neutral-400 py-2 text-center">{t("profile.editAddCert")}</p>
               )}
             </div>
           </div>
 
           {/* Equipment */}
           <div>
-            <label className={labelClass}>보유 장비</label>
+            <label className={labelClass}>{t("worker.equipment")}</label>
             <div className="flex flex-wrap gap-2 mb-2">
               {vals.equipment.map((eq, i) => (
                 <span
@@ -700,8 +791,15 @@ function EditDrawer({
                 type="text"
                 value={vals.newEquipment}
                 onChange={(e) => setField("newEquipment", e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEquipment(); } }}
-                placeholder="장비명 입력 후 추가"
+                onCompositionStart={() => { isComposingRef.current = true; }}
+                onCompositionEnd={() => { isComposingRef.current = false; }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isComposingRef.current) {
+                    e.preventDefault();
+                    addEquipment();
+                  }
+                }}
+                placeholder={t("profile.editEquipmentAdd")}
                 className={`${inputClass} flex-1`}
               />
               <button
@@ -709,7 +807,7 @@ function EditDrawer({
                 onClick={addEquipment}
                 className="px-4 rounded-lg border border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors flex-shrink-0"
               >
-                추가
+                {t("profile.editAdd")}
               </button>
             </div>
           </div>

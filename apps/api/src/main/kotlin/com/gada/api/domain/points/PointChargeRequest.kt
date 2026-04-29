@@ -45,6 +45,12 @@ class PointChargeRequest {
     @Column(name = "reviewed_at")
     var reviewedAt: Instant? = null
 
+    @Column(name = "toss_payment_key", length = 200)
+    var tossPaymentKey: String? = null
+
+    @Column(name = "toss_order_id", length = 100)
+    var tossOrderId: String? = null
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now()
 

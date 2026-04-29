@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Users, MapPin, Globe, ChevronRight, Search, SlidersHorizontal,
-  X, ChevronDown, Coins, Send, CheckCircle2, AlertCircle,
+  X, ChevronDown, Coins, Send, CheckCircle2, AlertCircle, MessageCircle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { teamsApi, type TeamListItem, type TeamsFilter } from "@/lib/teams-api";
 import { employerApi } from "@/lib/employer-api";
+import { chatApi } from "@/lib/chat-api";
 import { useAuthStore } from "@/store/authStore";
 import { useCategories } from "@/hooks/useJobs";
 import { cn } from "@/lib/utils";
@@ -69,7 +71,7 @@ function RegionDropdown({ value, allLabel, onChange }: {
                   "flex w-full items-center justify-between px-3 py-2 text-sm transition-colors",
                   active ? "bg-primary-50 font-semibold text-primary-600" : "text-neutral-700 hover:bg-neutral-50"
                 )}>
-                <span>{opt}</span>
+                <span>{val}</span>
                 {active && (
                   <svg className="h-4 w-4 flex-shrink-0 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -92,6 +94,7 @@ function JobSelectDropdown({ jobs, value, placeholder, onChange }: {
   placeholder: string;
   onChange: (v: string) => void;
 }) {
+  const t = useT();
   const { open, setOpen, ref } = useDropdown();
   const selected = jobs.find(j => j.publicId === value);
   return (
@@ -110,7 +113,7 @@ function JobSelectDropdown({ jobs, value, placeholder, onChange }: {
       {open && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-card-lg py-1">
           {jobs.length === 0 ? (
-            <p className="px-3 py-3 text-center text-sm text-neutral-400">공고 없음</p>
+            <p className="px-3 py-3 text-center text-sm text-neutral-400">{t("employer.noJobsShort")}</p>
           ) : (
             jobs.map(job => {
               const active = value === job.publicId;
@@ -172,7 +175,7 @@ function ProposeModal({ team, onClose }: { team: TeamListItem; onClose: () => vo
         <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
           <CheckCircle2 className="mx-auto h-12 w-12 text-success-500 mb-3" />
           <p className="text-base font-semibold text-neutral-900">{t("employer.proposalSent")}</p>
-          <button onClick={onClose} className="mt-4 w-full rounded-lg bg-primary-500 py-2.5 text-sm font-semibold text-white hover:bg-primary-600">확인</button>
+          <button onClick={onClose} className="mt-4 w-full rounded-lg bg-primary-500 py-2.5 text-sm font-semibold text-white hover:bg-primary-600">{t("employer.confirmBtn")}</button>
         </div>
       </div>
     );
@@ -195,7 +198,7 @@ function ProposeModal({ team, onClose }: { team: TeamListItem; onClose: () => vo
           <div className={cn("flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm",
             (balance?.balance ?? 0) > 0 ? "bg-primary-50 text-primary-700" : "bg-danger-50 text-danger-600")}>
             <Coins className="h-4 w-4 flex-shrink-0" />
-            <span className="font-medium">잔여 포인트: {balance?.balance ?? 0}P</span>
+            <span className="font-medium">{t("employer.remainingPoints", balance?.balance ?? 0)}</span>
             {(balance?.balance ?? 0) === 0 && (
               <Link href="/employer/points" className="ml-auto text-xs underline" onClick={onClose}>{t("employer.chargeNow")}</Link>
             )}
@@ -216,7 +219,7 @@ function ProposeModal({ team, onClose }: { team: TeamListItem; onClose: () => vo
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-neutral-600">{t("employer.proposalMessage")}</label>
             <textarea value={message} onChange={e => setMessage(e.target.value)} rows={3}
-              placeholder="팀에게 전달할 메시지를 입력하세요 (선택)"
+              placeholder={t("employer.proposeMsgPlaceholder")}
               className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 transition-colors" />
           </div>
 
@@ -233,8 +236,100 @@ function ProposeModal({ team, onClose }: { team: TeamListItem; onClose: () => vo
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
-            {mutation.isPending ? "전송 중..." : t("employer.proposalSend")}
+            {mutation.isPending ? t("employer.sending") : t("employer.proposalSend")}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Chat modal ───────────────────────────────────────────────────────────────
+
+function ChatModal({ team, onClose }: { team: TeamListItem; onClose: () => void }) {
+  const t = useT();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { data: balance } = useQuery({ queryKey: ["pointBalance"], queryFn: employerApi.getPointBalance });
+  const [status, setStatus] = React.useState<"idle" | "loading" | "error">("idle");
+  const [errorMsg, setErrorMsg] = React.useState("");
+  const [isInsufficient, setIsInsufficient] = React.useState(false);
+
+  const hasBalance = (balance?.balance ?? 0) > 0;
+
+  async function handleStartChat() {
+    setStatus("loading");
+    setErrorMsg("");
+    setIsInsufficient(false);
+    try {
+      const room = await chatApi.openRoom(team.publicId);
+      queryClient.invalidateQueries({ queryKey: ["pointBalance"] });
+      router.push(`/employer/chats/${room.publicId}`);
+    } catch (err: any) {
+      setStatus("error");
+      if (err?.code === "INSUFFICIENT_POINTS" || err?.message?.includes("포인트 잔액")) {
+        setIsInsufficient(true);
+        setErrorMsg("포인트 잔액이 부족합니다.");
+      } else {
+        setErrorMsg(err?.message || "채팅 시작에 실패했어요.");
+      }
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-neutral-900/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
+          <div>
+            <p className="text-sm font-bold text-neutral-900">채팅 시작하기</p>
+            <p className="text-xs text-neutral-500 mt-0.5">{team.name}</p>
+          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100">
+            <X className="h-4 w-4 text-neutral-500" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Point balance */}
+          <div className={cn("flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm",
+            hasBalance ? "bg-primary-50 text-primary-700" : "bg-danger-50 text-danger-600")}>
+            <Coins className="h-4 w-4 flex-shrink-0" />
+            <span className="font-medium flex-1">잔액 {balance?.balance ?? "…"}P · 채팅 개설 시 1P 차감</span>
+            {!hasBalance && (
+              <Link href="/employer/points" className="flex-shrink-0 text-xs font-semibold underline" onClick={onClose}>
+                충전하기
+              </Link>
+            )}
+          </div>
+
+          {/* Notice */}
+          <p className="text-xs text-neutral-500 leading-relaxed">
+            팀장과 채팅을 시작합니다. 이미 채팅방이 있으면 포인트 차감 없이 기존 채팅방으로 이동합니다.
+          </p>
+
+          {status === "error" && (
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-600">
+              <span className="flex items-center gap-2"><AlertCircle className="h-4 w-4 flex-shrink-0" />{errorMsg}</span>
+              {isInsufficient && (
+                <Link href="/employer/points" onClick={onClose} className="flex-shrink-0 text-xs font-semibold underline">충전하기</Link>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 rounded-lg border border-neutral-200 py-2.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
+              취소
+            </button>
+            <button
+              disabled={!hasBalance || status === "loading"}
+              onClick={handleStartChat}
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary-500 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-50"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {status === "loading" ? "연결 중..." : "채팅 시작"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -243,7 +338,7 @@ function ProposeModal({ team, onClose }: { team: TeamListItem; onClose: () => vo
 
 // ─── Team row ─────────────────────────────────────────────────────────────────
 
-function TeamRow({ team, onPropose }: { team: TeamListItem; onPropose: (t: TeamListItem) => void }) {
+function TeamRow({ team, onPropose, onChat }: { team: TeamListItem; onPropose: (t: TeamListItem) => void; onChat: (t: TeamListItem) => void }) {
   const t = useT();
   const isCompany = team.teamType === "COMPANY_LINKED";
   const regionText = team.isNationwide
@@ -275,11 +370,18 @@ function TeamRow({ team, onPropose }: { team: TeamListItem; onPropose: (t: TeamL
           </div>
         </div>
       </Link>
-      <button onClick={() => onPropose(team)}
-        className="flex-shrink-0 flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-600 transition-colors">
-        <Send className="h-3.5 w-3.5" />
-        제안
-      </button>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <button onClick={() => onChat(team)}
+          className="flex items-center gap-1 rounded-lg border border-primary-300 px-2.5 py-2 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors">
+          <MessageCircle className="h-3.5 w-3.5" />
+          채팅
+        </button>
+        <button onClick={() => onPropose(team)}
+          className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-600 transition-colors">
+          <Send className="h-3.5 w-3.5" />
+          {t("employer.proposeSendBtn")}
+        </button>
+      </div>
     </div>
   );
 }
@@ -295,6 +397,7 @@ export default function EmployerTeamsPage() {
   const [filter, setFilter] = React.useState<TeamsFilter>({ page: 0, size: PAGE_SIZE });
   const [keyword, setKeyword] = React.useState("");
   const [proposeTeam, setProposeTeam] = React.useState<TeamListItem | null>(null);
+  const [chatTeam, setChatTeam] = React.useState<TeamListItem | null>(null);
   const [filterOpen, setFilterOpen] = React.useState(false);
 
   const SIDO_ALL = t("teams.filterAll");
@@ -330,7 +433,7 @@ export default function EmployerTeamsPage() {
               : "bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100")}>
           <Coins className="h-4 w-4" />
           <span>{balance?.balance ?? 0}P</span>
-          {(balance?.balance ?? 0) === 0 && <span className="text-xs text-primary-500 ml-1">충전</span>}
+          {(balance?.balance ?? 0) === 0 && <span className="text-xs text-primary-500 ml-1">{t("employer.recharge")}</span>}
         </Link>
       </div>
 
@@ -345,7 +448,7 @@ export default function EmployerTeamsPage() {
         <button type="button" onClick={() => setFilterOpen(v => !v)}
           className="flex h-10 items-center gap-1.5 rounded-xl border border-neutral-200 px-3.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
           <SlidersHorizontal className="h-4 w-4" />
-          필터
+          {t("employer.filterBtn")}
         </button>
       </form>
 
@@ -353,7 +456,7 @@ export default function EmployerTeamsPage() {
         {/* Sidebar filter (desktop) */}
         <aside className="hidden w-52 flex-shrink-0 lg:block">
           <div className="sticky top-20 rounded-xl border border-neutral-200 bg-white p-4 space-y-4">
-            <p className="text-sm font-bold text-neutral-900">필터</p>
+            <p className="text-sm font-bold text-neutral-900">{t("employer.filterBtn")}</p>
             <div>
               <p className="mb-2 text-xs font-semibold text-neutral-600">{t("teams.filterRegion")}</p>
               <RegionDropdown value={filter.sido ?? SIDO_ALL} allLabel={SIDO_ALL}
@@ -379,7 +482,7 @@ export default function EmployerTeamsPage() {
             )}
             <button onClick={() => setFilter({ page: 0, size: PAGE_SIZE })}
               className="w-full rounded-lg border border-neutral-200 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50">
-              초기화
+              {t("employer.filterReset")}
             </button>
           </div>
         </aside>
@@ -407,14 +510,14 @@ export default function EmployerTeamsPage() {
                 <p className="text-xs text-neutral-400 mt-1">{t("teams.emptyDesc")}</p>
               </div>
             ) : (
-              teams.map(team => <TeamRow key={team.publicId} team={team} onPropose={setProposeTeam} />)
+              teams.map(team => <TeamRow key={team.publicId} team={team} onPropose={setProposeTeam} onChat={setChatTeam} />)
             )}
           </div>
 
           {hasNextPage && (
             <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
               className="mt-4 w-full rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">
-              {isFetchingNextPage ? "로딩 중..." : "더 보기"}
+              {isFetchingNextPage ? t("employer.loadingMore") : t("employer.loadMore")}
             </button>
           )}
         </div>
@@ -422,6 +525,8 @@ export default function EmployerTeamsPage() {
 
       {/* Propose modal */}
       {proposeTeam && <ProposeModal team={proposeTeam} onClose={() => setProposeTeam(null)} />}
+      {/* Chat modal */}
+      {chatTeam && <ChatModal team={chatTeam} onClose={() => setChatTeam(null)} />}
     </div>
   );
 }

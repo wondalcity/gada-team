@@ -28,7 +28,10 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (getAdminToken() || localStorage.getItem("gada_admin_user_id")) {
+    // Only auto-redirect if the canonical session marker (userId) is present.
+    // A stale JWT alone (e.g. after a buggy logout that didn't clear the token)
+    // must NOT trigger auto-redirect — it would cause an infinite redirect loop.
+    if (localStorage.getItem("gada_admin_user_id")) {
       router.replace("/dashboard");
     }
   }, [router]);

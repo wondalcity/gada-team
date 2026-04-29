@@ -37,8 +37,21 @@ class TeamController(private val teamUseCase: TeamUseCase) {
     fun listTeams(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(required = false) keyword: String?,
+        @RequestParam(required = false) sido: String?,
+        @RequestParam(required = false) teamType: String?,
+        @RequestParam(required = false) isNationwide: Boolean?,
     ): ResponseEntity<ApiResponse<PageResponse<TeamListItem>>> {
-        val (items, total) = teamUseCase.listTeams(page, size)
+        val teamTypeEnum = teamType?.let {
+            runCatching { com.gada.api.domain.team.TeamType.valueOf(it) }.getOrNull()
+        }
+        val (items, total) = teamUseCase.listTeams(
+            page, size,
+            keyword = keyword,
+            sido = sido,
+            teamType = teamTypeEnum,
+            isNationwide = isNationwide,
+        )
         val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
         val resp = PageResponse(
             content = items, page = page, size = size,
@@ -89,15 +102,28 @@ class TeamController(private val teamUseCase: TeamUseCase) {
         return ApiResponse.noContent().toResponseEntity(HttpStatus.NO_CONTENT)
     }
 
-    @Operation(summary = "멤버 초대", security = [SecurityRequirement(name = "Bearer")])
+    @Operation(summary = "멤버 초대 (전화번호)", security = [SecurityRequirement(name = "Bearer")])
     @PostMapping("/{publicId}/invitations")
     fun inviteMember(
         @PathVariable publicId: UUID,
         @Valid @RequestBody req: InviteMemberRequest,
         @CurrentUser principal: GadaPrincipal,
+    ): ResponseEntity<ApiResponse<PhoneInviteResponse>> {
+        val userId = principal.userId ?: throw UnauthorizedException()
+        val result = teamUseCase.inviteMember(userId, publicId, req)
+        val status = if (result.type == "INVITED") HttpStatus.CREATED else HttpStatus.OK
+        return ApiResponse.ok(result).toResponseEntity(status)
+    }
+
+    @Operation(summary = "프로필로 멤버 초대", security = [SecurityRequirement(name = "Bearer")])
+    @PostMapping("/{publicId}/invitations/by-profile")
+    fun inviteMemberByProfile(
+        @PathVariable publicId: UUID,
+        @Valid @RequestBody req: InviteByProfileRequest,
+        @CurrentUser principal: GadaPrincipal,
     ): ResponseEntity<ApiResponse<TeamMemberResponse>> {
         val userId = principal.userId ?: throw UnauthorizedException()
-        return ApiResponse.ok(teamUseCase.inviteMember(userId, publicId, req)).toResponseEntity(HttpStatus.CREATED)
+        return ApiResponse.ok(teamUseCase.inviteMemberByProfile(userId, publicId, req)).toResponseEntity(HttpStatus.CREATED)
     }
 
     @Operation(summary = "멤버 제거", security = [SecurityRequirement(name = "Bearer")])

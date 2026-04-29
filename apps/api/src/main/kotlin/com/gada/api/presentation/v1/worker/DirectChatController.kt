@@ -2,6 +2,7 @@ package com.gada.api.presentation.v1.worker
 
 import com.gada.api.common.ApiResponse
 import com.gada.api.common.PageResponse
+import com.gada.api.common.exception.BusinessException
 import com.gada.api.common.exception.ForbiddenException
 import com.gada.api.common.exception.NotFoundException
 import com.gada.api.common.exception.UnauthorizedException
@@ -10,7 +11,11 @@ import com.gada.api.config.CurrentUser
 import com.gada.api.config.GadaPrincipal
 import com.gada.api.domain.chat.DirectChatMessage
 import com.gada.api.domain.chat.DirectChatRoom
+import com.gada.api.domain.notification.Notification
+import com.gada.api.domain.notification.NotificationType
 import com.gada.api.infrastructure.persistence.chat.DirectChatRepository
+import com.gada.api.infrastructure.persistence.notification.NotificationRepository
+import com.gada.api.infrastructure.persistence.points.PointsRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -33,6 +38,8 @@ import kotlin.math.ceil
 @PreAuthorize("hasAnyRole('WORKER','TEAM_LEADER')")
 class DirectChatController(
     private val directChatRepo: DirectChatRepository,
+    private val pointsRepository: PointsRepository,
+    private val notificationRepository: NotificationRepository,
 ) {
 
     @Operation(summary = "채팅방 열기 (없으면 생성)", security = [SecurityRequirement(name = "Bearer")])
@@ -57,6 +64,16 @@ class DirectChatController(
             return ApiResponse.ok(existing.toResponse(myId, myName, otherName, myImage, otherImage)).toResponseEntity()
         }
 
+        // TEAM_LEADER 역할인 경우 새 채팅 개시 시 포인트 1점 차감
+        if (principal.role == "TEAM_LEADER") {
+            val account = pointsRepository.findOrCreateTeamLeaderAccount(myId)
+            if (!account.hasBalance) {
+                throw BusinessException("포인트 잔액이 부족합니다. 포인트를 충전해 주세요.", "INSUFFICIENT_POINTS")
+            }
+            account.deductPoint()
+            pointsRepository.saveTeamLeaderAccount(account)
+        }
+
         val room = DirectChatRoom().also {
             it.senderId = myId
             it.recipientId = targetUserId
@@ -68,8 +85,46 @@ class DirectChatController(
         val myImage = directChatRepo.findWorkerProfileImageUrl(myId)
         val otherImage = directChatRepo.findWorkerProfileImageUrl(targetUserId)
 
+        // Notify recipient of new chat room
+        runCatching {
+            val notif = Notification().apply {
+                this.userId = targetUserId
+                this.type = NotificationType.CHAT
+                this.title = "새 채팅이 도착했습니다"
+                this.body = "${myName ?: "누군가"}이(가) 채팅을 시작했습니다."
+                this.data = mapOf("chatRoomId" to saved.publicId.toString(), "chatType" to "direct")
+            }
+            notificationRepository.save(notif)
+        }
+
         return ApiResponse.ok(saved.toResponse(myId, myName, otherName, myImage, otherImage))
             .toResponseEntity(HttpStatus.CREATED)
+    }
+
+    @Operation(summary = "직접 채팅방 단건 조회", security = [SecurityRequirement(name = "Bearer")])
+    @GetMapping("/rooms/{roomPublicId}")
+    fun getRoom(
+        @PathVariable roomPublicId: String,
+        @CurrentUser principal: GadaPrincipal,
+    ): ResponseEntity<ApiResponse<DirectChatRoomSummary>> {
+        val myId = principal.userId ?: throw UnauthorizedException()
+        val room = directChatRepo.findRoomByPublicId(UUID.fromString(roomPublicId))
+            ?: throw NotFoundException("채팅방")
+        if (room.senderId != myId && room.recipientId != myId) throw ForbiddenException()
+        val otherId = if (room.senderId == myId) room.recipientId else room.senderId
+        val otherName = directChatRepo.findWorkerName(otherId)
+        val otherImage = directChatRepo.findWorkerProfileImageUrl(otherId)
+        val unread = if (room.senderId == myId) room.senderUnread else room.recipientUnread
+        return ApiResponse.ok(DirectChatRoomSummary(
+            publicId = room.publicId.toString(),
+            otherUserId = otherId,
+            otherName = otherName,
+            otherProfileImageUrl = otherImage,
+            unreadCount = unread,
+            lastMessageAt = room.lastMessageAt,
+            lastMessagePreview = room.lastMessagePreview,
+            createdAt = room.createdAt,
+        )).toResponseEntity()
     }
 
     @Operation(summary = "내 직접 채팅 목록", security = [SecurityRequirement(name = "Bearer")])

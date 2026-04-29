@@ -63,6 +63,16 @@ data class TeamListItem(
     val createdAt: Instant,
 )
 
+/**
+ * Response for POST /teams/{id}/invitations (phone-based invite).
+ * type = "INVITED"  → registered user found; invitation record created.
+ * type = "SMS_SENT" → phone not registered; SMS with app link sent instead.
+ */
+data class PhoneInviteResponse(
+    val type: String,
+    val member: TeamMemberResponse? = null,
+)
+
 data class InvitationResponse(
     val invitationId: Long,
     val teamPublicId: UUID,

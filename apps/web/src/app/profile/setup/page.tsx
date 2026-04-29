@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { onboard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { DateInput } from "@/components/ui/DateInput";
 
 type SetupStep = "basic" | "identity" | "preferences";
 
@@ -271,13 +272,12 @@ export default function ProfileSetupPage() {
               <label className="block text-sm font-medium text-neutral-700 mb-1.5">
                 생년월일 <span className="text-danger-500">*</span>
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                required
+                onChange={setBirthDate}
+                placeholder="생년월일 선택"
                 max={new Date().toISOString().split("T")[0]}
-                className="w-full px-4 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 text-sm"
+                required
               />
             </div>
           )}

@@ -27,6 +27,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useJobDetail } from "@/hooks/useJobs";
 import { useAuthStore } from "@/store/authStore";
 import { formatPay } from "@/components/jobs/JobCard";
+import { ApplyModal } from "@/components/jobs/ApplyModal";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
@@ -128,50 +129,23 @@ function JobDetailSkeleton() {
   );
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  React.useEffect(() => {
-    const t = setTimeout(onClose, 2500);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
-  return (
-    <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 animate-fade-in">
-      <div className="flex items-center gap-2 rounded-lg bg-neutral-900 px-5 py-3 text-sm font-medium text-white shadow-card-xl">
-        <AlertCircle className="h-4 w-4 text-warning-400" />
-        {message}
-      </div>
-    </div>
-  );
-}
-
-// ─── Apply button logic ────────────────────────────────────────────────────────
-
-function useApply() {
-  const t = useT();
-  const user = useAuthStore((s) => s.user);
-  const router = useRouter();
-  const [toast, setToast] = React.useState<string | null>(null);
-
-  const handleApply = () => {
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-    setToast("지원 기능은 준비 중이에요.");
-  };
-
-  return { handleApply, toast, clearToast: () => setToast(null) };
-}
 
 // ─── Detail content ────────────────────────────────────────────────────────────
 
 function JobDetailContent({ id }: { id: string }) {
   const t = useT();
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const { data: job, isLoading, isError } = useJobDetail(id);
-  const { handleApply, toast, clearToast } = useApply();
+  const [applyOpen, setApplyOpen] = React.useState(false);
+
+  const handleApply = () => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    setApplyOpen(true);
+  };
 
   const payUnitLabel: Record<string, string> = {
     HOURLY: t("job.payType.HOURLY"),
@@ -618,7 +592,14 @@ function JobDetailContent({ id }: { id: string }) {
         </button>
       </div>
 
-      {toast && <Toast message={toast} onClose={clearToast} />}
+      {job && (
+        <ApplyModal
+          isOpen={applyOpen}
+          onClose={() => setApplyOpen(false)}
+          job={{ publicId: job.publicId, title: job.title, companyName: companyName ?? "" }}
+          onSuccess={() => setApplyOpen(false)}
+        />
+      )}
     </>
   );
 }

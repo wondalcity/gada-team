@@ -6,18 +6,19 @@ import { useQuery } from "@tanstack/react-query";
 import { MessageCircle, ChevronRight, Users } from "lucide-react";
 import { chatApi, ChatRoomSummary } from "@/lib/chat-api";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatTime(iso: string | null): string {
+function formatTime(iso: string | null, t: ReturnType<typeof useT>): string {
   if (!iso) return "";
   const d = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffDays = Math.floor(diffMs / 86400000);
   if (diffDays === 0) return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
-  if (diffDays === 1) return "어제";
-  if (diffDays < 7) return `${diffDays}일 전`;
+  if (diffDays === 1) return t("employer.chatYesterday");
+  if (diffDays < 7) return t("employer.chatDaysAgo", diffDays);
   return d.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
@@ -38,6 +39,7 @@ function RoomSkeleton() {
 // ─── Room Row ──────────────────────────────────────────────────────────────────
 
 function RoomRow({ room }: { room: ChatRoomSummary }) {
+  const t = useT();
   return (
     <Link
       href={`/employer/chats/${room.publicId}`}
@@ -59,14 +61,14 @@ function RoomRow({ room }: { room: ChatRoomSummary }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className={cn("truncate text-sm font-semibold", room.unreadCount > 0 ? "text-neutral-950" : "text-neutral-800")}>
-            {room.teamName ?? "팀"}
+            {room.teamName ?? t("employer.chatsTitle")}
           </span>
           <span className="flex-shrink-0 text-xs text-neutral-400">
-            {formatTime(room.lastMessageAt)}
+            {formatTime(room.lastMessageAt, t)}
           </span>
         </div>
         <p className={cn("mt-0.5 truncate text-sm", room.unreadCount > 0 ? "font-medium text-neutral-700" : "text-neutral-400")}>
-          {room.lastMessagePreview ?? "대화를 시작해보세요"}
+          {room.lastMessagePreview ?? t("employer.chatPreview")}
         </p>
       </div>
 
@@ -78,6 +80,7 @@ function RoomRow({ room }: { room: ChatRoomSummary }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EmployerChatsPage() {
+  const t = useT();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["employer-chats"],
     queryFn: () => chatApi.listRooms(0, 50),
@@ -90,8 +93,8 @@ export default function EmployerChatsPage() {
     <div className="mx-auto max-w-2xl py-2">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-xl font-extrabold text-neutral-950">채팅</h1>
-          <p className="mt-1 text-sm text-neutral-500">팀장과의 대화 내역</p>
+          <h1 className="text-xl font-extrabold text-neutral-950">{t("employer.chatsTitle")}</h1>
+          <p className="mt-1 text-sm text-neutral-500">{t("employer.chatsDesc")}</p>
         </div>
 
         {/* Room list */}
@@ -101,18 +104,18 @@ export default function EmployerChatsPage() {
           ) : isError ? (
             <div className="flex flex-col items-center py-16 text-center px-4">
               <MessageCircle className="mb-3 h-10 w-10 text-neutral-200" />
-              <p className="text-sm text-neutral-500">채팅 목록을 불러오지 못했어요.</p>
+              <p className="text-sm text-neutral-500">{t("employer.chatsLoadFailed")}</p>
             </div>
           ) : rooms.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-center px-4">
               <MessageCircle className="mb-3 h-10 w-10 text-neutral-200" />
-              <p className="font-semibold text-neutral-700">아직 채팅이 없어요</p>
-              <p className="mt-1 text-sm text-neutral-400">팀 찾기에서 팀장에게 채팅을 보내보세요.</p>
+              <p className="font-semibold text-neutral-700">{t("employer.chatsEmpty")}</p>
+              <p className="mt-1 text-sm text-neutral-400">{t("employer.chatsEmptyDesc")}</p>
               <Link
                 href="/employer/teams"
                 className="mt-5 rounded-lg bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
               >
-                팀 찾기
+                {t("employer.teamsTitle")}
               </Link>
             </div>
           ) : (

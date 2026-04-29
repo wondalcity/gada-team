@@ -28,8 +28,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // If we already have the user loaded, nothing to do
-      if (user) return;
+      // If we already have the user loaded (check current store state, not stale closure),
+      // or there's a JWT/dev-bypass session, skip Firebase re-sync to avoid unnecessary
+      // auth/login calls that can 500 when phone conflicts exist in dev DB.
+      const currentState = useAuthStore.getState();
+      const hasDevBypass =
+        typeof window !== "undefined" && !!localStorage.getItem("gada_dev_user_id");
+      if (currentState.user || currentState.token || hasDevBypass) return;
 
       // Re-sync after page refresh when only Firebase state exists
       try {

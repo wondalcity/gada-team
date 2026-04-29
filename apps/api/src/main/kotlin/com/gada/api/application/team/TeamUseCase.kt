@@ -1,6 +1,7 @@
 package com.gada.api.application.team
 
 import com.gada.api.application.audit.AuditService
+import com.gada.api.application.sms.SmsService
 import com.gada.api.common.exception.*
 import com.gada.api.domain.team.*
 import com.gada.api.infrastructure.persistence.company.CompanyRepository
@@ -24,6 +25,7 @@ class TeamUseCase(
     private val userRepository: UserRepository,
     private val companyRepository: CompanyRepository,
     private val auditService: AuditService,
+    private val smsService: SmsService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -75,8 +77,8 @@ class TeamUseCase(
             joinedAt = Instant.now()
             fullName = leaderProfile?.fullName
             profileImageUrl = leaderProfile?.profileImageUrl
-            nationality = leaderProfile?.nationality
-            visaType = leaderProfile?.visaType
+            nationality = leaderProfile?.nationality ?: "KR"
+            visaType = leaderProfile?.visaType ?: com.gada.api.domain.user.VisaType.CITIZEN
             healthCheckStatus = leaderProfile?.healthCheckStatus
                 ?: com.gada.api.domain.user.HealthCheckStatus.NOT_DONE
         }
@@ -99,7 +101,7 @@ class TeamUseCase(
         val team = teamRepository.findByPublicId(publicId)
             ?: throw NotFoundException("Team", publicId)
 
-        val members = teamMemberRepository.findAllByTeamId(team.id)
+        val members = teamMemberRepository.findActiveByTeamId(team.id)
         val leaderProfile = workerProfileRepository.findByUserId(team.leaderId)
 
         val companyName = team.company?.name
@@ -172,14 +174,26 @@ class TeamUseCase(
         auditService.record("TEAM", team.id, "DISBAND", actorId = userId, actorRole = "TEAM_LEADER")
     }
 
-    fun inviteMember(leaderId: Long, teamPublicId: UUID, req: InviteMemberRequest): TeamMemberResponse {
+    fun inviteMember(leaderId: Long, teamPublicId: UUID, req: InviteMemberRequest): PhoneInviteResponse {
         val team = teamRepository.findByPublicId(teamPublicId)
             ?: throw NotFoundException("Team", teamPublicId)
         if (team.leaderId != leaderId) throw ForbiddenException("팀 리더만 초대할 수 있습니다.")
         if (!team.isActive) throw BusinessException("해산된 팀입니다.", "TEAM_DISSOLVED")
 
         val invitee = userRepository.findByPhone(req.phone)
-            ?: throw NotFoundException("해당 전화번호로 가입된 사용자")
+
+        // Unregistered phone number → send SMS with app link instead of a formal invitation
+        if (invitee == null) {
+            val leaderName = workerProfileRepository.findByUserId(leaderId)?.fullName ?: "팀 리더"
+            smsService.sendDirect(
+                toPhone = req.phone,
+                content = "${leaderName}님이 GADA에서 '${team.name}' 팀에 초대했습니다. " +
+                    "GADA 앱에 가입하면 초대를 수락할 수 있어요: https://gada.team",
+                triggerEvent = "TEAM_INVITE_UNREGISTERED",
+            )
+            log.info("[INVITE_SMS] team={} phone={} by leader={}", team.id, req.phone, leaderId)
+            return PhoneInviteResponse(type = "SMS_SENT")
+        }
 
         val existing = teamMemberRepository.findByTeamIdAndUserId(team.id, invitee.id)
         if (existing != null && existing.leftAt == null) {
@@ -195,17 +209,56 @@ class TeamUseCase(
             invitationStatus = InvitationStatus.PENDING
             invitedBy = leaderId
             invitedAt = Instant.now()
-            joinedAt = Instant.now()
+            // joinedAt is intentionally null — set only when invitation is ACCEPTED
             fullName = inviteeProfile?.fullName
             profileImageUrl = inviteeProfile?.profileImageUrl
-            nationality = inviteeProfile?.nationality
-            visaType = inviteeProfile?.visaType
+            nationality = inviteeProfile?.nationality ?: "KR"
+            visaType = inviteeProfile?.visaType ?: com.gada.api.domain.user.VisaType.CITIZEN
             healthCheckStatus = inviteeProfile?.healthCheckStatus
                 ?: com.gada.api.domain.user.HealthCheckStatus.NOT_DONE
         }
         val savedMember = teamMemberRepository.save(member)
         log.info("[INVITE] team={} invitee={} by leader={}", team.id, invitee.id, leaderId)
-        return savedMember.toMemberResponse(invitee.phone, inviteeProfile?.publicId?.toString())
+        return PhoneInviteResponse(
+            type = "INVITED",
+            member = savedMember.toMemberResponse(invitee.phone, inviteeProfile?.publicId?.toString()),
+        )
+    }
+
+    fun inviteMemberByProfile(leaderId: Long, teamPublicId: UUID, req: InviteByProfileRequest): TeamMemberResponse {
+        val team = teamRepository.findByPublicId(teamPublicId)
+            ?: throw NotFoundException("Team", teamPublicId)
+        if (team.leaderId != leaderId) throw ForbiddenException("팀 리더만 초대할 수 있습니다.")
+        if (!team.isActive) throw BusinessException("해산된 팀입니다.", "TEAM_DISSOLVED")
+
+        val profile = workerProfileRepository.findByPublicId(UUID.fromString(req.workerProfilePublicId))
+            ?: throw NotFoundException("Worker profile", req.workerProfilePublicId)
+
+        val invitee = userRepository.findById(profile.userId)
+            ?: throw NotFoundException("User", profile.userId.toString())
+
+        val existing = teamMemberRepository.findByTeamIdAndUserId(team.id, invitee.id)
+        if (existing != null && existing.leftAt == null) {
+            throw ConflictException("이미 팀 멤버이거나 초대 대기 중입니다.", "ALREADY_MEMBER")
+        }
+
+        val member = TeamMember().apply {
+            teamId = team.id
+            userId = invitee.id
+            role = TeamMemberRole.MEMBER
+            invitationStatus = InvitationStatus.PENDING
+            invitedBy = leaderId
+            invitedAt = Instant.now()
+            // joinedAt is intentionally null — set only when invitation is ACCEPTED
+            fullName = profile.fullName
+            profileImageUrl = profile.profileImageUrl
+            nationality = profile.nationality
+            visaType = profile.visaType
+            healthCheckStatus = profile.healthCheckStatus
+        }
+        val savedMember = teamMemberRepository.save(member)
+        log.info("[INVITE_BY_PROFILE] team={} invitee={} by leader={}", team.id, invitee.id, leaderId)
+        return savedMember.toMemberResponse(invitee.phone, profile.publicId.toString())
     }
 
     fun removeMember(leaderId: Long, teamPublicId: UUID, userId: Long) {
@@ -293,8 +346,22 @@ class TeamUseCase(
     }
 
     @Transactional(readOnly = true)
-    fun listTeams(page: Int, size: Int): Pair<List<TeamListItem>, Long> {
-        val (teams, total) = teamRepository.findAll(page, size, TeamStatus.ACTIVE)
+    fun listTeams(
+        page: Int,
+        size: Int,
+        keyword: String? = null,
+        sido: String? = null,
+        teamType: TeamType? = null,
+        isNationwide: Boolean? = null,
+    ): Pair<List<TeamListItem>, Long> {
+        val (teams, total) = teamRepository.findAll(
+            page, size,
+            status = TeamStatus.ACTIVE,
+            keyword = keyword,
+            sido = sido,
+            teamType = teamType,
+            isNationwide = isNationwide,
+        )
         return Pair(teams.map { it.toListItem() }, total)
     }
 }

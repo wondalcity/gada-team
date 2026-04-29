@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users,
@@ -10,7 +11,6 @@ import {
   MapPin,
   Globe,
   X,
-  Phone,
   ChevronRight,
   Bell,
   Building2,
@@ -19,12 +19,29 @@ import {
   MessageCircle,
   UserCheck,
   Clock,
+  Search,
+  Briefcase,
+  Plus,
+  CalendarDays,
+  Pencil,
+  Trash2,
+  Calendar,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { teamsApi, TeamResponse, TeamMemberResponse } from "@/lib/teams-api";
-import { workerChatApi, memberProposalApi, WorkerChatRoomSummary, MemberProposalItem } from "@/lib/chat-api";
+import {
+  teamsApi,
+  TeamResponse,
+  TeamMemberResponse,
+  WorkScheduleResponse,
+  CreateSchedulePayload,
+  UpdateSchedulePayload,
+  JobSiteItem,
+} from "@/lib/teams-api";
+import { workerChatApi, memberProposalApi, directChatApi, workerPointsApi, WorkerChatRoomSummary, MemberProposalItem } from "@/lib/chat-api";
+import { getWorkers, WorkerListItem } from "@/lib/workers-api";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
+import { DateInput } from "@/components/ui/DateInput";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -95,41 +112,120 @@ function TeamCardSkeleton() {
   );
 }
 
+// ─── Worker Invite Row ─────────────────────────────────────────────────────────
+
+function WorkerInviteRow({
+  teamPublicId,
+  worker,
+  isTeamLeader,
+  onChatError,
+}: {
+  teamPublicId: string;
+  worker: WorkerListItem;
+  isTeamLeader: boolean;
+  onChatError: (msg: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
+  const inviteMutation = useMutation({
+    mutationFn: () => teamsApi.inviteMemberByProfile(teamPublicId, worker.publicId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team", "mine"] });
+    },
+  });
+
+  const chatMutation = useMutation({
+    mutationFn: () => directChatApi.openRoom(worker.publicId),
+    onSuccess: (room) => {
+      router.push(`/chats/direct/${room.publicId}`);
+    },
+    onError: (err: any) => {
+      if (err?.code === "INSUFFICIENT_POINTS") {
+        onChatError("포인트 잔액이 부족합니다. 포인트를 충전해 주세요.");
+      } else {
+        onChatError(err?.message ?? "채팅 개설에 실패했습니다.");
+      }
+    },
+  });
+
+  return (
+    <div className="flex items-center gap-3 py-3">
+      {worker.profileImageUrl ? (
+        <img src={worker.profileImageUrl} alt={worker.fullName} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+      ) : (
+        <div className="h-10 w-10 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0">
+          <span className="text-sm font-bold text-primary-600">{worker.fullName?.[0] ?? "?"}</span>
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-neutral-900 truncate">{worker.fullName}</p>
+        <p className="text-xs text-neutral-400">{[worker.nationality, worker.visaType].filter(Boolean).join(" · ")}</p>
+      </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {isTeamLeader && (
+          <button
+            onClick={() => chatMutation.mutate()}
+            disabled={chatMutation.isPending}
+            className="rounded-lg border border-primary-300 px-2.5 py-1.5 text-xs font-semibold text-primary-600 transition-colors hover:bg-primary-50 disabled:opacity-60"
+            title="포인트 1P 차감 후 채팅 개설"
+          >
+            {chatMutation.isPending ? "…" : "채팅 (1P)"}
+          </button>
+        )}
+        <button
+          onClick={() => inviteMutation.mutate()}
+          disabled={inviteMutation.isPending || inviteMutation.isSuccess}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+            inviteMutation.isSuccess
+              ? "bg-success-50 text-success-700 cursor-default"
+              : "bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-60"
+          )}
+        >
+          {inviteMutation.isSuccess ? "초대됨" : inviteMutation.isPending ? "…" : "초대"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Invite Sheet ─────────────────────────────────────────────────────────────
 
 interface InviteSheetProps {
   teamPublicId: string;
   open: boolean;
   onClose: () => void;
+  isTeamLeader: boolean;
 }
 
-function InviteSheet({ teamPublicId, open, onClose }: InviteSheetProps) {
-  const queryClient = useQueryClient();
-  const [phone, setPhone] = React.useState("");
-  const [feedback, setFeedback] = React.useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+function InviteSheet({ teamPublicId, open, onClose, isTeamLeader }: InviteSheetProps) {
+  const [chatError, setChatError] = React.useState<string | null>(null);
+  const [keyword, setKeyword] = React.useState("");
+  const [debouncedKeyword, setDebouncedKeyword] = React.useState("");
 
-  const inviteMutation = useMutation({
-    mutationFn: (phone: string) => teamsApi.inviteMember(teamPublicId, phone),
-    onSuccess: () => {
-      setFeedback({ type: "success", message: "초대장을 발송했어요!" });
-      setPhone("");
-      queryClient.invalidateQueries({ queryKey: ["team", "mine"] });
-    },
-    onError: (err: any) => {
-      setFeedback({
-        type: "error",
-        message: err?.message || "초대에 실패했어요. 다시 시도해주세요.",
-      });
-    },
+  const pointsQuery = useQuery({
+    queryKey: ["tl-point-balance"],
+    queryFn: () => workerPointsApi.getBalance(),
+    enabled: open && isTeamLeader,
+    staleTime: 30_000,
+  });
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKeyword(keyword), 400);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+
+  const workersQuery = useQuery({
+    queryKey: ["workers-invite-search", debouncedKeyword],
+    queryFn: () => getWorkers({ keyword: debouncedKeyword || undefined, page: 0, size: 20 }),
+    enabled: open,
   });
 
   React.useEffect(() => {
     if (!open) {
-      setPhone("");
-      setFeedback(null);
+      setChatError(null);
+      setKeyword("");
     }
   }, [open]);
 
@@ -137,74 +233,85 @@ function InviteSheet({ teamPublicId, open, onClose }: InviteSheetProps) {
 
   return (
     <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Panel: bottom sheet on mobile, centered modal on desktop */}
       <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-4">
-      <div className="rounded-t-2xl sm:rounded-2xl bg-white p-6 shadow-2xl sm:w-full sm:max-w-md">
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-neutral-950">팀원 초대</h2>
-            <p className="mt-0.5 text-sm text-neutral-500">
-              전화번호로 팀원을 초대하세요
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 transition-colors hover:bg-neutral-200"
-          >
-            <X className="h-4 w-4 text-neutral-600" />
-          </button>
-        </div>
+        <div className="flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl w-full sm:max-w-md" style={{ maxHeight: "85dvh" }}>
 
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
-              전화번호
-            </label>
-            <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="010-0000-0000"
-                className="w-full rounded-lg border border-neutral-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-              />
-            </div>
-          </div>
-
-          {feedback && (
-            <div
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium",
-                feedback.type === "success"
-                  ? "bg-success-50 text-success-700"
-                  : "bg-danger-50 text-danger-700"
-              )}
-            >
-              {feedback.type === "success" ? (
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
+            <div>
+              <h2 className="text-lg font-bold text-neutral-950">팀원 초대</h2>
+              {isTeamLeader ? (
+                <p className="mt-0.5 text-sm text-neutral-500">
+                  초대 또는 직접 채팅하기 (채팅 1P 차감) ·{" "}
+                  <span className={cn(
+                    "font-semibold",
+                    (pointsQuery.data?.balance ?? 0) > 0 ? "text-primary-600" : "text-danger-600"
+                  )}>
+                    잔액 {pointsQuery.data?.balance ?? "…"}P
+                  </span>
+                  {(pointsQuery.data?.balance ?? 1) === 0 && (
+                    <Link href="/leader/points" className="ml-1.5 text-xs text-primary-500 underline">충전하기</Link>
+                  )}
+                </p>
               ) : (
-                <X className="h-4 w-4 flex-shrink-0" />
+                <p className="mt-0.5 text-sm text-neutral-500">새로운 팀원을 찾아 초대하세요</p>
               )}
-              {feedback.message}
+            </div>
+            <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 transition-colors hover:bg-neutral-200">
+              <X className="h-4 w-4 text-neutral-600" />
+            </button>
+          </div>
+
+          {/* Chat error banner */}
+          {chatError && (
+            <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-lg bg-danger-50 px-4 py-2.5 text-sm text-danger-700 flex-shrink-0">
+              <span className="flex-1">{chatError}</span>
+              {chatError.includes("포인트") && (
+                <Link href="/leader/points" className="font-semibold underline flex-shrink-0">충전하기</Link>
+              )}
+              <button onClick={() => setChatError(null)} className="flex-shrink-0">
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
 
-          <button
-            onClick={() => inviteMutation.mutate(phone)}
-            disabled={!phone.trim() || inviteMutation.isPending}
-            className="w-full rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white transition-all hover:bg-primary-600 disabled:opacity-50 active:scale-[0.98]"
-          >
-            {inviteMutation.isPending ? "발송 중..." : "초대장 보내기"}
-          </button>
+          {/* Search */}
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="px-5 pt-3 pb-2 flex-shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                <input
+                  type="text"
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  placeholder="이름으로 검색"
+                  className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1 divide-y divide-neutral-50 px-5 pb-4">
+              {workersQuery.isLoading && (
+                <div className="py-8 flex justify-center">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+                </div>
+              )}
+              {!workersQuery.isLoading && (workersQuery.data?.content ?? []).length === 0 && (
+                <p className="text-center text-sm text-neutral-400 py-8">검색 결과가 없어요</p>
+              )}
+              {(workersQuery.data?.content ?? []).map((worker) => (
+                <WorkerInviteRow
+                  key={worker.publicId}
+                  teamPublicId={teamPublicId}
+                  worker={worker}
+                  isTeamLeader={isTeamLeader}
+                  onChatError={setChatError}
+                />
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
       </div>
     </>
   );
@@ -345,7 +452,7 @@ function LeaderChatRooms() {
       <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
         <h2 className="text-base font-bold text-neutral-950 flex items-center gap-2">
           <MessageCircle className="h-4 w-4 text-primary-500" />
-          고용주 채팅
+          업체 채팅
           {rooms.some((r) => r.unreadCount > 0) && (
             <span className="inline-flex h-5 items-center justify-center rounded-full bg-danger-500 px-1.5 text-[10px] font-bold text-white">
               {rooms.reduce((sum, r) => sum + r.unreadCount, 0)}
@@ -383,7 +490,7 @@ function LeaderChatRoomRow({ room }: { room: WorkerChatRoomSummary }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className={cn("text-sm font-semibold truncate", room.unreadCount > 0 ? "text-neutral-950" : "text-neutral-800")}>
-              {room.employerName ?? "고용주"}
+              {room.employerName ?? "업체"}
             </span>
             <span className="flex-shrink-0 text-xs text-neutral-400">
               {room.lastMessageAt ? relativeTime(room.lastMessageAt) : ""}
@@ -456,8 +563,8 @@ function LeaderChatSheet({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 flex-shrink-0">
           <div>
-            <p className="font-bold text-neutral-950">{employerName ?? "고용주"}</p>
-            <p className="text-xs text-neutral-400 mt-0.5">고용주와의 채팅</p>
+            <p className="font-bold text-neutral-950">{employerName ?? "업체"}</p>
+            <p className="text-xs text-neutral-400 mt-0.5">업체와의 채팅</p>
           </div>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
             <X className="h-4 w-4 text-neutral-600" />
@@ -618,6 +725,472 @@ function ProposalRow({
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Schedule Management ──────────────────────────────────────────────────────
+
+function scheduleStatusConfig(status: string) {
+  if (status === "ONGOING") return { label: "투입 중", className: "bg-success-100 text-success-700" };
+  if (status === "COMPLETED") return { label: "완료", className: "bg-neutral-100 text-neutral-500" };
+  return { label: "예정", className: "bg-primary-50 text-primary-600" };
+}
+
+interface ScheduleFormState {
+  jobPublicId: string;
+  siteName: string;
+  siteAddress: string;
+  workDescription: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+}
+
+const EMPTY_FORM: ScheduleFormState = {
+  jobPublicId: "",
+  siteName: "",
+  siteAddress: "",
+  workDescription: "",
+  startDate: "",
+  endDate: "",
+  status: "PLANNED",
+};
+
+function ScheduleSheet({
+  teamPublicId,
+  editing,
+  onClose,
+}: {
+  teamPublicId: string;
+  editing: WorkScheduleResponse | null; // null = create mode
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = React.useState<ScheduleFormState>(EMPTY_FORM);
+  const [jobKeyword, setJobKeyword] = React.useState("");
+  const [debouncedKw, setDebouncedKw] = React.useState("");
+  const [selectedJob, setSelectedJob] = React.useState<JobSiteItem | null>(null);
+  const [jobPickerOpen, setJobPickerOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (editing) {
+      setForm({
+        jobPublicId: editing.jobPublicId ?? "",
+        siteName: editing.siteName,
+        siteAddress: editing.siteAddress ?? "",
+        workDescription: editing.workDescription,
+        startDate: editing.startDate,
+        endDate: editing.endDate ?? "",
+        status: editing.status,
+      });
+    } else {
+      setForm(EMPTY_FORM);
+      setSelectedJob(null);
+    }
+  }, [editing]);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKw(jobKeyword), 350);
+    return () => clearTimeout(timer);
+  }, [jobKeyword]);
+
+  const jobsQuery = useQuery({
+    queryKey: ["jobs-for-schedule", debouncedKw],
+    queryFn: () => teamsApi.searchJobsForSchedule(debouncedKw),
+    enabled: jobPickerOpen,
+    staleTime: 60_000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (payload: CreateSchedulePayload) => teamsApi.createSchedule(teamPublicId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-schedules", teamPublicId] });
+      onClose();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: UpdateSchedulePayload) =>
+      teamsApi.updateSchedule(teamPublicId, editing!.publicId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-schedules", teamPublicId] });
+      onClose();
+    },
+  });
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+  const error = createMutation.error as any || updateMutation.error as any;
+
+  function handleSelectJob(job: JobSiteItem) {
+    setSelectedJob(job);
+    setForm((prev) => ({
+      ...prev,
+      jobPublicId: job.jobPublicId,
+      siteName: job.siteName ?? job.jobTitle,
+      siteAddress: job.siteAddress ?? "",
+    }));
+    setJobPickerOpen(false);
+    setJobKeyword("");
+  }
+
+  function handleClearJob() {
+    setSelectedJob(null);
+    setForm((prev) => ({ ...prev, jobPublicId: "", siteName: "", siteAddress: "" }));
+  }
+
+  function handleSubmit() {
+    if (!form.workDescription.trim() || !form.startDate) return;
+    const payload: CreateSchedulePayload = {
+      jobPublicId: form.jobPublicId || undefined,
+      siteName: form.siteName || undefined,
+      siteAddress: form.siteAddress || undefined,
+      workDescription: form.workDescription,
+      startDate: form.startDate,
+      endDate: form.endDate || undefined,
+      status: form.status as any,
+    };
+    if (editing) {
+      const upd: UpdateSchedulePayload = {
+        siteName: form.siteName || undefined,
+        siteAddress: form.siteAddress || undefined,
+        workDescription: form.workDescription || undefined,
+        startDate: form.startDate || undefined,
+        endDate: form.endDate || undefined,
+        clearEndDate: !form.endDate && !!editing.endDate ? true : undefined,
+        status: form.status as any,
+      };
+      updateMutation.mutate(upd);
+    } else {
+      createMutation.mutate(payload);
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-4">
+        <div className="flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl w-full sm:max-w-lg overflow-hidden" style={{ maxHeight: "90dvh" }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0 border-b border-neutral-100">
+            <h2 className="text-lg font-bold text-neutral-950">
+              {editing ? "스케쥴 수정" : "스케쥴 등록"}
+            </h2>
+            <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
+              <X className="h-4 w-4 text-neutral-600" />
+            </button>
+          </div>
+
+          {/* Form */}
+          <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+            {/* Job picker */}
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">채용공고에서 현장 불러오기 (선택)</label>
+              {selectedJob ? (
+                <div className="flex items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-neutral-900 truncate">{selectedJob.jobTitle}</p>
+                    {selectedJob.siteName && (
+                      <p className="text-xs text-neutral-500 truncate">{selectedJob.siteName}{selectedJob.sidoSigungu ? ` · ${selectedJob.sidoSigungu}` : ""}</p>
+                    )}
+                  </div>
+                  <button onClick={handleClearJob} className="flex-shrink-0 rounded p-1 hover:bg-primary-100 transition-colors">
+                    <X className="h-3.5 w-3.5 text-primary-600" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setJobPickerOpen(!jobPickerOpen)}
+                  className="w-full flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-500 hover:border-primary-300 hover:bg-primary-50 transition-colors text-left"
+                >
+                  <Search className="h-4 w-4 text-neutral-400" />
+                  채용공고 검색 (마감된 공고 포함)
+                </button>
+              )}
+
+              {jobPickerOpen && !selectedJob && (
+                <div className="mt-2 rounded-lg border border-neutral-200 bg-white shadow-lg overflow-hidden">
+                  <div className="p-2">
+                    <input
+                      type="text"
+                      value={jobKeyword}
+                      onChange={(e) => setJobKeyword(e.target.value)}
+                      placeholder="공고 제목 또는 현장명 검색"
+                      className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none focus:border-primary-400"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-neutral-50">
+                    {jobsQuery.isLoading ? (
+                      <div className="flex justify-center py-4">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+                      </div>
+                    ) : (jobsQuery.data ?? []).length === 0 ? (
+                      <p className="py-4 text-center text-xs text-neutral-400">검색 결과가 없어요</p>
+                    ) : (
+                      (jobsQuery.data ?? []).map((job) => (
+                        <button
+                          key={job.jobPublicId}
+                          type="button"
+                          onClick={() => handleSelectJob(job)}
+                          className="w-full flex items-start gap-2 px-4 py-3 text-left hover:bg-neutral-50 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-neutral-900 truncate">{job.jobTitle}</p>
+                            {job.siteName && (
+                              <p className="text-xs text-neutral-500 truncate">{job.siteName}{job.sidoSigungu ? ` · ${job.sidoSigungu}` : ""}</p>
+                            )}
+                          </div>
+                          <span className={cn(
+                            "flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                            job.jobStatus === "PUBLISHED" ? "bg-success-100 text-success-700" : "bg-neutral-100 text-neutral-500"
+                          )}>
+                            {job.jobStatus === "PUBLISHED" ? "공개" : "마감"}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Site name (manual or from job) */}
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">현장명 *</label>
+              <input
+                type="text"
+                value={form.siteName}
+                onChange={(e) => setForm((p) => ({ ...p, siteName: e.target.value }))}
+                placeholder="현장 이름을 입력하세요"
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/20"
+              />
+            </div>
+
+            {/* Site address */}
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">현장 주소</label>
+              <input
+                type="text"
+                value={form.siteAddress}
+                onChange={(e) => setForm((p) => ({ ...p, siteAddress: e.target.value }))}
+                placeholder="현장 주소 (선택)"
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/20"
+              />
+            </div>
+
+            {/* Work description */}
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">투입 업무 *</label>
+              <textarea
+                value={form.workDescription}
+                onChange={(e) => setForm((p) => ({ ...p, workDescription: e.target.value }))}
+                placeholder="어떤 업무로 투입되는지 설명해주세요"
+                rows={3}
+                className="w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/20"
+              />
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-neutral-700">시작일 *</label>
+                <DateInput
+                  value={form.startDate}
+                  onChange={(v) => setForm((p) => ({ ...p, startDate: v }))}
+                  placeholder="시작일 선택"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-neutral-700">종료일</label>
+                <DateInput
+                  value={form.endDate}
+                  onChange={(v) => setForm((p) => ({ ...p, endDate: v }))}
+                  placeholder="종료일 선택"
+                />
+              </div>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-neutral-700">상태</label>
+              <div className="flex gap-2">
+                {(["PLANNED", "ONGOING", "COMPLETED"] as const).map((s) => {
+                  const cfg = scheduleStatusConfig(s);
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setForm((p) => ({ ...p, status: s }))}
+                      className={cn(
+                        "flex-1 rounded-lg border py-2 text-xs font-semibold transition-colors",
+                        form.status === s
+                          ? `${cfg.className} border-transparent`
+                          : "border-neutral-200 text-neutral-500 hover:bg-neutral-50"
+                      )}
+                    >
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {error && (
+              <p className="rounded-lg bg-danger-50 px-4 py-2.5 text-sm text-danger-700">
+                {error?.message ?? "저장에 실패했어요."}
+              </p>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex gap-3 border-t border-neutral-100 px-5 py-4 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-neutral-200 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isPending || !form.workDescription.trim() || !form.startDate || !form.siteName.trim()}
+              className="flex-1 rounded-lg bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-50 transition-all active:scale-[0.98]"
+            >
+              {isPending ? "저장 중…" : editing ? "수정 완료" : "등록"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TeamScheduleManager({ teamPublicId, isLeader }: { teamPublicId: string; isLeader: boolean }) {
+  const queryClient = useQueryClient();
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [editingSchedule, setEditingSchedule] = React.useState<WorkScheduleResponse | null>(null);
+
+  const { data: schedules, isLoading } = useQuery({
+    queryKey: ["team-schedules", teamPublicId],
+    queryFn: () => teamsApi.getSchedules(teamPublicId),
+    staleTime: 30_000,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (publicId: string) => teamsApi.deleteSchedule(teamPublicId, publicId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-schedules", teamPublicId] });
+    },
+  });
+
+  const list = schedules ?? [];
+
+  function openCreate() {
+    setEditingSchedule(null);
+    setSheetOpen(true);
+  }
+
+  function openEdit(s: WorkScheduleResponse) {
+    setEditingSchedule(s);
+    setSheetOpen(true);
+  }
+
+  return (
+    <>
+      <div className="rounded-lg border border-neutral-100 bg-white shadow-card-md overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
+          <h2 className="text-base font-bold text-neutral-950 flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-primary-500" />
+            현장 투입 스케쥴
+          </h2>
+          {isLeader && (
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-600 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              등록
+            </button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="p-5 space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-lg bg-neutral-100" />
+            ))}
+          </div>
+        ) : list.length === 0 ? (
+          <div className="flex flex-col items-center py-10 text-center px-4">
+            <CalendarDays className="mb-2 h-8 w-8 text-neutral-200" />
+            <p className="text-sm font-semibold text-neutral-600">등록된 스케쥴이 없어요</p>
+            {isLeader && (
+              <p className="mt-1 text-xs text-neutral-400">현재 투입 중인 현장을 등록해보세요</p>
+            )}
+          </div>
+        ) : (
+          <div className="divide-y divide-neutral-100">
+            {list.map((s) => {
+              const cfg = scheduleStatusConfig(s.status);
+              return (
+                <div key={s.publicId} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-neutral-900">{s.siteName}</p>
+                        <span className={cn("rounded-md px-2 py-0.5 text-xs font-semibold", cfg.className)}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      {s.siteAddress && (
+                        <p className="mt-0.5 flex items-center gap-1 text-xs text-neutral-400">
+                          <MapPin className="h-3 w-3 flex-shrink-0" />
+                          {s.siteAddress}
+                        </p>
+                      )}
+                    </div>
+                    {isLeader && (
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => openEdit(s)}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors"
+                          title="수정"
+                        >
+                          <Pencil className="h-3 w-3 text-neutral-600" />
+                        </button>
+                        <button
+                          onClick={() => deleteMutation.mutate(s.publicId)}
+                          disabled={deleteMutation.isPending}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-danger-50 hover:bg-danger-100 transition-colors disabled:opacity-50"
+                          title="삭제"
+                        >
+                          <Trash2 className="h-3 w-3 text-danger-500" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-600 leading-relaxed mb-1.5 line-clamp-2">{s.workDescription}</p>
+                  <p className="flex items-center gap-1 text-xs text-neutral-400">
+                    <Calendar className="h-3 w-3" />
+                    {s.startDate}{s.endDate ? ` ~ ${s.endDate}` : " ~"}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {sheetOpen && (
+        <ScheduleSheet
+          teamPublicId={teamPublicId}
+          editing={editingSchedule}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -829,6 +1402,9 @@ function TeamHubContent() {
             </div>
           )}
 
+          {/* ── Work Schedule (all members see, leader can manage) ── */}
+          <TeamScheduleManager teamPublicId={team.publicId} isLeader={isLeader} />
+
           {/* ── Leader-only: Employer Chats + Member Proposals ── */}
           {isLeader && (
             <>
@@ -845,6 +1421,7 @@ function TeamHubContent() {
           teamPublicId={team.publicId}
           open={inviteOpen}
           onClose={() => setInviteOpen(false)}
+          isTeamLeader={isLeader}
         />
       )}
     </>

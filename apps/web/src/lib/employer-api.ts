@@ -361,6 +361,8 @@ export const employerApi = {
     api.get<PagedResponse<PointChargeItem>>(`/employer/points/charges?page=${page}&size=${size}`),
   requestCharge: (amountKrw: number, paymentMethod: "CASH" | "CARD") =>
     api.post<PointChargeItem>("/employer/points/charges", { amountKrw, paymentMethod }),
+  confirmCardPayment: (paymentKey: string, orderId: string, amountKrw: number) =>
+    api.post<PointChargeItem>("/employer/points/charges/card-confirm", { paymentKey, orderId, amountKrw }),
 
   // Team proposals
   sendProposal: (teamPublicId: string, jobPublicId: string, jobTitle?: string, message?: string) =>

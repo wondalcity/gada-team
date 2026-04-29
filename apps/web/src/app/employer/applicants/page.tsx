@@ -6,13 +6,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Users, Briefcase, ChevronRight, MapPin, AlertCircle } from "lucide-react";
 import { employerApi, JobSummary } from "@/lib/employer-api";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
-function statusBadge(status: string) {
+function statusBadge(status: string, t: ReturnType<typeof useT>) {
   const map: Record<string, { label: string; className: string }> = {
-    PUBLISHED: { label: "게시 중", className: "bg-success-50 text-success-700" },
-    DRAFT:     { label: "임시저장", className: "bg-neutral-100 text-neutral-500" },
-    PAUSED:    { label: "일시중지", className: "bg-warning-50 text-warning-700" },
-    CLOSED:    { label: "마감",    className: "bg-danger-50 text-danger-700" },
+    PUBLISHED: { label: t("employer.statusActive"), className: "bg-success-50 text-success-700" },
+    DRAFT:     { label: t("employer.statusDraft"),  className: "bg-neutral-100 text-neutral-500" },
+    PAUSED:    { label: t("employer.statusPaused"), className: "bg-warning-50 text-warning-700" },
+    CLOSED:    { label: t("employer.statusClosed"), className: "bg-danger-50 text-danger-700" },
   };
   const c = map[status] ?? { label: status, className: "bg-neutral-100 text-neutral-500" };
   return (
@@ -23,6 +24,7 @@ function statusBadge(status: string) {
 }
 
 export default function ApplicantsPage() {
+  const t = useT();
   const [page, setPage] = React.useState(0);
 
   const { data, isLoading } = useQuery({
@@ -37,8 +39,8 @@ export default function ApplicantsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-neutral-900">지원자 관리</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">공고별 지원자를 검토하고 채용 여부를 결정하세요</p>
+          <h1 className="text-xl font-bold text-neutral-900">{t("employer.applicantMgmt")}</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">{t("employer.applicantMgmtDesc")}</p>
         </div>
       </div>
 
@@ -54,13 +56,13 @@ export default function ApplicantsPage() {
       ) : jobs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32 text-center">
           <AlertCircle className="h-12 w-12 text-neutral-200 mb-4" />
-          <p className="text-base font-bold text-neutral-600">등록된 공고가 없어요</p>
-          <p className="text-sm text-neutral-400 mt-1">공고를 먼저 등록해주세요</p>
+          <p className="text-base font-bold text-neutral-600">{t("employer.noJobsRegistered")}</p>
+          <p className="text-sm text-neutral-400 mt-1">{t("employer.registerJobFirst")}</p>
           <Link
             href="/employer/jobs/new"
             className="mt-5 rounded-lg bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white"
           >
-            공고 등록하기
+            {t("employer.registerJobBtn")}
           </Link>
         </div>
       ) : (
@@ -79,7 +81,7 @@ export default function ApplicantsPage() {
                   <h3 className="text-sm font-bold text-neutral-900 truncate group-hover:text-primary-500 transition-colors">
                     {job.title}
                   </h3>
-                  {statusBadge(job.status)}
+                  {statusBadge(job.status, t)}
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-neutral-500">
                   {job.sido && (
@@ -94,10 +96,9 @@ export default function ApplicantsPage() {
               <div className="flex flex-col items-end gap-1 flex-shrink-0">
                 <div className="flex items-center gap-1.5 rounded-lg bg-primary-500/10 px-3 py-1.5">
                   <Users className="h-4 w-4 text-primary-500" />
-                  <span className="text-sm font-bold text-primary-500">{job.applicationCount}</span>
-                  <span className="text-xs text-primary-500/70">명 지원</span>
+                  <span className="text-sm font-bold text-primary-500">{t("employer.applied", job.applicationCount)}</span>
                 </div>
-                <span className="text-xs text-neutral-400">모집 {job.requiredCount}명</span>
+                <span className="text-xs text-neutral-400">{t("employer.required", job.requiredCount)}</span>
               </div>
               <ChevronRight className="h-4 w-4 text-neutral-300 group-hover:text-primary-500 transition-colors flex-shrink-0" />
             </Link>
@@ -112,7 +113,7 @@ export default function ApplicantsPage() {
             disabled={page === 0}
             className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 disabled:opacity-40 hover:border-neutral-300 hover:bg-neutral-50 transition-colors"
           >
-            이전
+            {t("employer.prev")}
           </button>
           <span className="text-sm text-neutral-500">{page + 1} / {totalPages}</span>
           <button
@@ -120,7 +121,7 @@ export default function ApplicantsPage() {
             disabled={page >= totalPages - 1}
             className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 disabled:opacity-40 hover:border-neutral-300 hover:bg-neutral-50 transition-colors"
           >
-            다음
+            {t("employer.next")}
           </button>
         </div>
       )}

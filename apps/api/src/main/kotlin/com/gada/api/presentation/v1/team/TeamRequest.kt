@@ -44,3 +44,7 @@ data class UpdateTeamRequest(
 data class InviteMemberRequest(
     @field:NotBlank val phone: String,
 )
+
+data class InviteByProfileRequest(
+    @field:NotBlank val workerProfilePublicId: String,
+)

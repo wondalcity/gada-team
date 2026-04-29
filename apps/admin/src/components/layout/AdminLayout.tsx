@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { getAdminUserId } from "@/lib/api";
+import { getAdminUserId, clearAdminSession } from "@/lib/api";
 import {
   LayoutDashboard,
   Users,
@@ -309,7 +309,7 @@ function Sidebar({
             {!collapsed && (
               <button
                 onClick={() => {
-                  localStorage.removeItem("gada_admin_user_id");
+                  clearAdminSession();
                   window.location.href = "/login";
                 }}
                 className="h-7 w-7 flex items-center justify-center rounded-md text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"

@@ -69,21 +69,22 @@ function ChargeBadge({ status }: { status: string }) {
 // ─── Empty state ───────────────────────────────────────────────
 
 function EmptyState() {
+  const t = useT();
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center px-4">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
         <Receipt className="h-7 w-7 text-neutral-300" />
       </div>
-      <h3 className="text-base font-semibold text-neutral-700 mb-1">결제 내역이 없습니다</h3>
+      <h3 className="text-base font-semibold text-neutral-700 mb-1">{t("employer.paymentEmpty")}</h3>
       <p className="text-sm text-neutral-500 max-w-xs mb-6">
-        포인트를 충전하면 결제 내역이 여기에 표시됩니다
+        {t("employer.paymentEmptyDesc")}
       </p>
       <Link
         href="/employer/points"
         className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors shadow-sm"
       >
         <Coins className="h-4 w-4" />
-        포인트 충전하기
+        {t("employer.chargePointsBtn")}
       </Link>
     </div>
   );
@@ -92,7 +93,8 @@ function EmptyState() {
 // ─── Payment row ──────────────────────────────────────────────
 
 function PaymentRow({ item }: { item: PointChargeItem }) {
-  const methodLabel = item.paymentMethod === "CASH" ? "현금 이체" : "카드 결제";
+  const t = useT();
+  const methodLabel = item.paymentMethod === "CASH" ? t("employer.paymentMethodCash") : t("employer.paymentMethodCard");
   const MethodIcon = item.paymentMethod === "CASH" ? Banknote : CreditCard;
 
   return (
@@ -141,7 +143,7 @@ function PaymentRow({ item }: { item: PointChargeItem }) {
               <span>{fmtDatetime(item.createdAt)}</span>
             </div>
             {item.adminNote && (
-              <p className="mt-1.5 text-xs text-red-500">거절 사유: {item.adminNote}</p>
+              <p className="mt-1.5 text-xs text-red-500">{t("employer.rejectReason", item.adminNote)}</p>
             )}
           </div>
         </div>
@@ -180,10 +182,10 @@ export default function EmployerPaymentsPage() {
   const pendingCount = allItems.filter((i) => i.status === "PENDING").length;
 
   const STATUS_TABS = [
-    { label: "전체", value: "ALL" },
-    { label: "대기 중", value: "PENDING" },
-    { label: "승인됨", value: "APPROVED" },
-    { label: "거절됨", value: "REJECTED" },
+    { label: t("employer.tabAll"), value: "ALL" },
+    { label: t("employer.chargeStatusPending"), value: "PENDING" },
+    { label: t("employer.chargeStatusApproved"), value: "APPROVED" },
+    { label: t("employer.chargeStatusRejected"), value: "REJECTED" },
   ];
 
   return (
@@ -194,14 +196,14 @@ export default function EmployerPaymentsPage() {
         className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        포인트로 돌아가기
+        {t("employer.paymentsBack")}
       </Link>
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-neutral-950">결제 관리</h1>
-          <p className="mt-1 text-sm text-neutral-500">포인트 충전 요청 및 결제 내역을 확인합니다</p>
+          <h1 className="text-2xl font-extrabold text-neutral-950">{t("employer.paymentsTitle")}</h1>
+          <p className="mt-1 text-sm text-neutral-500">{t("employer.paymentsDesc")}</p>
         </div>
         <button
           onClick={() => {
@@ -211,7 +213,7 @@ export default function EmployerPaymentsPage() {
           className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition-colors"
         >
           <RefreshCw className="h-3.5 w-3.5" />
-          새로고침
+          {t("employer.refresh")}
         </button>
       </div>
 
@@ -220,14 +222,14 @@ export default function EmployerPaymentsPage() {
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <Coins className="h-4 w-4 text-primary-500" />
-            <p className="text-xs text-neutral-500">현재 잔액</p>
+            <p className="text-xs text-neutral-500">{t("employer.currentBalance")}</p>
           </div>
           <p className="text-xl font-bold text-primary-600">{balance?.balance ?? 0}P</p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="h-4 w-4 text-green-500" />
-            <p className="text-xs text-neutral-500">총 결제금액</p>
+            <p className="text-xs text-neutral-500">{t("employer.totalPaid")}</p>
           </div>
           <p className="text-xl font-bold text-neutral-900">
             {isLoading ? (
@@ -240,7 +242,7 @@ export default function EmployerPaymentsPage() {
         <div className="col-span-2 sm:col-span-1 rounded-xl border border-yellow-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="h-4 w-4 text-yellow-500" />
-            <p className="text-xs text-neutral-500">승인 대기</p>
+            <p className="text-xs text-neutral-500">{t("employer.pendingApprovalCount")}</p>
           </div>
           <p className="text-xl font-bold text-yellow-700">
             {isLoading ? (
@@ -248,7 +250,7 @@ export default function EmployerPaymentsPage() {
             ) : (
               pendingCount
             )}
-            <span className="text-sm font-normal text-neutral-400 ml-1">건</span>
+            <span className="text-sm font-normal text-neutral-400 ml-1">{t("employer.countUnit")}</span>
           </p>
         </div>
       </div>
@@ -257,8 +259,8 @@ export default function EmployerPaymentsPage() {
       {isError && (
         <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span>데이터를 불러오지 못했습니다.</span>
-          <button onClick={() => refetch()} className="ml-auto underline text-red-600">재시도</button>
+          <span>{t("employer.loadFailed")}</span>
+          <button onClick={() => refetch()} className="ml-auto underline text-red-600">{t("employer.retry")}</button>
         </div>
       )}
 
@@ -316,17 +318,17 @@ export default function EmployerPaymentsPage() {
               onClick={() => setPage((p) => p - 1)}
               className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              이전
+              {t("employer.prev")}
             </button>
             <span className="text-xs text-neutral-500">
-              {page + 1} / {totalPages} · 총 {totalElements}건
+              {page + 1} / {totalPages} · {t("employer.pageCountOf", totalElements)}
             </span>
             <button
               disabled={page >= totalPages - 1}
               onClick={() => setPage((p) => p + 1)}
               className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              다음
+              {t("employer.next")}
             </button>
           </div>
         )}
@@ -342,8 +344,8 @@ export default function EmployerPaymentsPage() {
             <Coins className="h-4 w-4 text-primary-600" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-neutral-800">포인트 충전</p>
-            <p className="text-xs text-neutral-500">새 충전 요청 보내기</p>
+            <p className="text-sm font-semibold text-neutral-800">{t("employer.pointChargeLinkLabel")}</p>
+            <p className="text-xs text-neutral-500">{t("employer.chargeNewRequest")}</p>
           </div>
         </Link>
         <Link
@@ -355,7 +357,7 @@ export default function EmployerPaymentsPage() {
           </div>
           <div>
             <p className="text-sm font-semibold text-neutral-800">{t("employer.proposalHistory")}</p>
-            <p className="text-xs text-neutral-500">보낸 제안 현황 확인</p>
+            <p className="text-xs text-neutral-500">{t("employer.proposalSentDesc")}</p>
           </div>
         </Link>
       </div>

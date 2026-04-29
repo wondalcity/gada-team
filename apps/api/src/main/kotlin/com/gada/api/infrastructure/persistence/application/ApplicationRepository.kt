@@ -71,6 +71,40 @@ class ApplicationRepository(
         return Pair(content, total)
     }
 
+    /**
+     * 개인 지원(applicantUserId = userId) + 팀 지원(teamId IN teamIds)을 모두 반환.
+     * teamIds 가 비어 있으면 개인 지원만 반환.
+     */
+    fun findByApplicantUserIdOrTeamIds(
+        userId: Long,
+        teamIds: List<Long>,
+        page: Int,
+        size: Int,
+    ): Pair<List<Application>, Long> {
+        val pred = BooleanBuilder().apply {
+            val individual = a.applicantUserId.eq(userId)
+            if (teamIds.isEmpty()) {
+                and(individual)
+            } else {
+                and(individual.or(a.teamId.`in`(teamIds)))
+            }
+        }
+
+        val total = qf.select(a.id.count())
+            .from(a)
+            .where(pred)
+            .fetchOne() ?: 0L
+
+        val content = qf.selectFrom(a)
+            .where(pred)
+            .orderBy(a.createdAt.desc())
+            .offset((page * size).toLong())
+            .limit(size.toLong())
+            .fetch()
+
+        return Pair(content, total)
+    }
+
     fun findByJobId(jobId: Long, status: ApplicationStatus?, page: Int, size: Int): Pair<List<Application>, Long> {
         val pred = BooleanBuilder()
         pred.and(a.jobId.eq(jobId))

@@ -23,6 +23,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { teamsApi, CreateTeamPayload, RegionEntry, PortfolioEntry } from "@/lib/teams-api";
 import { uploadImageToStorage } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
+import { DateInput } from "@/components/ui/DateInput";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -699,32 +700,30 @@ function Step3({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-neutral-600">시작일</label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={item.startDate}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setForm((f) => {
                           const p = [...f.portfolio];
-                          p[idx] = { ...p[idx], startDate: e.target.value };
+                          p[idx] = { ...p[idx], startDate: v };
                           return { ...f, portfolio: p };
                         })
                       }
-                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                      placeholder="시작일 선택"
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-neutral-600">종료일</label>
-                    <input
-                      type="date"
+                    <DateInput
                       value={item.endDate}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setForm((f) => {
                           const p = [...f.portfolio];
-                          p[idx] = { ...p[idx], endDate: e.target.value };
+                          p[idx] = { ...p[idx], endDate: v };
                           return { ...f, portfolio: p };
                         })
                       }
-                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                      placeholder="종료일 선택"
                     />
                   </div>
                 </div>

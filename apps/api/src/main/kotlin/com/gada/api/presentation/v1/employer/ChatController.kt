@@ -11,7 +11,10 @@ import com.gada.api.config.CurrentUser
 import com.gada.api.config.GadaPrincipal
 import com.gada.api.domain.chat.ChatMessage
 import com.gada.api.domain.chat.ChatRoom
+import com.gada.api.domain.notification.Notification
+import com.gada.api.domain.notification.NotificationType
 import com.gada.api.infrastructure.persistence.chat.ChatRepository
+import com.gada.api.infrastructure.persistence.notification.NotificationRepository
 import com.gada.api.infrastructure.persistence.points.PointsRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -35,6 +38,7 @@ import kotlin.math.ceil
 class ChatController(
     private val chatRepository: ChatRepository,
     private val pointsRepository: PointsRepository,
+    private val notificationRepository: NotificationRepository,
 ) {
 
     @Operation(summary = "채팅방 목록", security = [SecurityRequirement(name = "Bearer")])
@@ -89,6 +93,19 @@ class ChatController(
             it.teamName = teamInfo.third
         }
         val saved = chatRepository.saveRoom(room)
+
+        // Notify team leader of new chat
+        runCatching {
+            val notif = Notification().apply {
+                this.userId = teamInfo.second
+                this.type = NotificationType.CHAT
+                this.title = "새 채팅이 도착했습니다"
+                this.body = "업체에서 채팅을 시작했습니다."
+                this.data = mapOf("chatRoomId" to saved.publicId.toString(), "chatType" to "employer")
+            }
+            notificationRepository.save(notif)
+        }
+
         return ApiResponse.ok(saved.toDetail(userId)).toResponseEntity(HttpStatus.CREATED)
     }
 

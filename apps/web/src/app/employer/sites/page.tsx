@@ -4,15 +4,16 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { employerApi, type SiteResponse } from "@/lib/employer-api";
+import { useT } from "@/lib/i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
-function siteStatusLabel(status: string): { text: string; className: string } {
+function siteStatusLabel(status: string, t: ReturnType<typeof useT>): { text: string; className: string } {
   const map: Record<string, { text: string; className: string }> = {
-    PLANNING: { text: "계획 중", className: "bg-primary-50 text-primary-600" },
-    ACTIVE: { text: "진행 중", className: "bg-success-100 text-success-700" },
-    COMPLETED: { text: "완료", className: "bg-neutral-100 text-neutral-500" },
-    SUSPENDED: { text: "중단", className: "bg-danger-50 text-danger-700" },
+    PLANNING: { text: t("employer.siteStatusPlanning"), className: "bg-primary-50 text-primary-600" },
+    ACTIVE: { text: t("employer.siteStatusActive"), className: "bg-success-100 text-success-700" },
+    COMPLETED: { text: t("employer.siteStatusCompleted"), className: "bg-neutral-100 text-neutral-500" },
+    SUSPENDED: { text: t("employer.siteStatusSuspended"), className: "bg-danger-50 text-danger-700" },
   };
   return map[status] ?? { text: status, className: "bg-neutral-100 text-neutral-600" };
 }
@@ -28,7 +29,8 @@ function SiteCard({
   companyPublicId: string;
   onDelete: (id: string) => void;
 }) {
-  const badge = siteStatusLabel(site.status);
+  const t = useT();
+  const badge = siteStatusLabel(site.status, t);
   const [confirming, setConfirming] = useState(false);
 
   return (
@@ -48,7 +50,7 @@ function SiteCard({
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge.className}`}>
               {badge.text}
             </span>
-            <span className="text-xs text-neutral-400">공고 {site.activeJobCount}건</span>
+            <span className="text-xs text-neutral-400">{t("employer.siteJobCount", site.activeJobCount)}</span>
           </div>
         </div>
       </div>
@@ -58,21 +60,21 @@ function SiteCard({
           href={`/employer/sites/${site.publicId}/edit?companyId=${companyPublicId}`}
           className="flex-1 text-center border border-neutral-200 rounded-lg text-neutral-700 text-xs font-semibold py-2 hover:bg-neutral-50 transition-colors"
         >
-          수정
+          {t("employer.edit")}
         </Link>
         {!confirming ? (
           <button
             onClick={() => setConfirming(true)}
             className="flex-1 text-center border border-danger-200 rounded-lg text-danger-500 text-xs font-semibold py-2 hover:bg-danger-50 transition-colors"
           >
-            삭제
+            {t("employer.delete")}
           </button>
         ) : (
           <button
             onClick={() => { setConfirming(false); onDelete(site.publicId); }}
             className="flex-1 text-center bg-danger-500 rounded-lg text-white text-xs font-semibold py-2 hover:bg-danger-700 transition-colors"
           >
-            정말 삭제
+            {t("employer.confirmDelete")}
           </button>
         )}
       </div>
@@ -93,6 +95,7 @@ function SiteCardSkeleton() {
 // ─── Page ─────────────────────────────────────────────────────────
 
 export default function EmployerSitesPage() {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const { data: company, isLoading: companyLoading, isError: companyError } = useQuery({
@@ -125,18 +128,18 @@ export default function EmployerSitesPage() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-xl font-extrabold text-neutral-950">현장 관리</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">현장을 추가하고 공고를 게시하세요.</p>
+          <h1 className="text-xl font-extrabold text-neutral-950">{t("employer.siteMgmt")}</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">{t("employer.siteMgmtDesc")}</p>
         </div>
         <div className="bg-white rounded-lg shadow-card border border-neutral-100 p-12 text-center">
           <p className="text-sm text-neutral-500 mb-4">
-            현장을 추가하려면 먼저 회사 정보를 등록해주세요.
+            {t("employer.siteNeedCompany")}
           </p>
           <Link
             href="/employer/company"
             className="inline-block bg-primary-500 text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-primary-600 transition-colors"
           >
-            회사 등록하기
+            {t("employer.registerCompanyBtn")}
           </Link>
         </div>
       </div>
@@ -148,10 +151,10 @@ export default function EmployerSitesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-extrabold text-neutral-950">현장 관리</h1>
+          <h1 className="text-xl font-extrabold text-neutral-950">{t("employer.siteMgmt")}</h1>
           <p className="text-sm text-neutral-500 mt-0.5">
             {company ? company.name : ""}
-            {!isLoading && sites ? ` · 총 ${sites.length}개 현장` : ""}
+            {!isLoading && sites ? ` · ${t("employer.siteTotal", sites.length)}` : ""}
           </p>
         </div>
         {company && (
@@ -159,7 +162,7 @@ export default function EmployerSitesPage() {
             href="/employer/sites/new"
             className="bg-primary-500 text-white rounded-lg py-2.5 px-4 font-semibold text-sm hover:bg-primary-600 transition-colors"
           >
-            + 현장 추가
+            {t("employer.addSite")}
           </Link>
         )}
       </div>
@@ -171,12 +174,12 @@ export default function EmployerSitesPage() {
         </div>
       ) : !sites || sites.length === 0 ? (
         <div className="bg-white rounded-lg shadow-card border border-neutral-100 p-12 text-center">
-          <p className="text-sm text-neutral-400 mb-4">아직 등록된 현장이 없습니다.</p>
+          <p className="text-sm text-neutral-400 mb-4">{t("employer.noSites")}</p>
           <Link
             href="/employer/sites/new"
             className="inline-block bg-primary-500 text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-primary-600 transition-colors"
           >
-            + 현장 추가
+            {t("employer.addSite")}
           </Link>
         </div>
       ) : (

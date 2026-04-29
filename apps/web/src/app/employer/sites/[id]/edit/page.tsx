@@ -4,12 +4,15 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { employerApi, type UpdateSitePayload } from "@/lib/employer-api";
+import { DateInput } from "@/components/ui/DateInput";
+import { useT } from "@/lib/i18n";
 
 export default function EditSitePage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const t = useT();
 
   const sitePublicId = params.id as string;
   const companyPublicId = searchParams.get("companyId") ?? "";
@@ -51,14 +54,14 @@ export default function EditSitePage() {
       router.push("/employer/sites");
     },
     onError: (err: Error) => {
-      setError(err.message || "저장에 실패했습니다.");
+      setError(err.message || t("employer.siteSaveFailed"));
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError("현장명을 입력해주세요.");
+      setError(t("employer.siteNameRequired"));
       return;
     }
     setError(null);
@@ -90,9 +93,9 @@ export default function EditSitePage() {
           onClick={() => router.back()}
           className="text-xs text-neutral-500 hover:text-neutral-700 mb-2 flex items-center gap-1"
         >
-          ← 뒤로
+          {t("employer.back")}
         </button>
-        <h1 className="text-xl font-extrabold text-neutral-950">현장 수정</h1>
+        <h1 className="text-xl font-extrabold text-neutral-950">{t("employer.siteEdit")}</h1>
         {site && (
           <p className="text-sm text-neutral-500 mt-0.5">{site.companyName}</p>
         )}
@@ -109,13 +112,13 @@ export default function EditSitePage() {
         )}
 
         <h2 className="text-base font-semibold text-neutral-900 mb-4">
-          현장 정보
+          {t("employer.siteInfo")}
         </h2>
 
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-              현장명 <span className="text-danger-500">*</span>
+              {t("employer.siteNameLabel")} <span className="text-danger-500">*</span>
             </label>
             <input
               type="text"
@@ -129,7 +132,7 @@ export default function EditSitePage() {
 
           <div>
             <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-              주소
+              {t("employer.siteAddressLabel")}
             </label>
             <input
               type="text"
@@ -142,7 +145,7 @@ export default function EditSitePage() {
 
           <div>
             <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-              상세 주소
+              {t("employer.siteAddressDetailLabel")}
             </label>
             <input
               type="text"
@@ -155,12 +158,12 @@ export default function EditSitePage() {
 
           <div>
             <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-              현장 소개
+              {t("employer.siteDescLabel")}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="현장에 대한 추가 설명을 입력해주세요."
+              placeholder={t("employer.siteDescPlaceholder")}
               rows={3}
               className={`${inputClass} resize-none`}
             />
@@ -169,29 +172,27 @@ export default function EditSitePage() {
 
         <div className="border-t border-neutral-100 pt-6 mt-6">
           <h2 className="text-base font-semibold text-neutral-900 mb-4">
-            공사 일정
+            {t("employer.siteScheduleLabel")}
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                공사 시작일
+                {t("employer.siteStartDateLabel")}
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className={inputClass}
+                onChange={setStartDate}
+                placeholder={t("employer.siteStartDateLabel")}
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-                공사 종료일
+                {t("employer.siteEndDateLabel")}
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className={inputClass}
+                onChange={setEndDate}
+                placeholder={t("employer.siteEndDateLabel")}
               />
             </div>
           </div>
@@ -203,14 +204,14 @@ export default function EditSitePage() {
             onClick={() => router.back()}
             className="flex-1 border border-neutral-200 rounded-lg text-neutral-700 py-3 font-semibold text-sm hover:bg-neutral-50 transition-colors"
           >
-            취소
+            {t("employer.cancel")}
           </button>
           <button
             type="submit"
             disabled={updateMutation.isPending}
             className="flex-1 bg-primary-500 text-white rounded-lg py-3 font-semibold text-sm hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {updateMutation.isPending ? "저장 중..." : "저장"}
+            {updateMutation.isPending ? t("employer.saving") : t("employer.saveShort")}
           </button>
         </div>
       </form>
