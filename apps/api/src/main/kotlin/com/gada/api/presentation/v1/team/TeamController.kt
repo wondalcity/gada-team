@@ -4,15 +4,18 @@ import com.gada.api.application.team.TeamUseCase
 import com.gada.api.common.ApiResponse
 import com.gada.api.common.PageResponse
 import com.gada.api.common.toResponseEntity
+import com.gada.api.common.exception.BusinessException
 import com.gada.api.common.exception.UnauthorizedException
 import com.gada.api.config.CurrentUser
 import com.gada.api.config.GadaPrincipal
+import com.gada.api.infrastructure.persistence.points.PointsRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 import kotlin.math.ceil
@@ -20,7 +23,10 @@ import kotlin.math.ceil
 @Tag(name = "Teams", description = "팀 관리")
 @RestController
 @RequestMapping("/api/v1/teams")
-class TeamController(private val teamUseCase: TeamUseCase) {
+class TeamController(
+    private val teamUseCase: TeamUseCase,
+    private val pointsRepository: PointsRepository,
+) {
 
     @Operation(summary = "팀 생성", security = [SecurityRequirement(name = "Bearer")])
     @PostMapping
@@ -115,14 +121,26 @@ class TeamController(private val teamUseCase: TeamUseCase) {
         return ApiResponse.ok(result).toResponseEntity(status)
     }
 
-    @Operation(summary = "프로필로 멤버 초대", security = [SecurityRequirement(name = "Bearer")])
+    @Operation(summary = "프로필로 멤버 초대 (팀장: 1P 차감)", security = [SecurityRequirement(name = "Bearer")])
     @PostMapping("/{publicId}/invitations/by-profile")
+    @Transactional
     fun inviteMemberByProfile(
         @PathVariable publicId: UUID,
         @Valid @RequestBody req: InviteByProfileRequest,
         @CurrentUser principal: GadaPrincipal,
     ): ResponseEntity<ApiResponse<TeamMemberResponse>> {
         val userId = principal.userId ?: throw UnauthorizedException()
+
+        // Deduct 1P from team leader's balance
+        if (principal.role == "TEAM_LEADER") {
+            val account = pointsRepository.findOrCreateTeamLeaderAccount(userId)
+            if (!account.hasBalance) {
+                throw BusinessException("포인트 잔액이 부족합니다. 포인트를 충전해 주세요.", "INSUFFICIENT_POINTS")
+            }
+            account.deductPoint()
+            pointsRepository.saveTeamLeaderAccount(account)
+        }
+
         return ApiResponse.ok(teamUseCase.inviteMemberByProfile(userId, publicId, req)).toResponseEntity(HttpStatus.CREATED)
     }
 

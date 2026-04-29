@@ -99,6 +99,13 @@ function getNavLinks(role: string | undefined, t: ReturnType<typeof useT>) {
     { label: t("nav.chats"), href: "/chats", icon: MessageCircle },
     { label: t("nav.proposals"), href: "/proposals", icon: FileText },
   ];
+  const TEAM_LEADER_LINKS = [
+    { label: "팀원 찾기", href: "/workers", icon: Users },
+    { label: t("nav.teams"), href: "/teams", icon: Users },
+    { label: t("nav.guides"), href: "/guides", icon: BookOpen },
+    { label: t("nav.chats"), href: "/chats", icon: MessageCircle },
+    { label: t("nav.proposals"), href: "/proposals", icon: FileText },
+  ];
   const EMPLOYER_LINKS = [
     { label: t("nav.dashboard"), href: "/employer", icon: LayoutDashboard, exact: true },
     { label: t("nav.company"), href: "/employer/company", icon: Building2 },
@@ -115,8 +122,9 @@ function getNavLinks(role: string | undefined, t: ReturnType<typeof useT>) {
 
   switch (role) {
     case "WORKER":
-    case "TEAM_LEADER":
       return WORKER_LINKS;
+    case "TEAM_LEADER":
+      return TEAM_LEADER_LINKS;
     case "EMPLOYER":
       return EMPLOYER_LINKS;
     case "ADMIN":
@@ -261,13 +269,38 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                         <p className="text-xs text-neutral-400 mt-0.5">{user.phone}</p>
                       </div>
                       <div className="border-t border-neutral-100 pt-1">
-                        {user.role === "WORKER" || user.role === "TEAM_LEADER" ? (
+                        {user.role === "WORKER" ? (
                           <Link
                             href="/profile"
                             className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
                           >
                             {t("nav.myProfile")}
                           </Link>
+                        ) : user.role === "TEAM_LEADER" ? (
+                          <>
+                            <Link
+                              href="/profile"
+                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            >
+                              {t("nav.myProfile")}
+                            </Link>
+                            <div className="my-0.5 border-t border-neutral-100" />
+                            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">포인트</p>
+                            <Link
+                              href="/leader/points"
+                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            >
+                              <Coins className="h-3.5 w-3.5 text-primary-400" />
+                              포인트 충전
+                            </Link>
+                            <Link
+                              href="/leader/payments"
+                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            >
+                              <CreditCard className="h-3.5 w-3.5 text-neutral-400" />
+                              결제 관리
+                            </Link>
+                          </>
                         ) : user.role === "EMPLOYER" ? (
                           <>
                             <Link
@@ -411,6 +444,31 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                   );
                 })}
               </div>
+              {user?.role === "TEAM_LEADER" && (
+                <div className="mt-2 border-t border-neutral-100 pt-2">
+                  <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">포인트</p>
+                  <Link
+                    href="/leader/points"
+                    className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Coins className="h-4 w-4 text-primary-400" />
+                      포인트 충전
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-neutral-300" />
+                  </Link>
+                  <Link
+                    href="/leader/payments"
+                    className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <CreditCard className="h-4 w-4 text-neutral-400" />
+                      결제 관리
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-neutral-300" />
+                  </Link>
+                </div>
+              )}
               {user?.role === "EMPLOYER" && (
                 <div className="mt-2 border-t border-neutral-100 pt-2">
                   <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("nav.employerProfile")}</p>
