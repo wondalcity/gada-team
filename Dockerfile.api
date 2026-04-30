@@ -1,5 +1,4 @@
-# Uses Amazon ECR Public (no Docker Hub rate limits)
-FROM public.ecr.aws/amazoncorretto/amazoncorretto:21 AS builder
+FROM eclipse-temurin:21-jdk-jammy
 
 WORKDIR /workspace
 
@@ -8,23 +7,13 @@ COPY apps/api/settings.gradle.kts apps/api/build.gradle.kts ./
 COPY apps/api/gradle ./gradle
 RUN chmod +x gradlew
 
-RUN ./gradlew dependencies --no-daemon -q || true
-
+RUN GRADLE_OPTS="-Xmx512m" ./gradlew dependencies --no-daemon -q || true
 COPY apps/api/src ./src
-RUN ./gradlew bootJar --no-daemon -x test
-
-FROM public.ecr.aws/amazoncorretto/amazoncorretto:21 AS runtime
-
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
-WORKDIR /app
-
-COPY --from=builder /workspace/build/libs/*.jar app.jar
-
-USER appuser
+RUN GRADLE_OPTS="-Xmx512m" ./gradlew bootJar --no-daemon -x test
 
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV SERVER_PORT=8090
 
 EXPOSE 8090
 
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-Djava.security.egd=file:/dev/./urandom", "-jar", "build/libs/gada-api.jar"]
