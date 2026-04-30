@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "apps/api/**"
-      - "render.yaml"
+      - "Dockerfile.api"
       - ".github/workflows/deploy-api.yml"
 
 jobs:
