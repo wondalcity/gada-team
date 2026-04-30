@@ -18,6 +18,7 @@ apps/api/out/
 *.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
+!apps/api/gradle/wrapper/gradle-wrapper.jar
 
 # Environment
 .env
