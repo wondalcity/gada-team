@@ -8,6 +8,7 @@ import org.springframework.security.authorization.AuthorizationDeniedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.servlet.NoHandlerFoundException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -36,6 +37,13 @@ class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.FORBIDDEN)
             .body(ApiResponse.error("접근 권한이 없습니다.", "ACCESS_DENIED"))
+    }
+
+    @ExceptionHandler(NoHandlerFoundException::class)
+    fun handleNotFound(e: NoHandlerFoundException): ResponseEntity<ApiResponse<Nothing>> {
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(ApiResponse.error("요청한 리소스를 찾을 수 없습니다.", "NOT_FOUND"))
     }
 
     @ExceptionHandler(Exception::class)

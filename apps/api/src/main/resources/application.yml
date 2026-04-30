@@ -53,6 +53,13 @@ spring:
   cache:
     type: simple  # falls back to simple if Redis unavailable
 
+  mvc:
+    throw-exception-if-no-handler-found: true
+
+  web:
+    resources:
+      add-mappings: false
+
 server:
   port: ${SERVER_PORT:8090}
   compression:
@@ -62,6 +69,8 @@ server:
   error:
     include-message: always
     include-binding-errors: always
+    whitelabel:
+      enabled: false
 
 springdoc:
   api-docs:
