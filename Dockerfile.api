@@ -17,4 +17,4 @@ ENV SERVER_PORT=10000
 
 EXPOSE 10000
 
-ENTRYPOINT ["sh", "-c", "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom -jar build/libs/*.jar"]
+ENTRYPOINT ["sh", "-c", "java -Xms64m -Xmx300m -XX:MaxMetaspaceSize=128m -Djava.security.egd=file:/dev/./urandom -jar build/libs/*.jar"]
