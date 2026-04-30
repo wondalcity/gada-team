@@ -1,0 +1,9 @@
+# Profile to disable Redis — activate with SPRING_PROFILES_ACTIVE=prod,no-redis
+# Switch to SPRING_PROFILES_ACTIVE=prod once Redis (Upstash) is configured
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  cache:
+    type: none
