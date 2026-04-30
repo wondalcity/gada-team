@@ -1,35 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { onboard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { DateInput } from "@/components/ui/DateInput";
+import { AppLayout } from "@/components/layout/AppLayout";
 
 type Role = "WORKER" | "TEAM_LEADER" | "EMPLOYER";
 type OnboardStep = "role" | "basic" | "identity" | "preferences";
 
 // ─── Static data ─────────────────────────────────────────────────────────────
 
-const ROLES: { value: Role; label: string; desc: string; emoji: string }[] = [
+const ALL_ROLES: { value: Role; label: string; desc: string; emoji: string; type: "worker" | "employer" }[] = [
   {
     value: "WORKER",
     label: "근로자",
     desc: "건설 현장에서 일하는 개인 근로자",
     emoji: "👷",
+    type: "worker",
   },
   {
     value: "TEAM_LEADER",
     label: "팀장",
     desc: "팀을 이끌며 팀원을 모집하는 반장·팀장",
     emoji: "🦺",
+    type: "worker",
   },
   {
     value: "EMPLOYER",
     label: "관리자",
     desc: "인력을 채용하는 시공사·원도급업체",
     emoji: "🏗️",
+    type: "employer",
   },
 ];
 
@@ -155,13 +159,16 @@ function ProgressIndicator({ steps }: ProgressProps) {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setUser = useAuthStore((s) => s.setUser);
 
-  // Step
-  const [step, setStep] = useState<OnboardStep>("role");
+  // Filter roles based on registration type (worker tab = 근로자/팀장, employer tab = 관리자)
+  const regType = searchParams.get("type") ?? "worker";
+  const ROLES = ALL_ROLES.filter((r) => r.type === (regType === "employer" ? "employer" : "worker"));
 
-  // Role
-  const [role, setRole] = useState<Role | null>(null);
+  // If there's only one role option, pre-select it and skip role step
+  const [step, setStep] = useState<OnboardStep>(ROLES.length === 1 ? "basic" : "role");
+  const [role, setRole] = useState<Role | null>(ROLES.length === 1 ? ROLES[0].value : null);
 
   // Step 2 — basic
   const [fullName, setFullName] = useState("");
@@ -660,46 +667,37 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-8">
-      <div className="w-full max-w-lg mx-auto">
-        {/* Logo */}
-        <div className="mb-6 text-center">
-          <div className="inline-flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">G</span>
-            </div>
-            <span className="text-xl font-bold text-neutral-900">GADA</span>
+    <AppLayout showBottomNav={false}>
+      <div className="px-4 py-8">
+        <div className="w-full max-w-lg mx-auto">
+          {/* Progress indicator */}
+          <ProgressIndicator steps={progressSteps} />
+
+          {/* Card */}
+          <div className="bg-white rounded-lg shadow-card-md p-6 relative">
+            {/* Back to login (only on first step) */}
+            {step === "role" && (
+              <a
+                href="/login"
+                className="absolute top-4 right-4 text-xs text-neutral-400 hover:text-neutral-600 flex items-center gap-1"
+              >
+                이미 계정이 있으신가요? <span className="underline">로그인</span>
+              </a>
+            )}
+            {/* Back button (not on first step) */}
+            {step !== "role" && (
+              <button
+                onClick={goBack}
+                className="flex items-center gap-1 text-sm text-neutral-500 mb-4 hover:text-neutral-700"
+              >
+                ← 뒤로
+              </button>
+            )}
+
+            {renderStep()}
           </div>
-          <p className="text-xs text-neutral-500 mt-1">회원가입</p>
-        </div>
-
-        {/* Progress indicator */}
-        <ProgressIndicator steps={progressSteps} />
-
-        {/* Card */}
-        <div className="bg-white rounded-lg shadow-card-md p-6 relative">
-          {/* Back to login (only on first step) */}
-          {step === "role" && (
-            <a
-              href="/login"
-              className="absolute top-4 right-4 text-xs text-neutral-400 hover:text-neutral-600 flex items-center gap-1"
-            >
-              이미 계정이 있으신가요? <span className="underline">로그인</span>
-            </a>
-          )}
-          {/* Back button (not on first step) */}
-          {step !== "role" && (
-            <button
-              onClick={goBack}
-              className="flex items-center gap-1 text-sm text-neutral-500 mb-4 hover:text-neutral-700"
-            >
-              ← 뒤로
-            </button>
-          )}
-
-          {renderStep()}
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }

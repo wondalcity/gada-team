@@ -317,7 +317,7 @@ export default function LoginPage() {
     try {
       const authData = await loginWithPassword({ phone: toE164(loginCountry, loginLocal), password: loginPassword });
       setUser(authData);
-      router.replace(authData.status === "PENDING" ? "/onboarding" : "/");
+      router.replace(authData.status === "PENDING" ? `/onboarding?type=${tab}` : "/");
     } catch (err: any) {
       setError(err.message || t("auth.loginFailed"));
     } finally { setLoading(false); }
@@ -370,7 +370,7 @@ export default function LoginPage() {
         password: signupPassword,
       });
       setUser(authData);
-      router.replace("/onboarding");
+      router.replace(`/onboarding?type=${tab}`);
     } catch (err: any) {
       setError(err.message || t("auth.registerFailed"));
     } finally { setLoading(false); }

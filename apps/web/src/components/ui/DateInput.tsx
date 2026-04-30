@@ -17,11 +17,9 @@ interface DateInputProps {
 }
 
 /**
- * DateInput — GADA 디자인 시스템 날짜 입력 컴포넌트
- *
- * 네이티브 <input type="date"> 를 감싸 달력 아이콘과 일관된 스타일을 제공합니다.
- * 값이 없을 때 placeholder 텍스트를 오버레이로 표시하고,
- * 달력 아이콘 클릭 시 날짜 선택기를 바로 엽니다.
+ * DateInput — 네이티브 <input type="date"> 래퍼
+ * 달력 아이콘과 placeholder 오버레이를 제공하며,
+ * 클릭 시 showPicker() → focus() 순서로 안정적으로 열립니다.
  */
 export function DateInput({
   value,
@@ -38,9 +36,14 @@ export function DateInput({
   const isEmpty = !value;
 
   function openPicker() {
-    if (disabled) return;
-    inputRef.current?.showPicker?.();
-    inputRef.current?.focus();
+    if (disabled || !inputRef.current) return;
+    try {
+      inputRef.current.showPicker?.();
+    } catch {
+      // showPicker() not supported or blocked — fall back to focus
+      inputRef.current.focus();
+      inputRef.current.click();
+    }
   }
 
   return (
@@ -52,7 +55,7 @@ export function DateInput({
       )}
       onClick={openPicker}
     >
-      {/* Native date input — invisible text when empty so our placeholder shows */}
+      {/* Native date input */}
       <input
         ref={inputRef}
         id={id}
@@ -63,20 +66,13 @@ export function DateInput({
         disabled={disabled}
         required={required}
         onChange={(e) => onChange(e.target.value)}
-        onClick={(e) => e.stopPropagation()}
         className={cn(
-          // base
           "w-full rounded-lg border bg-white px-3 py-2.5 text-sm transition-all outline-none",
-          // border + focus
           "border-neutral-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
-          // right padding for icon
           "pr-10",
-          // when empty, make text transparent so custom placeholder shows instead
-          isEmpty
-            ? "[color-scheme:light] text-transparent [&::-webkit-datetime-edit]:text-transparent"
-            : "text-neutral-900",
-          // hide browser's own calendar picker icon
-          "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer",
+          // hide browser's built-in calendar icon
+          "[&::-webkit-calendar-picker-indicator]:hidden",
+          isEmpty ? "text-transparent [&::-webkit-datetime-edit]:text-transparent" : "text-neutral-900",
           disabled && "cursor-not-allowed"
         )}
       />
