@@ -12,8 +12,9 @@ COPY apps/api/src ./src
 RUN GRADLE_OPTS="-Xmx512m" ./gradlew bootJar --no-daemon -x test
 
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV SERVER_PORT=8090
+# Render routes traffic to port 10000 by default
+ENV SERVER_PORT=10000
 
-EXPOSE 8090
+EXPOSE 10000
 
 ENTRYPOINT ["sh", "-c", "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom -jar build/libs/*.jar"]
