@@ -36,6 +36,15 @@ data class PasswordLoginRequest(
     val password: String,
 )
 
+/** 이메일 + 비밀번호로 관리자 로그인 */
+data class AdminLoginRequest(
+    @field:NotBlank(message = "이메일을 입력해주세요")
+    val email: String,
+
+    @field:NotBlank(message = "비밀번호를 입력해주세요")
+    val password: String,
+)
+
 data class OnboardRequest(
     val idToken: String? = null,
 

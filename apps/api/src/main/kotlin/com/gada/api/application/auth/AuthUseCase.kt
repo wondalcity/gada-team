@@ -14,6 +14,7 @@ import com.gada.api.domain.user.*
 import com.gada.api.infrastructure.persistence.user.EmployerProfileRepository
 import com.gada.api.infrastructure.persistence.user.UserRepository
 import com.gada.api.infrastructure.persistence.user.WorkerProfileRepository
+import com.gada.api.presentation.v1.auth.AdminLoginRequest
 import com.gada.api.presentation.v1.auth.AuthResponse
 import com.gada.api.presentation.v1.auth.LoginRequest
 import com.gada.api.presentation.v1.auth.OnboardRequest
@@ -224,6 +225,39 @@ class AuthUseCase(
 
         if (!passwordEncoder.matches(request.password, hash)) {
             throw UnauthorizedException("전화번호 또는 비밀번호가 올바르지 않습니다.")
+        }
+
+        if (user.status == UserStatus.SUSPENDED) {
+            throw BusinessException("정지된 계정입니다.", "ACCOUNT_SUSPENDED", HttpStatus.FORBIDDEN)
+        }
+
+        val token = jwtService.generateToken(user.id, user.phone, user.role.name)
+        return AuthResponse(
+            userId = user.id,
+            phone = user.phone,
+            role = user.role,
+            status = user.status,
+            isNewUser = false,
+            token = token,
+        )
+    }
+
+    /**
+     * 이메일 + 비밀번호로 관리자 로그인. ADMIN 역할만 허용.
+     */
+    fun loginAsAdmin(request: AdminLoginRequest): AuthResponse {
+        val user = userRepository.findByEmail(request.email)
+            ?: throw UnauthorizedException("이메일 또는 비밀번호가 올바르지 않습니다.")
+
+        if (user.role != UserRole.ADMIN) {
+            throw ForbiddenException("관리자 계정이 아닙니다.")
+        }
+
+        val hash = user.passwordHash
+            ?: throw UnauthorizedException("비밀번호가 설정되지 않은 계정입니다.")
+
+        if (!passwordEncoder.matches(request.password, hash)) {
+            throw UnauthorizedException("이메일 또는 비밀번호가 올바르지 않습니다.")
         }
 
         if (user.status == UserStatus.SUSPENDED) {

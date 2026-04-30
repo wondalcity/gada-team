@@ -185,7 +185,7 @@ export default function ContractsPage() {
         <div>
           <h1 className="text-2xl font-extrabold text-neutral-950">계약 관리</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            근로자-고용주 간 계약 목록입니다.
+            근로자-업체 간 계약 목록입니다.
           </p>
         </div>
 

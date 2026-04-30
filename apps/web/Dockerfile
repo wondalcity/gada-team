@@ -10,7 +10,7 @@ COPY apps/web/package.json ./apps/web/
 
 RUN pnpm install --frozen-lockfile
 
-EXPOSE 3020
+EXPOSE 4000
 
 ENV WATCHPACK_POLLING=true
 

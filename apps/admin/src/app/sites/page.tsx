@@ -149,7 +149,7 @@ export default function SitesPage() {
         <div>
           <h1 className="text-2xl font-extrabold text-neutral-950">현장 관리</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            등록된 건설 현장 목록입니다. 현장은 업체(고용주)가 직접 관리합니다.
+            등록된 건설 현장 목록입니다. 현장은 업체가 직접 관리합니다.
           </p>
         </div>
 

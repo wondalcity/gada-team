@@ -10,7 +10,7 @@ COPY apps/admin/package.json ./apps/admin/
 
 RUN pnpm install --frozen-lockfile
 
-EXPOSE 5002
+EXPOSE 4001
 
 ENV WATCHPACK_POLLING=true
 

@@ -31,7 +31,7 @@ export default function ContractNewPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.jobPublicId.trim() || !form.workerPublicId.trim() || !form.employerPublicId.trim()) {
-      setError("공고, 근로자, 고용주 ID를 모두 입력하세요."); return;
+      setError("공고, 근로자, 업체 ID를 모두 입력하세요."); return;
     }
     setLoading(true); setError("");
     try {
@@ -58,7 +58,7 @@ export default function ContractNewPage() {
         <Field label="근로자 PublicId *" hint="Workers 메뉴에서 확인하세요">
           <input value={form.workerPublicId} onChange={(e) => set("workerPublicId", e.target.value)} className={INPUT} placeholder="xxxxxxxx-xxxx-..." />
         </Field>
-        <Field label="고용주 PublicId *" hint="Employers 메뉴에서 확인하세요">
+        <Field label="업체 PublicId *" hint="Employers 메뉴에서 확인하세요">
           <input value={form.employerPublicId} onChange={(e) => set("employerPublicId", e.target.value)} className={INPUT} placeholder="xxxxxxxx-xxxx-..." />
         </Field>
         <Field label="지원서 ID (선택)">

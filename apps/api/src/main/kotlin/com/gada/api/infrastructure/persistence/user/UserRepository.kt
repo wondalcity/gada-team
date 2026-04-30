@@ -22,6 +22,9 @@ class UserRepository(
     fun findByPhone(phone: String): User? =
         qf.selectFrom(u).where(u.phone.eq(phone)).fetchOne()
 
+    fun findByEmail(email: String): User? =
+        qf.selectFrom(u).where(u.email.eq(email)).fetchOne()
+
     fun findById(id: Long): User? =
         qf.selectFrom(u).where(u.id.eq(id)).fetchOne()
 

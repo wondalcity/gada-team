@@ -35,6 +35,9 @@ class User : BaseEntity() {
     @Column(name = "status", length = 30, nullable = false)
     var status: UserStatus = UserStatus.PENDING
 
+    @Column(name = "email", length = 255, unique = true)
+    var email: String? = null
+
     @Column(name = "password_hash", length = 255)
     var passwordHash: String? = null
 

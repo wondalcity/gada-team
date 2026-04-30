@@ -195,7 +195,7 @@ export default function ContractDetailPage() {
               <p className="text-sm font-medium text-neutral-900 font-mono">{data.workerUserId}</p>
             </div>
             <div>
-              <p className="text-xs text-neutral-500 mb-1">고용주 ID</p>
+              <p className="text-xs text-neutral-500 mb-1">업체 ID</p>
               <p className="text-sm font-medium text-neutral-900 font-mono">{data.employerUserId}</p>
             </div>
             <div>
@@ -254,7 +254,7 @@ export default function ContractDetailPage() {
           <div className="space-y-4">
             <DateRow label="생성일" date={data.createdAt} icon={Clock} />
             <DateRow label="발송일" date={data.sentAt} icon={Send} />
-            <DateRow label="고용주 서명일" date={data.employerSignedAt} icon={CheckCircle2} />
+            <DateRow label="업체 서명일" date={data.employerSignedAt} icon={CheckCircle2} />
             <DateRow label="근로자 서명일" date={data.workerSignedAt} icon={CheckCircle2} />
             <DateRow label="시작일" date={data.startDate} icon={Calendar} />
             <DateRow label="종료일" date={data.endDate} icon={Calendar} />

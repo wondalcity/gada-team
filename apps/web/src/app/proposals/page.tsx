@@ -333,11 +333,8 @@ export default function ProposalsPage() {
   const memberProposals = memberProposalsQuery.data?.content ?? [];
   const invitations = invitationsQuery.data ?? [];
 
-  // Show employer proposals section for TEAM_LEADER always,
-  // or for WORKER if they have proposals (means they lead a team).
-  const showJobProposals =
-    isLeader ||
-    (isWorker && !isLeader && !jobProposalsQuery.isLoading && jobProposals.length > 0);
+  // Show employer proposals section for all workers (including non-leaders) — always visible with empty placeholder.
+  const showJobProposals = isWorker;
 
   // Show loading skeleton until mount resolves auth state
   if (!mounted) {

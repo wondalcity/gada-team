@@ -2,6 +2,7 @@ package com.gada.api.presentation.v1.auth
 
 import com.gada.api.application.auth.AuthUseCase
 import com.gada.api.common.ApiResponse
+
 import com.gada.api.common.toResponseEntity
 import com.gada.api.config.CurrentUser
 import com.gada.api.config.GadaPrincipal
@@ -43,6 +44,15 @@ class AuthController(private val authUseCase: AuthUseCase) {
         @Valid @RequestBody request: PasswordLoginRequest,
     ): ResponseEntity<ApiResponse<AuthResponse>> {
         val result = authUseCase.loginWithPassword(request)
+        return ApiResponse.ok(result).toResponseEntity()
+    }
+
+    @Operation(summary = "관리자 로그인", description = "이메일 + 비밀번호로 관리자 로그인. ADMIN 역할만 허용.")
+    @PostMapping("/admin/login")
+    fun adminLogin(
+        @Valid @RequestBody request: AdminLoginRequest,
+    ): ResponseEntity<ApiResponse<AuthResponse>> {
+        val result = authUseCase.loginAsAdmin(request)
         return ApiResponse.ok(result).toResponseEntity()
     }
 

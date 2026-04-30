@@ -4,14 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
-// Always use relative URL so it goes through the Next.js rewrite proxy.
 const API_BASE = "";
 const IS_LOCAL_DEV = process.env.NODE_ENV === "development";
 
-// Dev admin accounts (only shown in local dev)
-// firebaseUid is used as the X-Dev-User-Id header — more stable than numeric ID
 const DEV_ADMINS = [
-  { firebaseUid: "dev-admin-1", label: "슈퍼 관리자", phone: "+82-10-9001-0001", desc: "SUPER_ADMIN · dev-admin-1" },
+  { firebaseUid: "dev-admin-1", label: "슈퍼 관리자", desc: "admin@gada.com · SUPER_ADMIN" },
 ];
 
 function getAdminToken(): string | null {
@@ -21,16 +18,13 @@ function getAdminToken(): string | null {
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Only auto-redirect if the canonical session marker (userId) is present.
-    // A stale JWT alone (e.g. after a buggy logout that didn't clear the token)
-    // must NOT trigger auto-redirect — it would cause an infinite redirect loop.
     if (localStorage.getItem("gada_admin_user_id")) {
       router.replace("/dashboard");
     }
@@ -48,10 +42,10 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/login/password`, {
+      const res = await fetch(`${API_BASE}/api/v1/auth/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim(), password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const json = await res.json().catch(() => ({}));
@@ -100,21 +94,21 @@ export default function AdminLoginPage() {
         <div className="bg-neutral-800 rounded-2xl p-6 border border-neutral-700">
           <h2 className="text-white font-semibold text-base mb-1">관리자 로그인</h2>
           <p className="text-neutral-400 text-sm mb-6">
-            전화번호와 비밀번호로 로그인하세요
+            이메일과 비밀번호로 로그인하세요
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-neutral-400 mb-1.5">
-                전화번호
+                이메일
               </label>
               <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+82 10 1234 5678"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@gada.com"
                 required
-                autoComplete="tel"
+                autoComplete="email"
                 className="w-full rounded-xl bg-neutral-700 border border-neutral-600 px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
               />
             </div>
@@ -153,7 +147,7 @@ export default function AdminLoginPage() {
 
             <button
               type="submit"
-              disabled={loading || !phone || !password}
+              disabled={loading || !email || !password}
               className="w-full rounded-xl bg-amber-400 py-3 text-sm font-bold text-neutral-900 hover:bg-amber-500 disabled:opacity-50 transition-colors mt-2"
             >
               {loading ? "로그인 중…" : "로그인"}

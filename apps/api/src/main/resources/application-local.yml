@@ -1,14 +1,18 @@
 # Local development overrides
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5436/gada_hiring
+    url: jdbc:postgresql://localhost:5432/gada_hiring
     username: gada
     password: gada_dev_pass
 
-  data:
-    redis:
-      host: localhost
-      port: 6380
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.data.redis.RedisHealthContributorAutoConfiguration
+
+  cache:
+    type: simple
 
   jpa:
     show-sql: true
@@ -34,6 +38,11 @@ sms:
 firebase:
   project-id: gada-team
   service-account-path: src/main/resources/firebase-service-account.json
+
+management:
+  health:
+    redis:
+      enabled: false
 
 # Dev auth bypass (only active in local profile)
 dev:

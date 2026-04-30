@@ -94,7 +94,7 @@ function RejectModal({
         </p>
         <div className="mb-4">
           <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
-            거절 사유 (고용주에게 표시됩니다)
+            거절 사유 (업체에게 표시됩니다)
           </label>
           <textarea
             value={note}
@@ -177,7 +177,7 @@ export default function AdminPointsPage() {
   const COLUMNS: Column<AdminPointChargeItem>[] = [
     {
       key: "userPhone",
-      header: "고용주",
+      header: "업체",
       render: (row) => (
         <div>
           <p className="text-sm font-medium text-neutral-900">{row.userPhone ?? `ID: ${row.userId}`}</p>
@@ -305,7 +305,7 @@ export default function AdminPointsPage() {
         <div>
           <h1 className="text-2xl font-extrabold text-neutral-950">포인트 충전 관리</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            고용주 포인트 충전 요청을 승인하거나 거절합니다. 승인 시 즉시 포인트가 지급됩니다.
+            업체 포인트 충전 요청을 승인하거나 거절합니다. 승인 시 즉시 포인트가 지급됩니다.
           </p>
         </div>
 

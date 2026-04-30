@@ -92,29 +92,30 @@ SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 0));
 
 -- ── 2. Users ──────────────────────────────────────────────────────
 -- Admin password: Gada2024!  (BCrypt hash below)
-INSERT INTO users (phone, firebase_uid, role, status, admin_role, password_hash) VALUES
+INSERT INTO users (phone, firebase_uid, role, status, admin_role, password_hash, email) VALUES
 -- Workers
-    ('+82-10-1001-0001', 'dev-worker-1',       'WORKER',      'ACTIVE', NULL, NULL),
-    ('+82-10-1002-0002', 'dev-worker-2',       'WORKER',      'ACTIVE', NULL, NULL),
-    ('+82-10-1004-0004', 'dev-worker-4',       'WORKER',      'ACTIVE', NULL, NULL),
-    ('+82-10-1005-0005', 'dev-worker-5',       'WORKER',      'ACTIVE', NULL, NULL),
-    ('+82-10-1006-0006', 'dev-worker-6',       'WORKER',      'ACTIVE', NULL, NULL),
+    ('+82-10-1001-0001', 'dev-worker-1',       'WORKER',      'ACTIVE', NULL, NULL, NULL),
+    ('+82-10-1002-0002', 'dev-worker-2',       'WORKER',      'ACTIVE', NULL, NULL, NULL),
+    ('+82-10-1004-0004', 'dev-worker-4',       'WORKER',      'ACTIVE', NULL, NULL, NULL),
+    ('+82-10-1005-0005', 'dev-worker-5',       'WORKER',      'ACTIVE', NULL, NULL, NULL),
+    ('+82-10-1006-0006', 'dev-worker-6',       'WORKER',      'ACTIVE', NULL, NULL, NULL),
 -- Team Leaders
-    ('+82-10-1003-0003', 'dev-leader-3',       'TEAM_LEADER', 'ACTIVE', NULL, NULL),
-    ('+82-10-1007-0007', 'dev-leader-7',       'TEAM_LEADER', 'ACTIVE', NULL, NULL),
+    ('+82-10-1003-0003', 'dev-leader-3',       'TEAM_LEADER', 'ACTIVE', NULL, NULL, NULL),
+    ('+82-10-1007-0007', 'dev-leader-7',       'TEAM_LEADER', 'ACTIVE', NULL, NULL, NULL),
 -- Employers
-    ('+82-10-2001-0001', 'dev-employer-1',     'EMPLOYER',    'ACTIVE', NULL, NULL),
-    ('+82-10-2002-0002', 'dev-employer-2',     'EMPLOYER',    'ACTIVE', NULL, NULL),
-    ('+82-10-2003-0003', 'dev-employer-3',     'EMPLOYER',    'ACTIVE', NULL, NULL),
--- Admin (password: Gada2024!)
+    ('+82-10-2001-0001', 'dev-employer-1',     'EMPLOYER',    'ACTIVE', NULL, NULL, NULL),
+    ('+82-10-2002-0002', 'dev-employer-2',     'EMPLOYER',    'ACTIVE', NULL, NULL, NULL),
+    ('+82-10-2003-0003', 'dev-employer-3',     'EMPLOYER',    'ACTIVE', NULL, NULL, NULL),
+-- Admin (email: admin@gada.com / password: Gada2024!)
     ('+82-10-9001-0001', 'dev-admin-1',        'ADMIN',       'ACTIVE', 'SUPER_ADMIN',
-     '$2a$10$Dsk.rKicYH1TjiKYeI3Sde6F0/b2Q/GZd1REp1cHH8VOuGDrWTvsS')
+     '$2a$10$Dsk.rKicYH1TjiKYeI3Sde6F0/b2Q/GZd1REp1cHH8VOuGDrWTvsS', 'admin@gada.com')
 ON CONFLICT (phone) DO UPDATE SET
     firebase_uid  = EXCLUDED.firebase_uid,
     role          = EXCLUDED.role,
     status        = EXCLUDED.status,
     admin_role    = EXCLUDED.admin_role,
-    password_hash = EXCLUDED.password_hash;
+    password_hash = EXCLUDED.password_hash,
+    email         = EXCLUDED.email;
 
 -- ── 3. Worker Profiles ─────────────────────────────────────────────
 
