@@ -1,7 +1,6 @@
-# Production profile — Railway + Supabase
+# Production profile — Render (web service + managed PostgreSQL)
 spring:
   datasource:
-    # Supabase Transaction Pooler (port 6543) for short-lived connections
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
@@ -13,12 +12,10 @@ spring:
       connection-timeout: 30000
       idle-timeout: 300000
       max-lifetime: 600000
-      # Required for Supabase (sets schema search path on each connection)
-      connection-init-sql: SET search_path TO public
       # With lazy-initialization=true, first request triggers pool init.
-      # Default 1ms causes immediate fail for remote Supabase (~150ms RTT).
-      # 60000ms = wait up to 60s for the initial pool connection.
-      initialization-fail-timeout: 60000
+      # Default 1ms causes immediate fail for remote DB (~10ms RTT).
+      # 30000ms = wait up to 30s for the initial pool connection.
+      initialization-fail-timeout: 30000
 
   jpa:
     hibernate:
@@ -33,7 +30,6 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
     out-of-order: false
-    # Use Supabase direct connection (not pooler) for migrations
     url: ${FLYWAY_DB_URL:${DB_URL}}
     user: ${DB_USERNAME}
     password: ${DB_PASSWORD}
