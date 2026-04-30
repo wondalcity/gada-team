@@ -3,8 +3,8 @@ services:
     name: gada-api
     runtime: docker
     plan: free
-    dockerfilePath: apps/api/Dockerfile
-    dockerContext: apps/api
+    dockerfilePath: Dockerfile.api
+    dockerContext: .
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
