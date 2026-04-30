@@ -445,11 +445,7 @@ export default function EmployerTeamsPage() {
             placeholder={t("teams.searchPlaceholder")}
             className="h-10 w-full rounded-xl border border-neutral-200 bg-white pl-9 pr-4 text-sm focus:border-primary-500 focus:outline-none" />
         </div>
-        <button type="button" onClick={() => setFilterOpen(v => !v)}
-          className="flex h-10 items-center gap-1.5 rounded-xl border border-neutral-200 px-3.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
-          <SlidersHorizontal className="h-4 w-4" />
-          {t("employer.filterBtn")}
-        </button>
+        {/* Filter toggle button hidden — sidebar filter always visible on desktop */}
       </form>
 
       <div className="flex gap-5">
