@@ -1,5 +1,6 @@
 # ── Stage 1: Build ────────────────────────────────────────────
 FROM eclipse-temurin:21-jdk-alpine AS builder
+RUN echo "=== Render Docker build started ===" && java -version
 
 WORKDIR /workspace
 
