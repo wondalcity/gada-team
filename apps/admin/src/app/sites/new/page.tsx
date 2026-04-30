@@ -3,6 +3,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createAdminSite, AdminUpsertSitePayload } from "@/lib/api";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { DateInput } from "@/components/ui/DateInput";
 
 const INPUT = "w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-amber-400";
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -59,8 +60,12 @@ function SiteNewContent() {
         <Field label="상세주소"><input value={form.addressDetail ?? ""} onChange={(e) => set("addressDetail", e.target.value)} className={INPUT} placeholder="B동 101호" /></Field>
         <Field label="설명"><textarea value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} rows={2} className={INPUT} /></Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="공사 시작일"><input type="date" value={form.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} className={INPUT} /></Field>
-          <Field label="공사 종료일"><input type="date" value={form.endDate ?? ""} onChange={(e) => set("endDate", e.target.value)} className={INPUT} /></Field>
+          <Field label="공사 시작일">
+            <DateInput value={form.startDate ?? ""} onChange={(v) => set("startDate", v)} placeholder="시작일 선택" />
+          </Field>
+          <Field label="공사 종료일">
+            <DateInput value={form.endDate ?? ""} onChange={(v) => set("endDate", v)} placeholder="종료일 선택" />
+          </Field>
         </div>
         <Field label="상태">
           <select value={form.status ?? "ACTIVE"} onChange={(e) => set("status", e.target.value)} className={INPUT}>
