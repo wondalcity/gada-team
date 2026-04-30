@@ -16,8 +16,9 @@ spring:
       # Required for Supabase (sets schema search path on each connection)
       connection-init-sql: SET search_path TO public
       # With lazy-initialization=true, first request triggers pool init.
-      # -1 = never fail on pool init (wait indefinitely for remote DB)
-      initialization-fail-timeout: -1
+      # Default 1ms causes immediate fail for remote Supabase (~150ms RTT).
+      # 60000ms = wait up to 60s for the initial pool connection.
+      initialization-fail-timeout: 60000
 
   jpa:
     hibernate:
