@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Search, Users, FileText, User, Bell } from "lucide-react";
@@ -14,8 +15,8 @@ export function MobileBottomNav() {
   const t = useT();
   const getEffectiveRole = useAuthStore((s) => s.getEffectiveRole);
   // Defer role check to client-only to avoid SSR/client hydration mismatch.
-  const [isWorker, setIsWorker] = React.useState(false);
-  React.useEffect(() => {
+  const [isWorker, setIsWorker] = useState(false);
+  useEffect(() => {
     setIsWorker(getEffectiveRole() === "WORKER");
   }, [getEffectiveRole]);
 
