@@ -102,7 +102,7 @@ function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>
   ];
   const TEAM_LEADER_LINKS = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
-    { label: "팀원 찾기", href: "/workers", icon: Users },
+    { label: t("workers.title"), href: "/workers", icon: Users },
     { label: t("nav.teams"), href: "/teams", icon: Users },
     { label: t("nav.guides"), href: "/guides", icon: BookOpen },
     { label: t("nav.applications"), href: "/applications", icon: FileText },
