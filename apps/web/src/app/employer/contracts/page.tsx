@@ -16,7 +16,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { contractsApi } from "@/lib/contracts-api";
-import { uploadImageToStorage } from "@/lib/firebase";
 import { useT } from "@/lib/i18n";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -58,10 +57,7 @@ export default function EmployerContractTemplatePage() {
   async function handleDocFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const allowed = ["application/pdf", "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/haansofthwp", "application/x-hwp"];
-    if (!allowed.includes(file.type) && !file.name.match(/\.(pdf|doc|docx|hwp)$/i)) {
+    if (!file.name.match(/\.(pdf|doc|docx|hwp)$/i)) {
       setUploadError(t("employer.contractFileTypes"));
       return;
     }
@@ -72,14 +68,16 @@ export default function EmployerContractTemplatePage() {
     setUploadError(null);
     setUploadingDoc(true);
     try {
-      const path = `contracts/templates/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
-      const url = await uploadImageToStorage(file, path);
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("upload failed");
+      const { url } = await res.json();
       setForm((f) => ({ ...f, documentUrl: url }));
     } catch {
       setUploadError(t("employer.contractUploadFailed"));
     } finally {
       setUploadingDoc(false);
-      // Reset file input so same file can be re-selected
       if (docFileRef.current) docFileRef.current.value = "";
     }
   }

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useT } from "@/lib/i18n";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
@@ -18,51 +19,65 @@ import {
 } from "lucide-react";
 import { employerApi, ApplicationSummary, ApplicationDetail, ApplicationStatus } from "@/lib/employer-api";
 import { contractsApi, type ContractDetail, type ContractTemplateResponse } from "@/lib/contracts-api";
-import { ClipboardSignature, ExternalLink } from "lucide-react";
+import { ClipboardSignature, ExternalLink, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DateInput } from "@/components/ui/DateInput";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<string, { label: string; className: string; icon?: React.ReactNode }> = {
-  APPLIED:           { label: "지원 완료",   className: "bg-primary-50 text-primary-700",     icon: <Clock className="h-3 w-3" /> },
-  UNDER_REVIEW:      { label: "검토 중",     className: "bg-warning-50 text-warning-700",   icon: <Eye className="h-3 w-3" /> },
-  SHORTLISTED:       { label: "선발",        className: "bg-secondary-50 text-secondary-600", icon: <Star className="h-3 w-3" /> },
-  INTERVIEW_PENDING: { label: "면접 예정",   className: "bg-secondary-50 text-secondary-600", icon: <Clock className="h-3 w-3" /> },
-  ON_HOLD:           { label: "보류",        className: "bg-neutral-100 text-neutral-500" },
-  REJECTED:          { label: "불합격",      className: "bg-danger-50 text-danger-700",       icon: <XCircle className="h-3 w-3" /> },
-  HIRED:             { label: "채용 확정",   className: "bg-success-50 text-success-700", icon: <CheckCircle2 className="h-3 w-3" /> },
-  WITHDRAWN:         { label: "지원 취소",   className: "bg-neutral-100 text-neutral-400" },
+const STATUS_CONFIG: Record<string, { className: string; icon?: React.ReactNode }> = {
+  APPLIED:           { className: "bg-primary-50 text-primary-700",     icon: <Clock className="h-3 w-3" /> },
+  UNDER_REVIEW:      { className: "bg-warning-50 text-warning-700",     icon: <Eye className="h-3 w-3" /> },
+  SHORTLISTED:       { className: "bg-secondary-50 text-secondary-600", icon: <Star className="h-3 w-3" /> },
+  INTERVIEW_PENDING: { className: "bg-secondary-50 text-secondary-600", icon: <Clock className="h-3 w-3" /> },
+  ON_HOLD:           { className: "bg-neutral-100 text-neutral-500" },
+  REJECTED:          { className: "bg-danger-50 text-danger-700",       icon: <XCircle className="h-3 w-3" /> },
+  HIRED:             { className: "bg-success-50 text-success-700",     icon: <CheckCircle2 className="h-3 w-3" /> },
+  WITHDRAWN:         { className: "bg-neutral-100 text-neutral-400" },
 };
 
 // Actions available per status
-const NEXT_ACTIONS: Record<string, { status: string; label: string; variant: "primary" | "danger" | "secondary" }[]> = {
+const NEXT_ACTIONS: Record<string, { status: string; labelKey: string; variant: "primary" | "danger" | "secondary" }[]> = {
   APPLIED: [
-    { status: "UNDER_REVIEW", label: "검토 시작", variant: "primary" },
-    { status: "REJECTED",     label: "불합격",    variant: "danger" },
+    { status: "UNDER_REVIEW", labelKey: "applicants.statusStartReview", variant: "primary" },
+    { status: "REJECTED",     labelKey: "applicants.statusRejected",    variant: "danger" },
   ],
   UNDER_REVIEW: [
-    { status: "SHORTLISTED", label: "선발",    variant: "primary" },
-    { status: "REJECTED",    label: "불합격",  variant: "danger" },
-    { status: "ON_HOLD",     label: "보류",    variant: "secondary" },
+    { status: "SHORTLISTED", labelKey: "applicants.statusPassed",    variant: "primary" },
+    { status: "REJECTED",    labelKey: "applicants.statusRejected",  variant: "danger" },
+    { status: "ON_HOLD",     labelKey: "applicants.statusHold",      variant: "secondary" },
   ],
   SHORTLISTED: [
-    { status: "HIRED",    label: "채용 확정", variant: "primary" },
-    { status: "REJECTED", label: "불합격",    variant: "danger" },
+    { status: "HIRED",    labelKey: "applicants.statusHired",    variant: "primary" },
+    { status: "REJECTED", labelKey: "applicants.statusRejected", variant: "danger" },
   ],
   ON_HOLD: [
-    { status: "UNDER_REVIEW", label: "검토 재개", variant: "primary" },
-    { status: "REJECTED",     label: "불합격",    variant: "danger" },
+    { status: "UNDER_REVIEW", labelKey: "applicants.statusReviewing", variant: "primary" },
+    { status: "REJECTED",     labelKey: "applicants.statusRejected",  variant: "danger" },
   ],
 };
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  APPLIED:           "applicants.statusPending",
+  UNDER_REVIEW:      "applicants.statusReviewing",
+  SHORTLISTED:       "applicants.statusPassed",
+  INTERVIEW_PENDING: "applicants.statusInterview",
+  ON_HOLD:           "applicants.statusHold",
+  REJECTED:          "applicants.statusRejected",
+  HIRED:             "applicants.statusHired",
+  WITHDRAWN:         "applicants.statusCanceled",
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const c = STATUS_CONFIG[status] ?? { label: status, className: "bg-neutral-100 text-neutral-500" };
+  const t = useT();
+  const c = STATUS_CONFIG[status] ?? { className: "bg-neutral-100 text-neutral-500" };
+  const label = STATUS_LABEL_KEYS[status] ? t(STATUS_LABEL_KEYS[status] as Parameters<typeof t>[0]) : status;
   return (
     <span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full", c.className)}>
       {c.icon}
-      {c.label}
+      {label}
     </span>
   );
 }
@@ -97,6 +112,8 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = React.useState(false);
   const [sendError, setSendError] = React.useState<string | null>(null);
+  // "template" = pre-fill from saved template, "manual" = blank form
+  const [templateSource, setTemplateSource] = React.useState<"template" | "manual">("template");
   const [formData, setFormData] = React.useState({
     startDate: "",
     endDate: "",
@@ -112,16 +129,17 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
     retry: false,
   });
 
-  // Fetch employer template to pre-fill form
   const { data: template } = useQuery({
     queryKey: ["employer-contract-template"],
     queryFn: () => contractsApi.getTemplate(),
     retry: false,
   });
 
-  // When template loads and form hasn't been touched, pre-fill
+  const hasTemplate = !!(template?.payAmount || template?.terms || template?.documentUrl);
+
+  // Apply template fields when source switches to "template"
   React.useEffect(() => {
-    if (template && !contract) {
+    if (templateSource === "template" && template) {
       setFormData((f) => ({
         ...f,
         payAmount: template.payAmount ? String(template.payAmount) : f.payAmount,
@@ -130,7 +148,26 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
         documentUrl: template.documentUrl ?? f.documentUrl,
       }));
     }
-  }, [template, contract]);
+    if (templateSource === "manual") {
+      setFormData({ startDate: "", endDate: "", payAmount: "", payUnit: "DAILY", terms: "", documentUrl: "" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateSource]);
+
+  // Auto-select template when form opens
+  React.useEffect(() => {
+    if (showForm && template && !contract) {
+      setTemplateSource("template");
+      setFormData((f) => ({
+        ...f,
+        payAmount: template.payAmount ? String(template.payAmount) : f.payAmount,
+        payUnit: template.payUnit ?? f.payUnit,
+        terms: template.terms ?? f.terms,
+        documentUrl: template.documentUrl ?? f.documentUrl,
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, template]);
 
   const sendMutation = useMutation({
     mutationFn: () => contractsApi.sendForApplication(applicationPublicId, {
@@ -154,19 +191,20 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
 
   return (
     <div className="rounded-lg border border-neutral-100 bg-white p-4">
+      {/* Section header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <ClipboardSignature className="h-4 w-4 text-primary-500" />
           <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">계약서</p>
         </div>
-        {!contract && (
-          <Link
-            href="/employer/contracts"
-            className="text-[10px] text-primary-500 hover:underline"
-          >
-            양식 관리 →
-          </Link>
-        )}
+        {/* 양식 관리 — always visible as a button */}
+        <Link
+          href="/employer/contracts"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-100 transition-colors"
+        >
+          <Settings2 className="h-3.5 w-3.5" />
+          양식 관리
+        </Link>
       </div>
 
       {isLoading ? (
@@ -229,26 +267,46 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
               <span>{sendError}</span>
             </div>
           )}
+
+          {/* Template selector dropdown */}
+          <div>
+            <label className="text-xs text-neutral-500 mb-1 block">계약서 양식 선택</label>
+            <select
+              value={templateSource}
+              onChange={(e) => setTemplateSource(e.target.value as "template" | "manual")}
+              className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+            >
+              {hasTemplate && (
+                <option value="template">
+                  저장된 양식 사용
+                  {template?.payAmount ? ` (${template.payAmount.toLocaleString("ko-KR")}원/${template.payUnit === "DAILY" ? "일" : template.payUnit === "MONTHLY" ? "월" : "시"})` : ""}
+                </option>
+              )}
+              <option value="manual">직접 입력</option>
+            </select>
+          </div>
+
+          {/* Date range — Gada DateInput component */}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-neutral-500 mb-1 block">시작일</label>
-              <input
-                type="date"
+              <DateInput
                 value={formData.startDate}
-                onChange={(e) => setFormData((f) => ({ ...f, startDate: e.target.value }))}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+                onChange={(v) => setFormData((f) => ({ ...f, startDate: v }))}
+                placeholder="시작일 선택"
               />
             </div>
             <div>
               <label className="text-xs text-neutral-500 mb-1 block">종료일</label>
-              <input
-                type="date"
+              <DateInput
                 value={formData.endDate}
-                onChange={(e) => setFormData((f) => ({ ...f, endDate: e.target.value }))}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
+                onChange={(v) => setFormData((f) => ({ ...f, endDate: v }))}
+                placeholder="종료일 선택"
+                min={formData.startDate || undefined}
               />
             </div>
           </div>
+
           <div className="flex gap-2">
             <div className="flex-1">
               <label className="text-xs text-neutral-500 mb-1 block">급여 (원)</label>
@@ -265,7 +323,7 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
               <select
                 value={formData.payUnit}
                 onChange={(e) => setFormData((f) => ({ ...f, payUnit: e.target.value }))}
-                className="rounded-lg border border-neutral-200 px-2 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-200"
+                className="h-[38px] rounded-lg border border-neutral-200 px-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-200"
               >
                 <option value="DAILY">일급</option>
                 <option value="MONTHLY">월급</option>
@@ -273,6 +331,7 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
               </select>
             </div>
           </div>
+
           <div>
             <label className="text-xs text-neutral-500 mb-1 block">계약 조건 (선택)</label>
             <textarea
@@ -283,16 +342,28 @@ function ContractSection({ applicationPublicId }: { applicationPublicId: string 
               className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200 resize-none"
             />
           </div>
-          <div>
-            <label className="text-xs text-neutral-500 mb-1 block">문서 URL (선택)</label>
-            <input
-              type="url"
-              value={formData.documentUrl}
-              onChange={(e) => setFormData((f) => ({ ...f, documentUrl: e.target.value }))}
-              placeholder="https://..."
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
-            />
-          </div>
+
+          {formData.documentUrl && (
+            <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+              <ExternalLink className="h-3.5 w-3.5 flex-shrink-0 text-primary-500" />
+              <a
+                href={formData.documentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 truncate text-xs font-medium text-primary-600 hover:underline"
+              >
+                첨부 문서 확인
+              </a>
+              <button
+                type="button"
+                onClick={() => setFormData((f) => ({ ...f, documentUrl: "" }))}
+                className="text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => { setShowForm(false); setSendError(null); }}
@@ -334,6 +405,7 @@ function ApplicantDrawer({
   onClose: () => void;
   onStatusChange: (status: string) => void;
 }) {
+  const t = useT();
   const { data, isLoading } = useQuery({
     queryKey: ["employer-app-detail", appPublicId],
     queryFn: () => employerApi.getApplicationDetail(appPublicId),
@@ -507,7 +579,7 @@ function ApplicantDrawer({
                   action.variant === "secondary" && "border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
                 )}
               >
-                {action.label}
+                {t(action.labelKey as Parameters<typeof t>[0])}
               </button>
             ))}
           </div>
@@ -703,6 +775,7 @@ function ApplicantRow({
   onOpen: () => void;
   onStatusChange: (status: string) => void;
 }) {
+  const t = useT();
   const actions = NEXT_ACTIONS[app.status] ?? [];
   const primaryAction = actions.find((a) => a.variant === "primary");
 
@@ -738,7 +811,7 @@ function ApplicantRow({
               onClick={() => onStatusChange(primaryAction.status)}
               className="px-2.5 py-1 rounded-lg bg-primary-500 text-white text-xs font-semibold hover:bg-primary-600 transition-colors"
             >
-              {primaryAction.label}
+              {t(primaryAction.labelKey as Parameters<typeof t>[0])}
             </button>
           )}
           <button
