@@ -13,7 +13,11 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const t = useT();
   const getEffectiveRole = useAuthStore((s) => s.getEffectiveRole);
-  const isWorker = getEffectiveRole() === "WORKER";
+  // Defer role check to client-only to avoid SSR/client hydration mismatch.
+  const [isWorker, setIsWorker] = React.useState(false);
+  React.useEffect(() => {
+    setIsWorker(getEffectiveRole() === "WORKER");
+  }, [getEffectiveRole]);
 
   const ALL_TABS = [
     { label: t("bottom.home"), href: "/", icon: Home, exactMatch: true },
