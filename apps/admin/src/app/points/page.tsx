@@ -19,6 +19,9 @@ import {
   getAdminChargeRequests,
   approveChargeRequest,
   rejectChargeRequest,
+  getAdminTlChargeRequests,
+  approveTlChargeRequest,
+  rejectTlChargeRequest,
 } from "@/lib/api";
 import { fmtDatetime } from "@/lib/format";
 import { cn } from "@gada/ui";
@@ -133,16 +136,32 @@ function RejectModal({
 // ─── Page ─────────────────────────────────────────────────────
 
 export default function AdminPointsPage() {
+  const [tab, setTab] = React.useState<"employer" | "leader">("leader");
   const [page, setPage] = React.useState(0);
   const [status, setStatus] = React.useState("");
   const [rejectTarget, setRejectTarget] = React.useState<AdminPointChargeItem | null>(null);
   const [toast, setToast] = React.useState<{ msg: string; type: "success" | "error" } | null>(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isError, refetch } = useQuery<PagedResponse<AdminPointChargeItem>>({
+  // Reset page on tab/status change
+  React.useEffect(() => { setPage(0); }, [tab, status]);
+
+  const { data: employerData, isLoading: employerLoading, isError: employerError, refetch: refetchEmployer } = useQuery<PagedResponse<AdminPointChargeItem>>({
     queryKey: ["admin", "points", "charges", page, status],
     queryFn: () => getAdminChargeRequests({ page, size: PAGE_SIZE, status: status || undefined }),
+    enabled: tab === "employer",
   });
+
+  const { data: leaderData, isLoading: leaderLoading, isError: leaderError, refetch: refetchLeader } = useQuery<PagedResponse<AdminPointChargeItem>>({
+    queryKey: ["admin", "points", "tl-charges", page, status],
+    queryFn: () => getAdminTlChargeRequests({ page, size: PAGE_SIZE, status: status || undefined }),
+    enabled: tab === "leader",
+  });
+
+  const data = tab === "leader" ? leaderData : employerData;
+  const isLoading = tab === "leader" ? leaderLoading : employerLoading;
+  const isError = tab === "leader" ? leaderError : employerError;
+  const refetch = tab === "leader" ? refetchLeader : refetchEmployer;
 
   const showToast = (msg: string, type: "success" | "error") => {
     setToast({ msg, type });
@@ -150,7 +169,8 @@ export default function AdminPointsPage() {
   };
 
   const approveMutation = useMutation({
-    mutationFn: (publicId: string) => approveChargeRequest(publicId),
+    mutationFn: (publicId: string) =>
+      tab === "leader" ? approveTlChargeRequest(publicId) : approveChargeRequest(publicId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "points"] });
       showToast("충전 요청이 승인되었습니다. 포인트가 지급되었습니다.", "success");
@@ -160,7 +180,7 @@ export default function AdminPointsPage() {
 
   const rejectMutation = useMutation({
     mutationFn: ({ publicId, note }: { publicId: string; note: string }) =>
-      rejectChargeRequest(publicId, note),
+      tab === "leader" ? rejectTlChargeRequest(publicId, note) : rejectChargeRequest(publicId, note),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "points"] });
       setRejectTarget(null);
@@ -177,7 +197,7 @@ export default function AdminPointsPage() {
   const COLUMNS: Column<AdminPointChargeItem>[] = [
     {
       key: "userPhone",
-      header: "업체",
+      header: tab === "leader" ? "팀장" : "업체",
       render: (row) => (
         <div>
           <p className="text-sm font-medium text-neutral-900">{row.userPhone ?? `ID: ${row.userId}`}</p>
@@ -305,8 +325,29 @@ export default function AdminPointsPage() {
         <div>
           <h1 className="text-2xl font-extrabold text-neutral-950">포인트 충전 관리</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            업체 포인트 충전 요청을 승인하거나 거절합니다. 승인 시 즉시 포인트가 지급됩니다.
+            충전 요청을 승인하거나 거절합니다. 승인 시 즉시 포인트가 지급됩니다.
           </p>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="flex gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-1 w-fit">
+          {([
+            { key: "leader", label: "팀장 충전 요청" },
+            { key: "employer", label: "고용주 충전 요청" },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => { setTab(t.key); setStatus(""); }}
+              className={cn(
+                "rounded-lg px-4 py-1.5 text-sm font-semibold transition-all",
+                tab === t.key
+                  ? "bg-white text-neutral-900 shadow-sm border border-neutral-200"
+                  : "text-neutral-500 hover:text-neutral-700"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Stats */}

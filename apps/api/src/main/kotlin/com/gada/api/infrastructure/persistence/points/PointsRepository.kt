@@ -278,4 +278,36 @@ class PointsRepository(private val em: EntityManager) {
             "SELECT COUNT(r) FROM TeamLeaderPointChargeRequest r WHERE r.tossPaymentKey = :key",
             Long::class.javaObjectType
         ).setParameter("key", paymentKey).singleResult > 0
+
+    fun findTeamLeaderChargeRequestByPublicId(publicId: UUID): TeamLeaderPointChargeRequest? =
+        em.createQuery(
+            "SELECT r FROM TeamLeaderPointChargeRequest r WHERE r.publicId = :pid",
+            TeamLeaderPointChargeRequest::class.java
+        ).setParameter("pid", publicId)
+            .resultList.firstOrNull()
+
+    fun findTeamLeaderChargeRequestsByStatus(
+        status: ChargeStatus?,
+        page: Int,
+        size: Int,
+    ): Pair<List<TeamLeaderPointChargeRequest>, Long> {
+        val where = if (status != null) "WHERE r.status = :status" else ""
+        val statusName = status?.name
+
+        val total = em.createQuery(
+            "SELECT COUNT(r) FROM TeamLeaderPointChargeRequest r $where",
+            Long::class.javaObjectType
+        ).also { q -> statusName?.let { q.setParameter("status", it) } }
+            .singleResult
+
+        val content = em.createQuery(
+            "SELECT r FROM TeamLeaderPointChargeRequest r $where ORDER BY r.createdAt DESC",
+            TeamLeaderPointChargeRequest::class.java
+        ).also { q -> statusName?.let { q.setParameter("status", it) } }
+            .setFirstResult(page * size)
+            .setMaxResults(size)
+            .resultList
+
+        return Pair(content, total)
+    }
 }

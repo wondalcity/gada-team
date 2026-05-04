@@ -1305,3 +1305,30 @@ export async function rejectChargeRequest(publicId: string, adminNote: string): 
     body: JSON.stringify({ note: adminNote }),
   });
 }
+
+// ─── Team Leader Points management ────────────────────────────
+
+export async function getAdminTlChargeRequests(params: {
+  status?: string;
+  page?: number;
+  size?: number;
+}): Promise<PagedResponse<AdminPointChargeItem>> {
+  const p = new URLSearchParams();
+  if (params.status) p.set("status", params.status);
+  if (params.page !== undefined) p.set("page", String(params.page));
+  if (params.size !== undefined) p.set("size", String(params.size));
+  return adminFetch<PagedResponse<AdminPointChargeItem>>(`/admin/points/tl-charges?${p.toString()}`);
+}
+
+export async function approveTlChargeRequest(publicId: string): Promise<AdminPointChargeItem> {
+  return adminFetch<AdminPointChargeItem>(`/admin/points/tl-charges/${publicId}/approve`, {
+    method: "PATCH",
+  });
+}
+
+export async function rejectTlChargeRequest(publicId: string, adminNote: string): Promise<AdminPointChargeItem> {
+  return adminFetch<AdminPointChargeItem>(`/admin/points/tl-charges/${publicId}/reject`, {
+    method: "PATCH",
+    body: JSON.stringify({ note: adminNote }),
+  });
+}

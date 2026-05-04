@@ -156,6 +156,130 @@ class AdminPointsController(
     }
 }
 
+    // ═══════════════════════════════════════════════════════
+    // TEAM LEADER CHARGE REQUESTS — LIST
+    // ═══════════════════════════════════════════════════════
+
+    @Operation(summary = "팀장 충전 요청 목록 (관리자)", security = [SecurityRequirement(name = "Bearer")])
+    @GetMapping("/tl-charges")
+    fun listTlChargeRequests(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(required = false) status: String?,
+        @CurrentUser principal: GadaPrincipal,
+    ): ResponseEntity<ApiResponse<PageResponse<AdminChargeRequestItem>>> {
+        val statusFilter = status?.let {
+            runCatching { ChargeStatus.valueOf(it) }.getOrElse {
+                throw BusinessException("허용되지 않는 상태 값입니다.", "INVALID_STATUS")
+            }
+        }
+
+        val (requests, total) = pointsRepository.findTeamLeaderChargeRequestsByStatus(statusFilter, page, size)
+        val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
+        val response = PageResponse(
+            content = requests.map { req ->
+                AdminChargeRequestItem(
+                    publicId = req.publicId.toString(),
+                    userId = req.userId,
+                    amountKrw = req.amountKrw,
+                    pointsToAdd = req.pointsToAdd,
+                    paymentMethod = req.paymentMethod,
+                    status = req.status,
+                    adminNote = req.adminNote,
+                    reviewedBy = null,
+                    reviewedAt = req.reviewedAt,
+                    createdAt = req.createdAt,
+                )
+            },
+            page = page,
+            size = size,
+            totalElements = total,
+            totalPages = totalPages,
+            isFirst = page == 0,
+            isLast = page >= totalPages - 1,
+        )
+        return ApiResponse.ok(response).toResponseEntity()
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // TEAM LEADER CHARGE REQUESTS — APPROVE
+    // ═══════════════════════════════════════════════════════
+
+    @Operation(summary = "팀장 충전 요청 승인", security = [SecurityRequirement(name = "Bearer")])
+    @PatchMapping("/tl-charges/{publicId}/approve")
+    fun approveTlChargeRequest(
+        @PathVariable publicId: UUID,
+        @RequestBody(required = false) req: ReviewChargeRequest?,
+        @CurrentUser principal: GadaPrincipal,
+    ): ResponseEntity<ApiResponse<PointChargeRequestItem>> {
+        val adminId = principal.userId ?: throw UnauthorizedException()
+
+        val chargeRequest = pointsRepository.findTeamLeaderChargeRequestByPublicId(publicId)
+            ?: throw NotFoundException("TeamLeaderPointChargeRequest", publicId)
+
+        if (!chargeRequest.isPending) {
+            throw BusinessException("이미 처리된 충전 요청입니다. (현재 상태: ${chargeRequest.status})", "ALREADY_REVIEWED")
+        }
+
+        chargeRequest.approve(adminId, req?.note)
+        pointsRepository.saveTeamLeaderChargeRequest(chargeRequest)
+
+        val account = pointsRepository.findOrCreateTeamLeaderAccount(chargeRequest.userId)
+        account.addPoints(chargeRequest.pointsToAdd)
+        pointsRepository.saveTeamLeaderAccount(account)
+
+        return ApiResponse.ok(
+            PointChargeRequestItem(
+                publicId = chargeRequest.publicId.toString(),
+                amountKrw = chargeRequest.amountKrw,
+                pointsToAdd = chargeRequest.pointsToAdd,
+                paymentMethod = chargeRequest.paymentMethod,
+                status = chargeRequest.status,
+                adminNote = chargeRequest.adminNote,
+                reviewedAt = chargeRequest.reviewedAt,
+                createdAt = chargeRequest.createdAt,
+            )
+        ).toResponseEntity()
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // TEAM LEADER CHARGE REQUESTS — REJECT
+    // ═══════════════════════════════════════════════════════
+
+    @Operation(summary = "팀장 충전 요청 거절", security = [SecurityRequirement(name = "Bearer")])
+    @PatchMapping("/tl-charges/{publicId}/reject")
+    fun rejectTlChargeRequest(
+        @PathVariable publicId: UUID,
+        @RequestBody(required = false) req: ReviewChargeRequest?,
+        @CurrentUser principal: GadaPrincipal,
+    ): ResponseEntity<ApiResponse<PointChargeRequestItem>> {
+        val adminId = principal.userId ?: throw UnauthorizedException()
+
+        val chargeRequest = pointsRepository.findTeamLeaderChargeRequestByPublicId(publicId)
+            ?: throw NotFoundException("TeamLeaderPointChargeRequest", publicId)
+
+        if (!chargeRequest.isPending) {
+            throw BusinessException("이미 처리된 충전 요청입니다. (현재 상태: ${chargeRequest.status})", "ALREADY_REVIEWED")
+        }
+
+        chargeRequest.reject(adminId, req?.note)
+        pointsRepository.saveTeamLeaderChargeRequest(chargeRequest)
+
+        return ApiResponse.ok(
+            PointChargeRequestItem(
+                publicId = chargeRequest.publicId.toString(),
+                amountKrw = chargeRequest.amountKrw,
+                pointsToAdd = chargeRequest.pointsToAdd,
+                paymentMethod = chargeRequest.paymentMethod,
+                status = chargeRequest.status,
+                adminNote = chargeRequest.adminNote,
+                reviewedAt = chargeRequest.reviewedAt,
+                createdAt = chargeRequest.createdAt,
+            )
+        ).toResponseEntity()
+    }
+}
+
 // ── Request / Response DTOs ──────────────────────────────────
 
 data class ReviewChargeRequest(

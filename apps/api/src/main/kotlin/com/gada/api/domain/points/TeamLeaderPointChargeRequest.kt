@@ -51,5 +51,17 @@ class TeamLeaderPointChargeRequest {
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now()
 
+    fun approve(adminUserId: Long, note: String?) {
+        status = ChargeStatus.APPROVED.name
+        reviewedAt = Instant.now()
+        note?.let { adminNote = it }
+    }
+
+    fun reject(adminUserId: Long, note: String?) {
+        status = ChargeStatus.REJECTED.name
+        reviewedAt = Instant.now()
+        note?.let { adminNote = it }
+    }
+
     val isPending: Boolean get() = status == ChargeStatus.PENDING.name
 }
