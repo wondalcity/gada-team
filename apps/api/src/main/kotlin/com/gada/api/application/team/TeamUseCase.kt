@@ -4,6 +4,7 @@ import com.gada.api.application.audit.AuditService
 import com.gada.api.application.sms.SmsService
 import com.gada.api.common.exception.*
 import com.gada.api.domain.team.*
+import com.gada.api.domain.user.UserRole
 import com.gada.api.infrastructure.persistence.company.CompanyRepository
 import com.gada.api.infrastructure.persistence.team.TeamMemberRepository
 import com.gada.api.infrastructure.persistence.team.TeamRepository
@@ -84,9 +85,16 @@ class TeamUseCase(
         }
         teamMemberRepository.save(leaderMember)
 
+        // 근로자가 팀을 만들면 TEAM_LEADER 역할로 승격
+        val leaderUser = userRepository.findById(userId)
+        if (leaderUser != null && leaderUser.role == UserRole.WORKER) {
+            leaderUser.role = UserRole.TEAM_LEADER
+            userRepository.saveAndFlush(leaderUser)
+        }
+
         auditService.record("TEAM", saved.id, "CREATE", actorId = userId, actorRole = "TEAM_LEADER")
 
-        val leaderPhone = userRepository.findById(userId)?.phone
+        val leaderPhone = leaderUser?.phone ?: userRepository.findById(userId)?.phone
         return saved.toResponse(
             members = listOf(leaderMember.toMemberResponse(leaderPhone, leaderProfile?.publicId?.toString())),
             leaderName = leaderProfile?.fullName,
@@ -287,6 +295,25 @@ class TeamUseCase(
                 teamName = team.name,
                 teamCoverImageUrl = team.coverImageUrl,
                 invitedByName = inviterProfile?.fullName,
+                invitedAt = member.invitedAt,
+                status = member.invitationStatus?.name ?: "PENDING",
+            )
+        }
+    }
+
+    @Transactional(readOnly = true)
+    fun getSentInvitations(userId: Long): List<SentInvitationResponse> {
+        val sent = teamMemberRepository.findSentByLeaderId(userId)
+        return sent.mapNotNull { member ->
+            val team = teamRepository.findById(member.teamId) ?: return@mapNotNull null
+            val inviteeProfile = workerProfileRepository.findByUserId(member.userId)
+            SentInvitationResponse(
+                invitationId = member.id,
+                teamPublicId = team.publicId,
+                teamName = team.name,
+                inviteeName = member.fullName ?: inviteeProfile?.fullName,
+                inviteePublicId = inviteeProfile?.publicId?.toString(),
+                inviteeProfileImageUrl = inviteeProfile?.profileImageUrl,
                 invitedAt = member.invitedAt,
                 status = member.invitationStatus?.name ?: "PENDING",
             )

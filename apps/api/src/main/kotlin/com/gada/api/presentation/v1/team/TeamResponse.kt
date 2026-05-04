@@ -82,3 +82,15 @@ data class InvitationResponse(
     val invitedAt: Instant?,
     val status: String,
 )
+
+/** Invitation record viewed from the team leader's perspective (outbound invite) */
+data class SentInvitationResponse(
+    val invitationId: Long,
+    val teamPublicId: UUID,
+    val teamName: String,
+    val inviteeName: String?,
+    val inviteePublicId: String?,
+    val inviteeProfileImageUrl: String?,
+    val invitedAt: Instant?,
+    val status: String,
+)

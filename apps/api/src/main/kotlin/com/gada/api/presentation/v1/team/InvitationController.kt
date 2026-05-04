@@ -17,11 +17,18 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/v1/invitations")
 class InvitationController(private val teamUseCase: TeamUseCase) {
 
-    @Operation(summary = "내 초대 목록", security = [SecurityRequirement(name = "Bearer")])
+    @Operation(summary = "내가 받은 초대 목록 (근로자)", security = [SecurityRequirement(name = "Bearer")])
     @GetMapping("/mine")
     fun getMyInvitations(@CurrentUser principal: GadaPrincipal): ResponseEntity<ApiResponse<List<InvitationResponse>>> {
         val userId = principal.userId ?: throw UnauthorizedException()
         return ApiResponse.ok(teamUseCase.getMyInvitations(userId)).toResponseEntity()
+    }
+
+    @Operation(summary = "내가 보낸 초대 목록 (팀장)", security = [SecurityRequirement(name = "Bearer")])
+    @GetMapping("/sent")
+    fun getSentInvitations(@CurrentUser principal: GadaPrincipal): ResponseEntity<ApiResponse<List<SentInvitationResponse>>> {
+        val userId = principal.userId ?: throw UnauthorizedException()
+        return ApiResponse.ok(teamUseCase.getSentInvitations(userId)).toResponseEntity()
     }
 
     @Operation(summary = "초대 수락", security = [SecurityRequirement(name = "Bearer")])

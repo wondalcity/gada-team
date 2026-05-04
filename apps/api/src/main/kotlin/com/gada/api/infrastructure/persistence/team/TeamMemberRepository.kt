@@ -39,6 +39,13 @@ class TeamMemberRepository(
     fun findByTeamIdAndUserId(teamId: Long, userId: Long): TeamMember? =
         qf.selectFrom(tm).where(tm.teamId.eq(teamId), tm.userId.eq(userId)).fetchOne()
 
+    /** Invitations sent by a team leader (invitedBy = leaderId), ordered by most recent */
+    fun findSentByLeaderId(leaderId: Long): List<TeamMember> =
+        qf.selectFrom(tm)
+            .where(tm.invitedBy.eq(leaderId), tm.invitationStatus.isNotNull)
+            .orderBy(tm.invitedAt.desc())
+            .fetch()
+
     fun save(member: TeamMember): TeamMember =
         if (member.id == 0L) {
             em.persist(member); em.flush(); member

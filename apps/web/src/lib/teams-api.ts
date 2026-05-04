@@ -84,6 +84,17 @@ export interface InvitationResponse {
   status: string;
 }
 
+export interface SentInvitationResponse {
+  invitationId: number;
+  teamPublicId: string;
+  teamName: string;
+  inviteeName?: string;
+  inviteePublicId?: string;
+  inviteeProfileImageUrl?: string;
+  invitedAt?: string;
+  status: string;
+}
+
 export interface CreateTeamPayload {
   name: string;
   teamType: "SQUAD" | "COMPANY_LINKED";
@@ -221,6 +232,7 @@ export const teamsApi = {
   removeMember: (publicId: string, userId: number) =>
     api.delete<void>(`/teams/${publicId}/members/${userId}`),
   getMyInvitations: () => api.get<InvitationResponse[]>("/invitations/mine"),
+  getSentInvitations: () => api.get<SentInvitationResponse[]>("/invitations/sent"),
   acceptInvitation: (id: number) => api.post<InvitationResponse>(`/invitations/${id}/accept`, {}),
   rejectInvitation: (id: number) => api.post<InvitationResponse>(`/invitations/${id}/reject`, {}),
 };
