@@ -7,19 +7,24 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { getMyNotifications } from "@/lib/notifications-api";
 import { useT } from "@/lib/i18n";
+import { useAuthStore } from "@/store/authStore";
 
 export function MobileBottomNav() {
   const pathname = usePathname();
   const t = useT();
+  const getEffectiveRole = useAuthStore((s) => s.getEffectiveRole);
+  const isWorker = getEffectiveRole() === "WORKER";
 
-  const TABS = [
+  const ALL_TABS = [
     { label: t("bottom.home"), href: "/", icon: Home, exactMatch: true },
     { label: t("bottom.jobs"), href: "/jobs", icon: Search },
     { label: t("bottom.teams"), href: "/teams", icon: Users },
     { label: t("bottom.applications"), href: "/applications", icon: FileText },
-    { label: t("bottom.notifications"), href: "/notifications", icon: Bell },
+    { label: t("bottom.notifications"), href: "/notifications", icon: Bell, leaderOnly: true },
     { label: t("bottom.profile"), href: "/profile", icon: User },
   ];
+
+  const TABS = ALL_TABS.filter((tab) => !(tab.leaderOnly && isWorker));
 
   const { data: notifData } = useQuery({
     queryKey: ["notificationUnread"],
