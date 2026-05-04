@@ -60,7 +60,8 @@ class MemberProposalController(
         }
         val saved = memberProposalRepository.save(proposal)
         val name = memberProposalRepository.findProposerName(userId)
-        return ApiResponse.ok(saved.toResponse(name)).toResponseEntity(HttpStatus.CREATED)
+        val pid = memberProposalRepository.findProposerPublicId(userId)
+        return ApiResponse.ok(saved.toResponse(name, pid)).toResponseEntity(HttpStatus.CREATED)
     }
 
     @Operation(summary = "내가 보낸 팀원 제안 목록", security = [SecurityRequirement(name = "Bearer")])
@@ -73,8 +74,9 @@ class MemberProposalController(
         val userId = principal.userId ?: throw UnauthorizedException()
         val (proposals, total) = memberProposalRepository.findByProposer(userId, page, size)
         val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
+        val teamNames = proposals.associate { it.teamPublicId to memberProposalRepository.findTeamName(it.teamPublicId) }
         return ApiResponse.ok(PageResponse(
-            content = proposals.map { it.toResponse(null) },
+            content = proposals.map { it.toResponse(null, null, teamNames[it.teamPublicId]) },
             page = page, size = size, totalElements = total, totalPages = totalPages,
             isFirst = page == 0, isLast = page >= totalPages - 1,
         )).toResponseEntity()
@@ -91,8 +93,10 @@ class MemberProposalController(
         val (proposals, total) = memberProposalRepository.findByLeader(userId, page, size)
         val totalPages = if (size == 0) 0 else ceil(total.toDouble() / size).toInt()
         val names = proposals.associate { it.proposerId to memberProposalRepository.findProposerName(it.proposerId) }
+        val pids = proposals.associate { it.proposerId to memberProposalRepository.findProposerPublicId(it.proposerId) }
+        val teamNames = proposals.associate { it.teamPublicId to memberProposalRepository.findTeamName(it.teamPublicId) }
         return ApiResponse.ok(PageResponse(
-            content = proposals.map { it.toResponse(names[it.proposerId]) },
+            content = proposals.map { it.toResponse(names[it.proposerId], pids[it.proposerId], teamNames[it.teamPublicId]) },
             page = page, size = size, totalElements = total, totalPages = totalPages,
             isFirst = page == 0, isLast = page >= totalPages - 1,
         )).toResponseEntity()
@@ -115,7 +119,9 @@ class MemberProposalController(
         proposal.respondedAt = Instant.now()
         val saved = memberProposalRepository.save(proposal)
         val name = memberProposalRepository.findProposerName(proposal.proposerId)
-        return ApiResponse.ok(saved.toResponse(name)).toResponseEntity()
+        val pid = memberProposalRepository.findProposerPublicId(proposal.proposerId)
+        val teamName = memberProposalRepository.findTeamName(proposal.teamPublicId)
+        return ApiResponse.ok(saved.toResponse(name, pid, teamName)).toResponseEntity()
     }
 }
 
@@ -135,17 +141,21 @@ data class RespondProposalRequest(
 data class MemberProposalResponse(
     val publicId: String,
     val teamPublicId: String,
+    val teamName: String?,
     val proposerName: String?,
+    val proposerPublicId: String?,
     val message: String?,
     val status: String,
     val respondedAt: Instant?,
     val createdAt: Instant,
 )
 
-private fun MemberProposal.toResponse(proposerName: String?) = MemberProposalResponse(
+private fun MemberProposal.toResponse(proposerName: String?, proposerPublicId: java.util.UUID?, teamName: String? = null) = MemberProposalResponse(
     publicId = publicId.toString(),
     teamPublicId = teamPublicId,
+    teamName = teamName,
     proposerName = proposerName,
+    proposerPublicId = proposerPublicId?.toString(),
     message = message,
     status = status,
     respondedAt = respondedAt,

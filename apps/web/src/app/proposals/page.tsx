@@ -144,6 +144,17 @@ function MemberProposalCard({ proposal }: { proposal: MemberProposalItem }) {
 
   return (
     <div className="rounded-xl border border-neutral-100 bg-white p-5 shadow-card transition-shadow hover:shadow-card-md">
+      {/* Team badge — which team this request is for */}
+      {proposal.teamName && (
+        <div className="mb-3 flex items-center gap-1.5">
+          <div className="flex h-5 w-5 items-center justify-center rounded bg-primary-100">
+            <Users className="h-3 w-3 text-primary-600" />
+          </div>
+          <span className="text-xs font-semibold text-primary-600">{proposal.teamName}</span>
+          <span className="text-xs text-neutral-400">에 참여 요청</span>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-success-50">

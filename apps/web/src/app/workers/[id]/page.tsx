@@ -436,7 +436,7 @@ function WorkerProfileContent({ profile }: { profile: WorkerPublicProfile }) {
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-600 active:scale-[0.98]"
           >
             <MessageCircle className="h-4 w-4" />
-            채팅으로 팀원 제안하기 (1P)
+            채팅으로 팀원 제안하기
           </button>
         )}
 

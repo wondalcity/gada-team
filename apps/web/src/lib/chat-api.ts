@@ -44,7 +44,9 @@ export interface ChatMessageItem {
 export interface MemberProposalItem {
   publicId: string;
   teamPublicId: string;
+  teamName: string | null;
   proposerName: string | null;
+  proposerPublicId: string | null;
   message: string | null;
   status: "PENDING" | "ACCEPTED" | "DECLINED";
   respondedAt: string | null;
@@ -179,9 +181,29 @@ export interface TlPointBalanceResponse {
   updatedAt: string;
 }
 
+export interface TlPointChargeItem {
+  publicId: string;
+  amountKrw: number;
+  pointsToAdd: number;
+  paymentMethod: string;
+  status: string;
+  adminNote?: string;
+  reviewedAt?: string;
+  createdAt: string;
+}
+
 export const workerPointsApi = {
   getBalance: () =>
     api.get<TlPointBalanceResponse>("/worker/points"),
+
+  listChargeRequests: (page = 0, size = 20) =>
+    api.get<PageResponse<TlPointChargeItem>>(`/worker/points/charges?page=${page}&size=${size}`),
+
+  requestCharge: (amountKrw: number, paymentMethod: "CASH" | "CARD") =>
+    api.post<TlPointChargeItem>("/worker/points/charges", { amountKrw, paymentMethod }),
+
+  confirmCardPayment: (paymentKey: string, orderId: string, amountKrw: number) =>
+    api.post<TlPointChargeItem>("/worker/points/charges/card-confirm", { paymentKey, orderId, amountKrw }),
 };
 
 // ── Member Proposal API ────────────────────────────────────────────────────────

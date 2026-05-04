@@ -63,12 +63,28 @@ class MemberProposalRepository(private val em: EntityManager) {
             String::class.java
         ).setParameter("uid", userId).resultList.firstOrNull()
 
+    /** Get proposer publicId (UUID) from worker_profiles */
+    fun findProposerPublicId(userId: Long): java.util.UUID? =
+        em.createQuery(
+            "SELECT wp.publicId FROM WorkerProfile wp WHERE wp.userId = :uid",
+            java.util.UUID::class.java
+        ).setParameter("uid", userId).resultList.firstOrNull()
+
     /** Get team leader_id from teams table */
     fun findTeamLeaderId(teamPublicId: String): Long? {
         return try {
             (em.createNativeQuery(
                 "SELECT leader_id FROM teams WHERE CAST(public_id AS VARCHAR) = :pid AND deleted_at IS NULL"
             ).setParameter("pid", teamPublicId).singleResult as Number).toLong()
+        } catch (e: Exception) { null }
+    }
+
+    /** Get team name from teams table */
+    fun findTeamName(teamPublicId: String): String? {
+        return try {
+            em.createNativeQuery(
+                "SELECT name FROM teams WHERE CAST(public_id AS VARCHAR) = :pid AND deleted_at IS NULL"
+            ).setParameter("pid", teamPublicId).resultList.firstOrNull() as? String
         } catch (e: Exception) { null }
     }
 }

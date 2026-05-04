@@ -282,14 +282,14 @@ function WorkerCard({
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-neutral-200 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 hover:border-primary-300 hover:text-primary-700 transition-colors"
           >
             <MessageCircle className="h-3.5 w-3.5" />
-            {t("workers.chatBtn")} <span className="text-[10px] font-normal text-neutral-400">(1P)</span>
+            {t("workers.chatBtn")}
           </button>
           <button
             onClick={onPropose}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary-500 py-2 text-xs font-semibold text-white hover:bg-primary-600 transition-colors shadow-sm"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            {t("workers.inviteBtn")} <span className="text-[10px] font-normal text-primary-200">(1P)</span>
+            {t("workers.inviteBtn")}
           </button>
         </div>
       )}
