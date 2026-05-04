@@ -193,7 +193,7 @@ function JobDetailContent({ id }: { id: string }) {
 
   // Company display name — prefer site.companyName over job.companyName fallback
   const companyName = job.site?.companyName || job.companyName;
-  const companyLogoUrl = job.site?.companyLogoUrl || job.companyLogoUrl;
+  const companyLogoUrl = job.site?.companyLogoUrl || job.companyLogoUrl || "/images/company-placeholder.svg";
 
   return (
     <>
@@ -212,17 +212,11 @@ function JobDetailContent({ id }: { id: string }) {
           {/* ─ Hero header ─ */}
           <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card">
             <div className="flex items-start gap-4">
-              {companyLogoUrl ? (
-                <img
-                  src={companyLogoUrl}
-                  alt={companyName}
-                  className="h-16 w-16 flex-shrink-0 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg bg-primary-500 text-2xl font-extrabold text-white">
-                  {companyName.charAt(0)}
-                </div>
-              )}
+              <img
+                src={companyLogoUrl}
+                alt={companyName}
+                className="h-16 w-16 flex-shrink-0 rounded-lg object-cover"
+              />
               <div className="min-w-0 flex-1">
                 <h1 className="text-xl font-extrabold leading-tight text-neutral-950">
                   {job.title}
@@ -457,13 +451,7 @@ function JobDetailContent({ id }: { id: string }) {
             <div className="rounded-lg border border-neutral-100 bg-white p-5 shadow-card">
               <SectionTitle icon={Building2}>{t("job.companyInfo")}</SectionTitle>
               <div className="flex items-start gap-3 mb-4">
-                {companyLogoUrl ? (
-                  <img src={companyLogoUrl} alt={companyName} className="h-12 w-12 flex-shrink-0 rounded-lg object-cover" />
-                ) : (
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-primary-500 text-lg font-extrabold text-white">
-                    {companyName.charAt(0)}
-                  </div>
-                )}
+                <img src={companyLogoUrl} alt={companyName} className="h-12 w-12 flex-shrink-0 rounded-lg object-cover" />
                 <div>
                   <p className="font-bold text-neutral-900 text-base">{companyName}</p>
                   {job.site?.companyBusinessNumber && (

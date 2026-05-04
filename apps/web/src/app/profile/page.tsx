@@ -9,7 +9,7 @@ import {
   Phone, Globe, Award, Briefcase, User,
   ChevronRight, FileText, Bell, Pencil, Heart,
   CheckCircle2, Clock, Image as ImageIcon, Camera,
-  X, Plus, Trash2, ChevronDown,
+  X, Plus, Trash2, ChevronDown, Coins, Receipt, ArrowLeftRight,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -23,6 +23,9 @@ import { DateInput } from "@/components/ui/DateInput";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+const NATIONALITY_FLAGS: Record<string, string> = {
+  KR: "🇰🇷", VN: "🇻🇳", CN: "🇨🇳", PH: "🇵🇭", ID: "🇮🇩", OTHER: "🌐",
+};
 const NATIONALITY_LABELS: Record<string, string> = {
   KR: "한국", VN: "베트남", CN: "중국", PH: "필리핀", ID: "인도네시아", OTHER: "기타",
 };
@@ -42,12 +45,12 @@ const PAY_UNIT_LABELS: Record<string, string> = {
 };
 
 const NATIONALITY_OPTIONS = [
-  { value: "VN", label: "베트남" },
-  { value: "KR", label: "한국" },
-  { value: "CN", label: "중국" },
-  { value: "PH", label: "필리핀" },
-  { value: "ID", label: "인도네시아" },
-  { value: "OTHER", label: "기타" },
+  { value: "VN", label: "베트남", icon: "🇻🇳" },
+  { value: "KR", label: "한국",   icon: "🇰🇷" },
+  { value: "CN", label: "중국",   icon: "🇨🇳" },
+  { value: "PH", label: "필리핀", icon: "🇵🇭" },
+  { value: "ID", label: "인도네시아", icon: "🇮🇩" },
+  { value: "OTHER", label: "기타", icon: "🌐" },
 ];
 
 const VISA_OPTIONS = [
@@ -198,7 +201,10 @@ function WorkerProfileContent({ profile }: { profile: WorkerProfile }) {
         <div className="grid grid-cols-2 gap-x-4 gap-y-4">
           <div>
             <p className="text-xs text-neutral-400 mb-1">{t("worker.nationality")}</p>
-            <p className="text-sm font-medium text-neutral-900">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-neutral-900">
+              {profile.nationality && NATIONALITY_FLAGS[profile.nationality] && (
+                <span className="text-base leading-none">{NATIONALITY_FLAGS[profile.nationality]}</span>
+              )}
               {NATIONALITY_LABELS[profile.nationality ?? ""] ?? profile.nationality ?? t("profile.notEntered")}
             </p>
           </div>
@@ -842,7 +848,10 @@ export default function ProfilePage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
+  const activeMode = useAuthStore((s) => s.activeMode);
+  const setActiveMode = useAuthStore((s) => s.setActiveMode);
   const queryClient = useQueryClient();
+  const t = useT();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -918,7 +927,7 @@ export default function ProfilePage() {
   const roleLabel =
     user.role === "WORKER" ? "근로자" :
     user.role === "TEAM_LEADER" ? "팀장" :
-    user.role === "EMPLOYER" ? "관리자" : "어드민";
+    user.role === "EMPLOYER" ? "기업 담당자" : "어드민";
 
   const roleColor =
     user.role === "EMPLOYER" ? "bg-amber-400/10 text-warning-700 border-warning-200" :
@@ -1014,8 +1023,10 @@ export default function ProfilePage() {
           {profile && (profile.nationality || profile.visaType) && (
             <div className="mt-4 pt-4 border-t border-neutral-50 flex flex-wrap gap-2">
               {profile.nationality && (
-                <span className="inline-flex items-center gap-1 rounded-lg bg-neutral-50 border border-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
-                  <Globe className="h-3 w-3 text-neutral-400" />
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-50 border border-neutral-100 px-2.5 py-1 text-xs text-neutral-600">
+                  {NATIONALITY_FLAGS[profile.nationality]
+                    ? <span className="text-sm leading-none">{NATIONALITY_FLAGS[profile.nationality]}</span>
+                    : <Globe className="h-3 w-3 text-neutral-400" />}
                   {NATIONALITY_LABELS[profile.nationality] ?? profile.nationality}
                 </span>
               )}
@@ -1033,6 +1044,49 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {/* ── Mode switcher (TEAM_LEADER only) ── */}
+        {user.role === "TEAM_LEADER" && (
+          <div className="bg-white rounded-lg border border-neutral-100 shadow-sm p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm font-semibold text-neutral-800">활동 모드</p>
+                <p className="text-xs text-neutral-400 mt-0.5">근로자와 팀장 모드를 전환할 수 있어요</p>
+              </div>
+              <ArrowLeftRight className="h-4 w-4 text-neutral-300" />
+            </div>
+            <div className="flex gap-2">
+              {(["WORKER", "TEAM_LEADER"] as const).map((mode) => {
+                const isActive = (activeMode ?? "TEAM_LEADER") === mode;
+                const icon = mode === "WORKER" ? "👷" : "🦺";
+                const label = mode === "WORKER" ? "근로자 모드" : "팀장 모드";
+                const desc = mode === "WORKER" ? "채용공고 열람 · 지원" : "팀원 모집 · 스케줄 관리";
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setActiveMode(mode)}
+                    className={`flex-1 flex flex-col items-center gap-1.5 rounded-xl border-2 py-3 px-2 transition-all ${
+                      isActive
+                        ? "border-primary-500 bg-primary-50"
+                        : "border-neutral-100 bg-neutral-50 hover:border-neutral-200"
+                    }`}
+                  >
+                    <span className="text-xl">{icon}</span>
+                    <span className={`text-xs font-bold ${isActive ? "text-primary-600" : "text-neutral-600"}`}>
+                      {label}
+                    </span>
+                    <span className="text-[10px] text-neutral-400 text-center leading-tight">{desc}</span>
+                    {isActive && (
+                      <span className="mt-0.5 rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                        현재 모드
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Worker / Team Leader sections ── */}
         {isWorkerRole && (
@@ -1112,6 +1166,28 @@ export default function ProfilePage() {
             >
               <Users className="h-4 w-4 text-neutral-400" />
               <span className="flex-1">팀 초대 현황</span>
+              <ChevronRight className="h-4 w-4 text-neutral-300" />
+            </Link>
+          </div>
+        )}
+
+        {/* ── Team leader quick links ── */}
+        {(user.role === "TEAM_LEADER" || profile?.role === "TEAM_LEADER") && (
+          <div className="bg-white rounded-lg border border-neutral-100 shadow-sm divide-y divide-neutral-50 mb-4">
+            <Link
+              href="/leader/points"
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+            >
+              <Coins className="h-4 w-4 text-primary-500" />
+              <span className="flex-1">{t("profile.leaderPoints")}</span>
+              <ChevronRight className="h-4 w-4 text-neutral-300" />
+            </Link>
+            <Link
+              href="/leader/payments"
+              className="flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+            >
+              <Receipt className="h-4 w-4 text-neutral-400" />
+              <span className="flex-1">{t("profile.leaderPayments")}</span>
               <ChevronRight className="h-4 w-4 text-neutral-300" />
             </Link>
           </div>

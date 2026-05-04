@@ -79,14 +79,11 @@ function TeamRow({ team, isMyTeam = false }: { team: TeamListItem; isMyTeam?: bo
       className="group flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 active:bg-neutral-100 transition-colors"
     >
       {/* Avatar */}
-      <div
-        className={cn(
-          "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-sm font-extrabold text-white",
-          isCompany ? "bg-secondary-500" : "bg-primary-500"
-        )}
-      >
-        {team.name.charAt(0)}
-      </div>
+      <img
+        src={team.coverImageUrl || "/images/team-placeholder.svg"}
+        alt={team.name}
+        className="h-9 w-9 flex-shrink-0 rounded-lg object-cover"
+      />
 
       {/* Main info */}
       <div className="min-w-0 flex-1">
@@ -525,17 +522,11 @@ function WorkerRow({ worker, onClick }: { worker: WorkerListItem; onClick: () =>
       className="group w-full flex items-center gap-3 px-4 py-3.5 hover:bg-neutral-50 active:bg-neutral-100 transition-colors text-left">
       {/* Avatar */}
       <div className="relative flex-shrink-0">
-        {worker.profileImageUrl ? (
-          <img
-            src={worker.profileImageUrl}
-            alt={worker.fullName}
-            className="h-10 w-10 rounded-full object-cover"
-          />
-        ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500 text-sm font-bold text-white">
-            {worker.fullName.charAt(0)}
-          </div>
-        )}
+        <img
+          src={worker.profileImageUrl || `/images/worker-placeholder-${(worker.publicId.charCodeAt(0) % 5) + 1}.svg`}
+          alt={worker.fullName}
+          className="h-10 w-10 rounded-full object-cover"
+        />
         {worker.isTeamLeader && (
           <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-warning-500 ring-2 ring-white">
             <Shield className="h-2.5 w-2.5 text-white" />
@@ -840,13 +831,11 @@ function WorkerDetailSheet({
                 {/* Avatar + name + badges */}
                 <div className="flex items-center gap-4">
                   <div className="relative flex-shrink-0">
-                    {profile.profileImageUrl ? (
-                      <img src={profile.profileImageUrl} alt={profile.fullName} className="h-16 w-16 rounded-full object-cover" />
-                    ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-500 text-xl font-bold text-white">
-                        {profile.fullName.charAt(0)}
-                      </div>
-                    )}
+                    <img
+                      src={profile.profileImageUrl || `/images/worker-placeholder-${(profile.publicId?.charCodeAt(0) ?? 0) % 5 + 1}.svg`}
+                      alt={profile.fullName}
+                      className="h-16 w-16 rounded-full object-cover"
+                    />
                     {profile.isTeamLeader && (
                       <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-warning-500 ring-2 ring-white">
                         <Shield className="h-3 w-3 text-white" />
@@ -1523,20 +1512,28 @@ type TabId = "teams" | "workers" | "myteam";
 function TabsWrapper() {
   const t = useT();
   const user = useAuthStore((s) => s.user);
+  const getEffectiveRole = useAuthStore((s) => s.getEffectiveRole);
   const [tab, setTab] = React.useState<TabId>("teams");
-  // `showLeaderTab` is a client-only state that avoids SSR/hydration mismatch.
-  // SSR always sees user=null, so we start with false and flip to true in an
-  // effect that fires only after the Zustand store rehydrates on the client.
+  // Client-only flags to avoid SSR/hydration mismatch.
+  // SSR always sees user=null, so we start with false and flip in an effect.
   const [showLeaderTab, setShowLeaderTab] = React.useState(false);
+  const [showWorkersTab, setShowWorkersTab] = React.useState(false);
 
   React.useEffect(() => {
-    // Both WORKER and TEAM_LEADER can create/lead teams
+    const role = getEffectiveRole();
+    // "내 팀" tab: WORKER and TEAM_LEADER can create/lead teams
     setShowLeaderTab(!!user && user.role !== "EMPLOYER" && user.role !== "ADMIN");
-  }, [user]);
+    // "팀원 찾기" tab: TEAM_LEADER only (including TEAM_LEADER in worker mode? No — only actual leader role)
+    setShowWorkersTab(role === "TEAM_LEADER");
+    // If the workers tab becomes hidden while active, fall back to teams
+    if (role !== "TEAM_LEADER") {
+      setTab((prev) => (prev === "workers" ? "teams" : prev));
+    }
+  }, [user, getEffectiveRole]);
 
   const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
     { id: "teams", label: t("teams.tabTeams"), icon: Users },
-    { id: "workers", label: t("teams.tabWorkers"), icon: UserSearch },
+    ...(showWorkersTab ? [{ id: "workers" as TabId, label: t("teams.tabWorkers"), icon: UserSearch }] : []),
     ...(showLeaderTab ? [{ id: "myteam" as TabId, label: t("teams.tabMyTeam"), icon: Shield }] : []),
   ];
 

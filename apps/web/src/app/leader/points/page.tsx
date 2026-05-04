@@ -12,26 +12,27 @@ import {
   XCircle,
   AlertCircle,
   ArrowLeft,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { workerPointsApi, TlPointBalanceResponse } from "@/lib/chat-api";
-import { api } from "@/lib/api";
+import { workerPointsApi, TlPointBalanceResponse, TlPointChargeItem } from "@/lib/chat-api";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useT } from "@/lib/i18n";
 
 // ─── Constants ────────────────────────────────────────────────
 
 const CHARGE_AMOUNTS = [
-  { label: "30만원", value: 300_000, points: 30 },
-  { label: "50만원", value: 500_000, points: 50 },
-  { label: "100만원", value: 1_000_000, points: 100 },
-  { label: "300만원", value: 3_000_000, points: 300 },
-  { label: "500만원", value: 5_000_000, points: 500 },
+  { label: "₩30만", value: 300_000, points: 30 },
+  { label: "₩50만", value: 500_000, points: 50 },
+  { label: "₩100만", value: 1_000_000, points: 100 },
+  { label: "₩300만", value: 3_000_000, points: 300 },
+  { label: "₩500만", value: 5_000_000, points: 500 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────
 
 function fmtKrw(n: number) {
-  return n.toLocaleString("ko-KR") + "원";
+  return "₩" + n.toLocaleString("ko-KR");
 }
 
 function fmtDatetime(iso: string) {
@@ -41,20 +42,12 @@ function fmtDatetime(iso: string) {
   });
 }
 
-interface TlChargeItem {
-  publicId: string;
-  amountKrw: number;
-  pointsToAdd: number;
-  paymentMethod: string;
-  status: string;
-  createdAt: string;
-}
-
 function ChargeBadge({ status }: { status: string }) {
+  const t = useT();
   const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
-    PENDING: { label: "검토 중", cls: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: <Clock className="h-3 w-3" /> },
-    APPROVED: { label: "승인됨", cls: "bg-green-50 text-green-700 border-green-200", icon: <CheckCircle2 className="h-3 w-3" /> },
-    REJECTED: { label: "거절됨", cls: "bg-red-50 text-red-700 border-red-200", icon: <XCircle className="h-3 w-3" /> },
+    PENDING: { label: t("leader.chargeStatusPending"), cls: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: <Clock className="h-3 w-3" /> },
+    APPROVED: { label: t("leader.chargeStatusApproved"), cls: "bg-green-50 text-green-700 border-green-200", icon: <CheckCircle2 className="h-3 w-3" /> },
+    REJECTED: { label: t("leader.chargeStatusRejected"), cls: "bg-red-50 text-red-700 border-red-200", icon: <XCircle className="h-3 w-3" /> },
   };
   const cfg = map[status] ?? { label: status, cls: "bg-neutral-50 text-neutral-700 border-neutral-200", icon: null };
   return (
@@ -67,6 +60,7 @@ function ChargeBadge({ status }: { status: string }) {
 // ─── Charge Form ───────────────────────────────────────────────
 
 function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
+  const t = useT();
   const [selectedAmount, setSelectedAmount] = React.useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = React.useState<"CASH" | "CARD">("CASH");
   const [toast, setToast] = React.useState<string | null>(null);
@@ -75,17 +69,17 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
 
   const mutation = useMutation({
     mutationFn: () => {
-      if (!selectedAmount) throw new Error("금액을 선택해주세요.");
-      return api.post("/worker/points/charges", { amountKrw: selectedAmount, paymentMethod });
+      if (!selectedAmount) throw new Error(t("employer.loadFailed"));
+      return workerPointsApi.requestCharge(selectedAmount, paymentMethod);
     },
     onSuccess: () => {
-      setToast("충전 요청이 접수되었습니다. 관리자 승인 후 포인트가 지급됩니다.");
+      setToast(t("leader.chargeSubmitted"));
       setSelectedAmount(null);
       setTimeout(() => setToast(null), 6000);
       onSuccess();
     },
     onError: (err: any) => {
-      setError(err?.message ?? "충전 요청에 실패했습니다.");
+      setError(err?.message ?? t("employer.loadFailed"));
       setTimeout(() => setError(null), 5000);
     },
   });
@@ -113,7 +107,7 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
       });
     } catch (err: any) {
       if (err?.code !== "USER_CANCEL") {
-        setError(err?.message ?? "결제 중 오류가 발생했습니다.");
+        setError(err?.message ?? t("employer.loadFailed"));
       }
     } finally {
       setTossLoading(false);
@@ -122,12 +116,12 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-base font-semibold text-neutral-900 mb-1">포인트 충전</h2>
-      <p className="text-sm text-neutral-500 mb-6">1만원 = 1P · 충전 포인트로 팀원 채팅을 시작할 수 있어요</p>
+      <h2 className="text-base font-semibold text-neutral-900 mb-1">{t("employer.pointChargeTitle")}</h2>
+      <p className="text-sm text-neutral-500 mb-6">{t("leader.pointChargeDesc")}</p>
 
       {/* Amount selector */}
       <div className="mb-5">
-        <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-3">충전 금액</p>
+        <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-3">{t("employer.chargeAmount")}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:grid-cols-5">
           {CHARGE_AMOUNTS.map((opt) => {
             const selected = selectedAmount === opt.value;
@@ -153,32 +147,40 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
 
       {/* Payment method */}
       <div className="mb-6">
-        <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-3">결제 수단</p>
+        <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-3">{t("employer.paymentMethod")}</p>
         <div className="flex gap-3">
-          {(["CASH", "CARD"] as const).map((method) => (
-            <button
-              key={method}
-              type="button"
-              onClick={() => setPaymentMethod(method)}
-              className={cn(
-                "flex flex-1 items-center gap-2.5 rounded-xl border p-3 transition-all",
-                paymentMethod === method
-                  ? "border-primary-500 bg-primary-50 ring-2 ring-primary-200"
-                  : "border-neutral-200 bg-white hover:border-primary-300"
-              )}
-            >
-              {method === "CASH"
-                ? <Banknote className={cn("h-5 w-5 flex-shrink-0", paymentMethod === "CASH" ? "text-primary-600" : "text-neutral-400")} />
-                : <CreditCard className={cn("h-5 w-5 flex-shrink-0", paymentMethod === "CARD" ? "text-primary-600" : "text-neutral-400")} />
-              }
-              <div className="text-left">
-                <p className={cn("text-sm font-semibold", paymentMethod === method ? "text-primary-700" : "text-neutral-800")}>
-                  {method === "CASH" ? "무통장 입금" : "카드 결제"}
-                </p>
-                <p className="text-xs text-neutral-500">{method === "CASH" ? "계좌이체" : "신용/체크카드"}</p>
-              </div>
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setPaymentMethod("CASH")}
+            className={cn(
+              "flex flex-1 items-center gap-2.5 rounded-xl border p-3 transition-all",
+              paymentMethod === "CASH"
+                ? "border-primary-500 bg-primary-50 ring-2 ring-primary-200"
+                : "border-neutral-200 bg-white hover:border-primary-300"
+            )}
+          >
+            <Banknote className={cn("h-5 w-5 flex-shrink-0", paymentMethod === "CASH" ? "text-primary-600" : "text-neutral-400")} />
+            <div className="text-left">
+              <p className={cn("text-sm font-semibold", paymentMethod === "CASH" ? "text-primary-700" : "text-neutral-800")}>{t("leader.paymentCash")}</p>
+              <p className="text-xs text-neutral-500">{t("employer.bankTransfer")}</p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentMethod("CARD")}
+            className={cn(
+              "flex flex-1 items-center gap-2.5 rounded-xl border p-3 transition-all",
+              paymentMethod === "CARD"
+                ? "border-primary-500 bg-primary-50 ring-2 ring-primary-200"
+                : "border-neutral-200 bg-white hover:border-primary-300"
+            )}
+          >
+            <CreditCard className={cn("h-5 w-5 flex-shrink-0", paymentMethod === "CARD" ? "text-primary-600" : "text-neutral-400")} />
+            <div className="text-left">
+              <p className={cn("text-sm font-semibold", paymentMethod === "CARD" ? "text-primary-700" : "text-neutral-800")}>{t("employer.paymentCard")}</p>
+              <p className="text-xs text-neutral-500">{t("employer.creditCard")}</p>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -186,12 +188,18 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
       {selectedAmount && (
         <div className="mb-5 rounded-xl border border-primary-200 bg-primary-50/60 p-4">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-neutral-600">충전 금액</span>
+            <span className="text-neutral-600">{t("employer.chargeAmountSummary")}</span>
             <span className="font-semibold text-neutral-900">{fmtKrw(selectedAmount)}</span>
           </div>
           <div className="flex items-center justify-between text-sm mt-1.5">
-            <span className="text-neutral-600">지급 포인트</span>
+            <span className="text-neutral-600">{t("employer.pointsGranted")}</span>
             <span className="font-bold text-primary-600">+{CHARGE_AMOUNTS.find((a) => a.value === selectedAmount)?.points}P</span>
+          </div>
+          <div className="flex items-center justify-between text-sm mt-1.5">
+            <span className="text-neutral-600">{t("employer.paymentMethodSummary")}</span>
+            <span className="font-medium text-neutral-700">
+              {paymentMethod === "CASH" ? t("leader.paymentCash") : t("employer.paymentCard")}
+            </span>
           </div>
         </div>
       )}
@@ -218,7 +226,11 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
             : "bg-neutral-100 text-neutral-400 cursor-not-allowed"
         )}
       >
-        {mutation.isPending || tossLoading ? "처리 중..." : paymentMethod === "CARD" ? "카드 결제하기" : "충전 요청하기"}
+        {mutation.isPending || tossLoading
+          ? t("employer.processingBtn")
+          : paymentMethod === "CARD"
+          ? t("employer.payCardBtn")
+          : t("employer.pointChargeRequest")}
       </button>
     </div>
   );
@@ -227,6 +239,7 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
 // ─── Page ──────────────────────────────────────────────────────
 
 export default function LeaderPointsPage() {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const { data: balance, isLoading: balanceLoading } = useQuery<TlPointBalanceResponse>({
@@ -234,9 +247,9 @@ export default function LeaderPointsPage() {
     queryFn: () => workerPointsApi.getBalance(),
   });
 
-  const { data: history, isLoading: historyLoading } = useQuery<{ content: TlChargeItem[] }>({
+  const { data: history, isLoading: historyLoading } = useQuery<{ content: TlPointChargeItem[] }>({
     queryKey: ["tl-point-charges"],
-    queryFn: () => api.get("/worker/points/charges?page=0&size=5"),
+    queryFn: () => workerPointsApi.listChargeRequests(0, 5),
   });
 
   return (
@@ -247,14 +260,14 @@ export default function LeaderPointsPage() {
           className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          내 팀으로 돌아가기
+          {t("leader.pointsBack")}
         </Link>
 
         {/* Balance card */}
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <Coins className="h-5 w-5 text-primary-500" />
-            <h1 className="text-base font-semibold text-neutral-700">팀장 포인트 잔액</h1>
+            <h1 className="text-base font-semibold text-neutral-700">{t("leader.pointBalance")}</h1>
           </div>
           <p className="text-4xl font-extrabold text-neutral-950 tracking-tight">
             {balanceLoading ? (
@@ -263,15 +276,15 @@ export default function LeaderPointsPage() {
               <>{balance?.balance ?? 0}<span className="text-2xl font-bold text-primary-500 ml-1">P</span></>
             )}
           </p>
-          <p className="text-sm text-neutral-500 mt-1">팀원 채팅 시작 시 1P가 차감됩니다</p>
+          <p className="text-sm text-neutral-500 mt-1">{t("leader.pointBalanceDesc")}</p>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-3">
-              <p className="text-xs text-neutral-500 mb-1">총 충전량</p>
+              <p className="text-xs text-neutral-500 mb-1">{t("leader.totalCharged")}</p>
               <p className="text-lg font-bold text-neutral-800">{balance?.totalCharged ?? 0}P</p>
             </div>
             <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-3">
-              <p className="text-xs text-neutral-500 mb-1">총 사용량</p>
+              <p className="text-xs text-neutral-500 mb-1">{t("leader.totalUsed")}</p>
               <p className="text-lg font-bold text-neutral-800">{balance?.totalUsed ?? 0}P</p>
             </div>
           </div>
@@ -281,8 +294,14 @@ export default function LeaderPointsPage() {
 
         {/* Recent charge history */}
         <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-neutral-100">
-            <h2 className="text-sm font-semibold text-neutral-800">충전 내역</h2>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
+            <h2 className="text-sm font-semibold text-neutral-800">{t("employer.recentCharges")}</h2>
+            <Link
+              href="/leader/payments"
+              className="text-xs text-primary-500 hover:text-primary-700 font-medium transition-colors"
+            >
+              {t("employer.viewAll")}
+            </Link>
           </div>
           {historyLoading ? (
             <div className="divide-y divide-neutral-100">
@@ -299,7 +318,7 @@ export default function LeaderPointsPage() {
           ) : !history?.content.length ? (
             <div className="py-10 text-center">
               <Coins className="h-8 w-8 text-neutral-200 mx-auto mb-2" />
-              <p className="text-sm text-neutral-400">충전 내역이 없습니다</p>
+              <p className="text-sm text-neutral-400">{t("leader.noChargeHistory")}</p>
             </div>
           ) : (
             <div className="divide-y divide-neutral-100">
@@ -309,7 +328,9 @@ export default function LeaderPointsPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-neutral-900">{fmtKrw(item.amountKrw)}</span>
                       <span className="text-sm text-primary-600 font-medium">+{item.pointsToAdd}P</span>
-                      <span className="text-xs text-neutral-400">{item.paymentMethod === "CASH" ? "무통장" : "카드"}</span>
+                      <span className="text-xs text-neutral-400">
+                        {item.paymentMethod === "CASH" ? t("leader.paymentCashShort") : t("employer.paymentCardShort")}
+                      </span>
                     </div>
                     <p className="text-xs text-neutral-500 mt-0.5">{fmtDatetime(item.createdAt)}</p>
                   </div>
@@ -319,6 +340,20 @@ export default function LeaderPointsPage() {
             </div>
           )}
         </div>
+
+        {/* Quick link to payments */}
+        <Link
+          href="/leader/payments"
+          className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-4 hover:bg-neutral-50 transition-colors shadow-sm group"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-50 flex-shrink-0 group-hover:bg-primary-50 transition-colors">
+            <Receipt className="h-4 w-4 text-neutral-500 group-hover:text-primary-500 transition-colors" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-neutral-800">{t("employer.paymentMgmtLabel")}</p>
+            <p className="text-xs text-neutral-500 mt-0.5">{t("employer.chargeHistoryDesc")}</p>
+          </div>
+        </Link>
       </div>
     </AppLayout>
   );

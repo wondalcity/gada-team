@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <rect width="40" height="40" rx="8" fill="#EEF2FF"/>
+  <!-- left person -->
+  <circle cx="11" cy="15" r="4" fill="#A5B4FC"/>
+  <path d="M4 30c0-3.866 3.134-7 7-7s7 3.134 7 7" fill="#A5B4FC"/>
+  <!-- right person -->
+  <circle cx="29" cy="15" r="4" fill="#A5B4FC"/>
+  <path d="M22 30c0-3.866 3.134-7 7-7s7 3.134 7 7" fill="#A5B4FC"/>
+  <!-- center person (leader) -->
+  <circle cx="20" cy="12" r="5" fill="#4F6FE8"/>
+  <!-- hard hat leader -->
+  <rect x="15" y="7" width="10" height="3" rx="1.5" fill="#3A56D4"/>
+  <path d="M13 28c0-3.866 3.134-7 7-7s7 3.134 7 7" fill="#4F6FE8"/>
+</svg>

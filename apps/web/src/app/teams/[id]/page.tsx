@@ -374,7 +374,7 @@ function EmployerChatSheet({
 }
 
 // ─── Worker Proposal Sheet ────────────────────────────────────────────────────
-// Worker sends a "팀원으로 제안하기" to the team leader
+// Worker sends a "팀원으로 지원하기" to the team leader
 
 function WorkerProposalSheet({
   teamPublicId,
@@ -813,6 +813,7 @@ function TeamScheduleSection({ teamPublicId }: { teamPublicId: string }) {
 function TeamDetailContent({ id }: { id: string }) {
   const t = useT();
   const user = useAuthStore((s) => s.user);
+  const getEffectiveRole = useAuthStore((s) => s.getEffectiveRole);
   const [mounted, setMounted] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
@@ -856,11 +857,14 @@ function TeamDetailContent({ id }: { id: string }) {
   // All auth flags are gated on `mounted` so SSR always renders the same
   // fallback button and React hydration never hits a structural mismatch.
   const isLeader = mounted ? (user ? user.userId === team.leaderId : false) : false;
-  const isEmployer = mounted && user?.role === "EMPLOYER";
-  // isTeamLeaderElsewhere: TEAM_LEADER role but not the leader of THIS team
-  const isTeamLeaderElsewhere = mounted && !isLeader && user?.role === "TEAM_LEADER";
-  // isWorker: plain WORKER (no team leadership anywhere)
-  const isWorker = mounted && !isLeader && user?.role === "WORKER";
+  // Use effectiveRole (respects mode-switching) so a TEAM_LEADER in worker mode
+  // is treated as WORKER here and can apply to other teams.
+  const effectiveRole = mounted ? getEffectiveRole() : null;
+  const isEmployer = mounted && effectiveRole === "EMPLOYER";
+  // isTeamLeaderElsewhere: currently acting as TEAM_LEADER but not the leader of THIS team
+  const isTeamLeaderElsewhere = mounted && !isLeader && effectiveRole === "TEAM_LEADER";
+  // isWorker: currently acting as WORKER (includes TEAM_LEADER switched to worker mode)
+  const isWorker = mounted && !isLeader && effectiveRole === "WORKER";
 
   return (
     <div>
@@ -908,6 +912,12 @@ function TeamDetailContent({ id }: { id: string }) {
               )}
               {isCompany ? t("teamDetail.companyType") : t("teamDetail.squadType")}
             </span>
+            {isLeader && (
+              <span className="inline-flex items-center gap-1 rounded-lg bg-primary-500/90 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
+                <Shield className="h-3 w-3" />
+                내 팀
+              </span>
+            )}
           </div>
           <h1 className="text-3xl font-extrabold text-white drop-shadow">
             {team.name}

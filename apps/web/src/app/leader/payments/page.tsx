@@ -15,24 +15,14 @@ import {
   Coins,
   TrendingUp,
   Receipt,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
-import { workerPointsApi, TlPointBalanceResponse } from "@/lib/chat-api";
+import { workerPointsApi, TlPointBalanceResponse, TlPointChargeItem } from "@/lib/chat-api";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useT } from "@/lib/i18n";
 
 // ─── Types ─────────────────────────────────────────────────────
-
-interface TlChargeItem {
-  publicId: string;
-  amountKrw: number;
-  pointsToAdd: number;
-  paymentMethod: string;
-  status: string;
-  adminNote?: string;
-  reviewedAt?: string;
-  createdAt: string;
-}
 
 interface PagedResponse<T> {
   content: T[];
@@ -45,7 +35,7 @@ interface PagedResponse<T> {
 // ─── Helpers ──────────────────────────────────────────────────
 
 function fmtKrw(n: number) {
-  return n.toLocaleString("ko-KR") + "원";
+  return "₩" + n.toLocaleString("ko-KR");
 }
 
 function fmtDatetime(iso: string) {
@@ -61,35 +51,27 @@ function fmtDatetime(iso: string) {
 // ─── Status badge ──────────────────────────────────────────────
 
 function ChargeBadge({ status }: { status: string }) {
+  const t = useT();
   const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
     PENDING: {
-      label: "검토 중",
+      label: t("leader.chargeStatusPending"),
       cls: "bg-yellow-50 text-yellow-700 border-yellow-200",
       icon: <Clock className="h-3 w-3" />,
     },
     APPROVED: {
-      label: "승인됨",
+      label: t("leader.chargeStatusApproved"),
       cls: "bg-green-50 text-green-700 border-green-200",
       icon: <CheckCircle2 className="h-3 w-3" />,
     },
     REJECTED: {
-      label: "거절됨",
+      label: t("leader.chargeStatusRejected"),
       cls: "bg-red-50 text-red-700 border-red-200",
       icon: <XCircle className="h-3 w-3" />,
     },
   };
-  const cfg = map[status] ?? {
-    label: status,
-    cls: "bg-neutral-50 text-neutral-600 border-neutral-200",
-    icon: null,
-  };
+  const cfg = map[status] ?? { label: status, cls: "bg-neutral-50 text-neutral-600 border-neutral-200", icon: null };
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        cfg.cls
-      )}
-    >
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium", cfg.cls)}>
       {cfg.icon}
       {cfg.label}
     </span>
@@ -99,21 +81,20 @@ function ChargeBadge({ status }: { status: string }) {
 // ─── Empty state ───────────────────────────────────────────────
 
 function EmptyState() {
+  const t = useT();
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center px-4">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
         <Receipt className="h-7 w-7 text-neutral-300" />
       </div>
-      <h3 className="text-base font-semibold text-neutral-700 mb-1">결제 내역이 없습니다</h3>
-      <p className="text-sm text-neutral-500 max-w-xs mb-6">
-        포인트를 충전하면 이곳에 결제 내역이 표시됩니다.
-      </p>
+      <h3 className="text-base font-semibold text-neutral-700 mb-1">{t("leader.noChargeHistory")}</h3>
+      <p className="text-sm text-neutral-500 max-w-xs mb-6">{t("employer.paymentEmptyDesc")}</p>
       <Link
         href="/leader/points"
         className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors shadow-sm"
       >
         <Coins className="h-4 w-4" />
-        포인트 충전하기
+        {t("employer.chargePointsBtn")}
       </Link>
     </div>
   );
@@ -121,9 +102,10 @@ function EmptyState() {
 
 // ─── Payment row ──────────────────────────────────────────────
 
-function PaymentRow({ item }: { item: TlChargeItem }) {
+function PaymentRow({ item }: { item: TlPointChargeItem }) {
+  const t = useT();
   const MethodIcon = item.paymentMethod === "CASH" ? Banknote : CreditCard;
-  const methodLabel = item.paymentMethod === "CASH" ? "무통장 입금" : "카드 결제";
+  const methodLabel = item.paymentMethod === "CASH" ? t("leader.paymentCash") : t("employer.paymentCard");
 
   return (
     <div className="px-5 py-4">
@@ -152,15 +134,8 @@ function PaymentRow({ item }: { item: TlChargeItem }) {
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold text-neutral-900">
-                {fmtKrw(item.amountKrw)}
-              </span>
-              <span
-                className={cn(
-                  "text-sm font-medium",
-                  item.status === "APPROVED" ? "text-green-600" : "text-neutral-400"
-                )}
-              >
+              <span className="text-sm font-semibold text-neutral-900">{fmtKrw(item.amountKrw)}</span>
+              <span className={cn("text-sm font-medium", item.status === "APPROVED" ? "text-green-600" : "text-neutral-400")}>
                 {item.status === "APPROVED" ? `+${item.pointsToAdd}P` : `${item.pointsToAdd}P`}
               </span>
               <ChargeBadge status={item.status} />
@@ -171,7 +146,7 @@ function PaymentRow({ item }: { item: TlChargeItem }) {
               <span>{fmtDatetime(item.createdAt)}</span>
             </div>
             {item.adminNote && (
-              <p className="mt-1.5 text-xs text-red-500">거절 사유: {item.adminNote}</p>
+              <p className="mt-1.5 text-xs text-red-500">{t("employer.rejectReason", item.adminNote)}</p>
             )}
           </div>
         </div>
@@ -185,6 +160,7 @@ function PaymentRow({ item }: { item: TlChargeItem }) {
 const PAGE_SIZE = 20;
 
 export default function LeaderPaymentsPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const [page, setPage] = React.useState(0);
   const [statusFilter, setStatusFilter] = React.useState<string>("ALL");
@@ -194,14 +170,13 @@ export default function LeaderPaymentsPage() {
     queryFn: () => workerPointsApi.getBalance(),
   });
 
-  const { data, isLoading, isError, refetch } = useQuery<PagedResponse<TlChargeItem>>({
+  const { data, isLoading, isError, refetch } = useQuery<PagedResponse<TlPointChargeItem>>({
     queryKey: ["tl-payments", page],
-    queryFn: () => api.get(`/worker/points/charges?page=${page}&size=${PAGE_SIZE}`),
+    queryFn: () => workerPointsApi.listChargeRequests(page, PAGE_SIZE),
   });
 
   const allItems = data?.content ?? [];
-  const filtered =
-    statusFilter === "ALL" ? allItems : allItems.filter((i) => i.status === statusFilter);
+  const filtered = statusFilter === "ALL" ? allItems : allItems.filter((i) => i.status === statusFilter);
   const totalPages = data?.totalPages ?? 0;
   const totalElements = data?.totalElements ?? 0;
 
@@ -210,10 +185,10 @@ export default function LeaderPaymentsPage() {
   const pendingCount = allItems.filter((i) => i.status === "PENDING").length;
 
   const STATUS_TABS = [
-    { label: "전체", value: "ALL" },
-    { label: "검토 중", value: "PENDING" },
-    { label: "승인됨", value: "APPROVED" },
-    { label: "거절됨", value: "REJECTED" },
+    { label: t("employer.tabAll"), value: "ALL" },
+    { label: t("leader.chargeStatusPending"), value: "PENDING" },
+    { label: t("leader.chargeStatusApproved"), value: "APPROVED" },
+    { label: t("leader.chargeStatusRejected"), value: "REJECTED" },
   ];
 
   return (
@@ -225,14 +200,14 @@ export default function LeaderPaymentsPage() {
           className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          포인트 충전으로 돌아가기
+          {t("leader.paymentsBack")}
         </Link>
 
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold text-neutral-950">결제 관리</h1>
-            <p className="mt-1 text-sm text-neutral-500">포인트 충전 내역을 확인하세요</p>
+            <h1 className="text-2xl font-extrabold text-neutral-950">{t("leader.paymentsTitle")}</h1>
+            <p className="mt-1 text-sm text-neutral-500">{t("leader.paymentsDesc")}</p>
           </div>
           <button
             onClick={() => {
@@ -242,7 +217,7 @@ export default function LeaderPaymentsPage() {
             className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition-colors"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            새로고침
+            {t("employer.refresh")}
           </button>
         </div>
 
@@ -251,14 +226,14 @@ export default function LeaderPaymentsPage() {
           <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <Coins className="h-4 w-4 text-primary-500" />
-              <p className="text-xs text-neutral-500">현재 잔액</p>
+              <p className="text-xs text-neutral-500">{t("employer.currentBalance")}</p>
             </div>
             <p className="text-xl font-bold text-primary-600">{balance?.balance ?? 0}P</p>
           </div>
           <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-4 w-4 text-green-500" />
-              <p className="text-xs text-neutral-500">총 결제 금액</p>
+              <p className="text-xs text-neutral-500">{t("employer.totalPaid")}</p>
             </div>
             <p className="text-xl font-bold text-neutral-900">
               {isLoading ? (
@@ -271,7 +246,7 @@ export default function LeaderPaymentsPage() {
           <div className="col-span-2 sm:col-span-1 rounded-xl border border-yellow-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <Clock className="h-4 w-4 text-yellow-500" />
-              <p className="text-xs text-neutral-500">승인 대기</p>
+              <p className="text-xs text-neutral-500">{t("employer.pendingApprovalCount")}</p>
             </div>
             <p className="text-xl font-bold text-yellow-700">
               {isLoading ? (
@@ -279,7 +254,6 @@ export default function LeaderPaymentsPage() {
               ) : (
                 pendingCount
               )}
-              <span className="text-sm font-normal text-neutral-400 ml-1">건</span>
             </p>
           </div>
         </div>
@@ -288,9 +262,9 @@ export default function LeaderPaymentsPage() {
         {isError && (
           <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span>불러오기에 실패했습니다.</span>
+            <span>{t("employer.loadFailed")}</span>
             <button onClick={() => refetch()} className="ml-auto underline text-red-600">
-              다시 시도
+              {t("employer.retry")}
             </button>
           </div>
         )}
@@ -302,10 +276,7 @@ export default function LeaderPaymentsPage() {
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => {
-                  setStatusFilter(tab.value);
-                  setPage(0);
-                }}
+                onClick={() => { setStatusFilter(tab.value); setPage(0); }}
                 className={cn(
                   "flex-shrink-0 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px",
                   statusFilter === tab.value
@@ -352,17 +323,17 @@ export default function LeaderPaymentsPage() {
                 onClick={() => setPage((p) => p - 1)}
                 className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                이전
+                {t("employer.prev")}
               </button>
               <span className="text-xs text-neutral-500">
-                {page + 1} / {totalPages} · 총 {totalElements}건
+                {page + 1} / {totalPages} · {t("employer.pageCountOf", totalElements)}
               </span>
               <button
                 disabled={page >= totalPages - 1}
                 onClick={() => setPage((p) => p + 1)}
                 className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                다음
+                {t("employer.next")}
               </button>
             </div>
           )}
@@ -372,26 +343,26 @@ export default function LeaderPaymentsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Link
             href="/leader/points"
-            className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-4 hover:bg-neutral-50 transition-colors shadow-sm"
+            className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-4 hover:bg-neutral-50 transition-colors shadow-sm group"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-50 flex-shrink-0">
               <Coins className="h-4 w-4 text-primary-600" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-neutral-800">포인트 충전</p>
-              <p className="text-xs text-neutral-500">새 충전 요청하기</p>
+              <p className="text-sm font-semibold text-neutral-800">{t("employer.pointChargeLinkLabel")}</p>
+              <p className="text-xs text-neutral-500 mt-0.5">{t("employer.chargeNewRequest")}</p>
             </div>
           </Link>
           <Link
             href="/workers"
-            className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-4 hover:bg-neutral-50 transition-colors shadow-sm"
+            className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-4 hover:bg-neutral-50 transition-colors shadow-sm group"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-50 flex-shrink-0">
-              <Receipt className="h-4 w-4 text-neutral-500" />
+              <Users className="h-4 w-4 text-neutral-500" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-neutral-800">팀원 찾기</p>
-              <p className="text-xs text-neutral-500">근로자 검색하기</p>
+              <p className="text-sm font-semibold text-neutral-800">{t("teams.workersTitle")}</p>
+              <p className="text-xs text-neutral-500 mt-0.5">{t("teams.workersSearch")}</p>
             </div>
           </Link>
         </div>

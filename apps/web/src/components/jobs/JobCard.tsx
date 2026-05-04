@@ -46,29 +46,13 @@ function formatDistance(km: number): string {
 }
 
 function CompanyLogo({ logoUrl, companyName }: { logoUrl?: string; companyName: string }) {
-  const initial = companyName.charAt(0).toUpperCase();
-  const colors = [
-    "bg-primary-100 text-primary-700",
-    "bg-success-100 text-success-700",
-    "bg-secondary-100 text-secondary-700",
-    "bg-danger-100 text-danger-700",
-    "bg-warning-100 text-warning-700",
-  ];
-  const colorClass =
-    colors[
-      companyName.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length
-    ];
-
-  if (logoUrl) {
-    return (
-      <img src={logoUrl} alt={companyName} className="h-10 w-10 rounded-lg object-cover" />
-    );
-  }
-
+  const src = logoUrl || "/images/company-placeholder.svg";
   return (
-    <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-sm font-bold", colorClass)}>
-      {initial}
-    </div>
+    <img
+      src={src}
+      alt={companyName}
+      className="h-10 w-10 flex-shrink-0 rounded-lg object-cover"
+    />
   );
 }
 

@@ -21,6 +21,7 @@ import {
   Coins,
   CreditCard,
   MessageCircle,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
@@ -85,7 +86,7 @@ function LocaleSwitcher() {
   );
 }
 
-function getNavLinks(role: string | undefined, t: ReturnType<typeof useT>) {
+function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>) {
   const PUBLIC_LINKS = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
     { label: t("nav.teams"), href: "/teams", icon: Users },
@@ -100,9 +101,11 @@ function getNavLinks(role: string | undefined, t: ReturnType<typeof useT>) {
     { label: t("nav.proposals"), href: "/proposals", icon: FileText },
   ];
   const TEAM_LEADER_LINKS = [
+    { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
     { label: "팀원 찾기", href: "/workers", icon: Users },
     { label: t("nav.teams"), href: "/teams", icon: Users },
     { label: t("nav.guides"), href: "/guides", icon: BookOpen },
+    { label: t("nav.applications"), href: "/applications", icon: FileText },
     { label: t("nav.chats"), href: "/chats", icon: MessageCircle },
     { label: t("nav.proposals"), href: "/proposals", icon: FileText },
   ];
@@ -137,6 +140,7 @@ function getNavLinks(role: string | undefined, t: ReturnType<typeof useT>) {
 export function TopNav({ variant = "white" }: { variant?: "transparent" | "white" }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [mounted, setMounted] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
@@ -145,7 +149,18 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
   const t = useT();
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
-  const navLinks = getNavLinks(user?.role, t);
+  const activeMode = useAuthStore((s) => s.activeMode);
+  const setActiveMode = useAuthStore((s) => s.setActiveMode);
+  const getEffectiveRole = useAuthStore((s) => s.getEffectiveRole);
+
+  // Defer auth-dependent rendering to client to prevent SSR/hydration mismatch
+  // (zustand persist rehydrates from localStorage only on client)
+  React.useEffect(() => { setMounted(true); }, []);
+
+  const effectiveRole = mounted ? getEffectiveRole() : null;
+  const mountedUser = mounted ? user : null;
+  const navLinks = getNavLinks(effectiveRole, t);
+  const canSwitchMode = mounted && user?.role === "TEAM_LEADER";
 
   const roleLabelMap: Record<string, string> = {
     WORKER: t("role.worker"),
@@ -153,7 +168,8 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
     EMPLOYER: t("role.employer"),
     ADMIN: t("role.admin"),
   };
-  const getRoleLabel = (role: string) => roleLabelMap[role] ?? role;
+  const getRoleLabel = (role: string | null | undefined) =>
+    role ? (roleLabelMap[role] ?? role) : "";
 
   React.useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 8);
@@ -248,7 +264,7 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
           {/* Auth area */}
           <div className="flex items-center gap-1.5">
             <LocaleSwitcher />
-            {user ? (
+            {mountedUser ? (
               <>
                 <NotificationBell />
                 <div className="relative" ref={userMenuRef}>
@@ -257,26 +273,53 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                     className="hidden sm:flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
                   >
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-xs font-semibold">
-                      {user.role.charAt(0)}
+                      {(effectiveRole ?? mountedUser.role).charAt(0)}
                     </span>
-                    <span className="max-w-[80px] truncate text-neutral-700">{getRoleLabel(user.role)}</span>
+                    <span className="max-w-[80px] truncate text-neutral-700">{getRoleLabel(effectiveRole ?? mountedUser.role)}</span>
                     <ChevronDown className="h-3.5 w-3.5 text-neutral-400" />
                   </button>
                   {userMenuOpen && (
                     <div className="absolute right-0 top-full mt-1.5 w-52 rounded-lg border border-neutral-200 bg-white p-1 shadow-card-lg">
                       <div className="px-3 py-2.5 mb-0.5">
-                        <p className="text-xs font-semibold text-neutral-900">{getRoleLabel(user.role)}</p>
-                        <p className="text-xs text-neutral-400 mt-0.5">{user.phone}</p>
+                        {mountedUser.fullName && (
+                          <p className="text-sm font-bold text-neutral-900 truncate">{mountedUser.fullName}</p>
+                        )}
+                        <p className="text-xs text-neutral-400 mt-0.5">{mountedUser.phone}</p>
+                        <p className="text-xs font-medium text-primary-500 mt-0.5">{getRoleLabel(effectiveRole ?? mountedUser.role)}</p>
                       </div>
+
+                      {/* Mode switcher — only for TEAM_LEADER */}
+                      {canSwitchMode && (
+                        <div className="mx-2 mb-1.5 rounded-lg bg-neutral-50 border border-neutral-100 p-1 flex gap-1">
+                          {(["WORKER", "TEAM_LEADER"] as const).map((mode) => {
+                            const isActive = (activeMode ?? "TEAM_LEADER") === mode;
+                            return (
+                              <button
+                                key={mode}
+                                onClick={() => { setActiveMode(mode); setUserMenuOpen(false); }}
+                                className={cn(
+                                  "flex-1 rounded-md py-1.5 text-xs font-semibold transition-all",
+                                  isActive
+                                    ? "bg-white text-primary-600 shadow-card border border-neutral-200"
+                                    : "text-neutral-400 hover:text-neutral-600"
+                                )}
+                              >
+                                {mode === "WORKER" ? t("role.worker") : t("role.teamLeader")}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
                       <div className="border-t border-neutral-100 pt-1">
-                        {user.role === "WORKER" ? (
+                        {(effectiveRole === "WORKER" || (!canSwitchMode && mountedUser.role === "WORKER")) ? (
                           <Link
                             href="/profile"
                             className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
                           >
                             {t("nav.myProfile")}
                           </Link>
-                        ) : user.role === "TEAM_LEADER" ? (
+                        ) : (effectiveRole === "TEAM_LEADER") ? (
                           <>
                             <Link
                               href="/profile"
@@ -285,23 +328,23 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                               {t("nav.myProfile")}
                             </Link>
                             <div className="my-0.5 border-t border-neutral-100" />
-                            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">포인트</p>
+                            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("nav.pointsSection")}</p>
                             <Link
                               href="/leader/points"
                               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
                             >
                               <Coins className="h-3.5 w-3.5 text-primary-400" />
-                              포인트 충전
+                              {t("nav.chargePoints")}
                             </Link>
                             <Link
                               href="/leader/payments"
                               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
                             >
                               <CreditCard className="h-3.5 w-3.5 text-neutral-400" />
-                              결제 관리
+                              {t("nav.paymentHistory")}
                             </Link>
                           </>
-                        ) : user.role === "EMPLOYER" ? (
+                        ) : mountedUser.role === "EMPLOYER" ? (
                           <>
                             <Link
                               href="/employer"
@@ -327,7 +370,7 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                               {t("nav.paymentHistory")}
                             </Link>
                           </>
-                        ) : user.role === "ADMIN" ? (
+                        ) : mountedUser.role === "ADMIN" ? (
                           <a
                             href="http://localhost:3001/dashboard"
                             target="_blank"
@@ -388,15 +431,43 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
           />
           <div className="fixed left-0 right-0 top-14 z-50 border-b border-neutral-200 bg-white shadow-card-lg md:hidden">
             <nav className="px-4 py-3">
-              {user && (
-                <div className="mb-3 flex items-center gap-3 rounded-lg bg-neutral-50 px-3 py-3 border border-neutral-100">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-sm font-semibold">
-                    {user.role.charAt(0)}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">{getRoleLabel(user.role)}</p>
-                    <p className="text-xs text-neutral-500">{user.phone}</p>
+              {mountedUser && (
+                <div className="mb-3 space-y-2">
+                  <div className="flex items-center gap-3 rounded-lg bg-neutral-50 px-3 py-3 border border-neutral-100">
+                    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-sm font-semibold">
+                      {(mountedUser.fullName ?? (effectiveRole ?? mountedUser.role)).charAt(0)}
+                    </span>
+                    <div className="min-w-0">
+                      {mountedUser.fullName && (
+                        <p className="text-sm font-bold text-neutral-900 truncate">{mountedUser.fullName}</p>
+                      )}
+                      <p className="text-xs text-neutral-500 truncate">{mountedUser.phone}</p>
+                      <p className="text-xs font-medium text-primary-500">{getRoleLabel(effectiveRole ?? mountedUser.role)}</p>
+                    </div>
                   </div>
+                  {/* Mobile mode switcher */}
+                  {canSwitchMode && (
+                    <div className="flex gap-1 rounded-lg bg-neutral-50 border border-neutral-100 p-1">
+                      {(["WORKER", "TEAM_LEADER"] as const).map((mode) => {
+                        const isActive = (activeMode ?? "TEAM_LEADER") === mode;
+                        return (
+                          <button
+                            key={mode}
+                            onClick={() => { setActiveMode(mode); setMobileOpen(false); }}
+                            className={cn(
+                              "flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-semibold transition-all",
+                              isActive
+                                ? "bg-white text-primary-600 shadow-card border border-neutral-200"
+                                : "text-neutral-400 hover:text-neutral-600"
+                            )}
+                          >
+                            <ArrowLeftRight className="h-3.5 w-3.5" />
+                            {mode === "WORKER" ? t("nav.workerMode") : t("nav.leaderMode")}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex flex-col gap-0.5">
@@ -444,16 +515,16 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                   );
                 })}
               </div>
-              {user?.role === "TEAM_LEADER" && (
+              {effectiveRole === "TEAM_LEADER" && (
                 <div className="mt-2 border-t border-neutral-100 pt-2">
-                  <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">포인트</p>
+                  <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("nav.pointsSection")}</p>
                   <Link
                     href="/leader/points"
                     className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
                   >
                     <span className="flex items-center gap-3">
                       <Coins className="h-4 w-4 text-primary-400" />
-                      포인트 충전
+                      {t("nav.chargePoints")}
                     </span>
                     <ChevronRight className="h-4 w-4 text-neutral-300" />
                   </Link>
@@ -463,13 +534,13 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                   >
                     <span className="flex items-center gap-3">
                       <CreditCard className="h-4 w-4 text-neutral-400" />
-                      결제 관리
+                      {t("nav.paymentHistory")}
                     </span>
                     <ChevronRight className="h-4 w-4 text-neutral-300" />
                   </Link>
                 </div>
               )}
-              {user?.role === "EMPLOYER" && (
+              {mountedUser?.role === "EMPLOYER" && (
                 <div className="mt-2 border-t border-neutral-100 pt-2">
                   <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{t("nav.employerProfile")}</p>
                   <Link
@@ -495,7 +566,7 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                 </div>
               )}
               <div className="mt-2 border-t border-neutral-100 pt-2">
-                {user ? (
+                {mountedUser ? (
                   <button
                     onClick={handleLogout}
                     className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-danger-500 hover:bg-danger-50 transition-colors"

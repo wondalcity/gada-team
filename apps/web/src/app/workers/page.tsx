@@ -21,36 +21,7 @@ import { directChatApi, workerPointsApi, TlPointBalanceResponse } from "@/lib/ch
 import { teamsApi, TeamResponse } from "@/lib/teams-api";
 import { useAuthStore } from "@/store/authStore";
 import { AppLayout } from "@/components/layout/AppLayout";
-
-// ─── Helpers ──────────────────────────────────────────────────
-
-function nationalityLabel(code: string): string {
-  const map: Record<string, string> = {
-    VN: "베트남",
-    KH: "캄보디아",
-    ID: "인도네시아",
-    TH: "태국",
-    PH: "필리핀",
-    MM: "미얀마",
-    NP: "네팔",
-    SL: "스리랑카",
-    KR: "한국",
-  };
-  return map[code] ?? code;
-}
-
-function visaLabel(code: string): string {
-  const map: Record<string, string> = {
-    E9: "E-9 (비전문취업)",
-    H2: "H-2 (방문취업)",
-    E7: "E-7 (특정활동)",
-    F4: "F-4 (재외동포)",
-    F5: "F-5 (영주)",
-    E10: "E-10 (선원취업)",
-    OTHER: "기타",
-  };
-  return map[code] ?? code;
-}
+import { useT } from "@/lib/i18n";
 
 // ─── Team Proposal Modal ──────────────────────────────────────
 
@@ -63,6 +34,7 @@ function ProposeModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -75,11 +47,11 @@ function ProposeModal({
 
   const inviteMutation = useMutation({
     mutationFn: () => {
-      if (!selectedTeamId) throw new Error("팀을 선택해주세요.");
+      if (!selectedTeamId) throw new Error(t("workers.selectTeam"));
       return teamsApi.inviteMemberByProfile(selectedTeamId, worker.publicId);
     },
     onSuccess: () => {
-      setToast(`${worker.fullName}님에게 팀 초대를 보냈습니다. (1P 차감)`);
+      setToast(t("workers.inviteSent", worker.fullName));
       queryClient.invalidateQueries({ queryKey: ["tl-point-balance"] });
       setTimeout(() => {
         onSuccess();
@@ -87,7 +59,7 @@ function ProposeModal({
       }, 1800);
     },
     onError: (err: any) => {
-      setError(err?.message ?? "팀 제안에 실패했습니다.");
+      setError(err?.message ?? t("workers.proposeFail"));
       setTimeout(() => setError(null), 5000);
     },
   });
@@ -98,8 +70,8 @@ function ProposeModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
           <div>
-            <h3 className="text-base font-semibold text-neutral-900">팀에 초대</h3>
-            <p className="text-xs text-neutral-500 mt-0.5">{worker.fullName} · 1P 차감</p>
+            <h3 className="text-base font-semibold text-neutral-900">{t("workers.inviteModalTitle")}</h3>
+            <p className="text-xs text-neutral-500 mt-0.5">{worker.fullName} · {t("nav.pointsSection")} -1P</p>
           </div>
           <button
             onClick={onClose}
@@ -119,12 +91,12 @@ function ProposeModal({
             </div>
           ) : !teams?.length ? (
             <div className="py-8 text-center">
-              <p className="text-sm text-neutral-400">생성한 팀이 없습니다.</p>
+              <p className="text-sm text-neutral-400">{t("workers.noTeams")}</p>
               <Link
                 href="/teams/create"
                 className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline"
               >
-                팀 만들기
+                {t("workers.createTeam")}
                 <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -160,7 +132,7 @@ function ProposeModal({
                     >
                       {team.name}
                     </p>
-                    <p className="text-xs text-neutral-500">{team.memberCount}명</p>
+                    <p className="text-xs text-neutral-500">{team.memberCount}{t("teams.persons")}</p>
                   </div>
                   {selectedTeamId === team.publicId && (
                     <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-primary-500" />
@@ -191,7 +163,7 @@ function ProposeModal({
             onClick={onClose}
             className="flex-1 rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
           >
-            취소
+            {t("common.cancel")}
           </button>
           <button
             onClick={() => inviteMutation.mutate()}
@@ -203,7 +175,7 @@ function ProposeModal({
                 : "bg-neutral-100 text-neutral-400 cursor-not-allowed"
             )}
           >
-            {inviteMutation.isPending ? "처리 중..." : "초대 보내기 (1P)"}
+            {inviteMutation.isPending ? t("workers.processing") : t("workers.inviteSend")}
           </button>
         </div>
       </div>
@@ -224,22 +196,46 @@ function WorkerCard({
   onChat: () => void;
   onPropose: () => void;
 }) {
+  const t = useT();
+
+  function nationalityLabel(code: string): string {
+    const map: Record<string, string> = {
+      VN: t("nationality.VN"),
+      KH: t("nationality.KH"),
+      ID: t("nationality.ID"),
+      TH: t("nationality.TH"),
+      PH: t("nationality.PH"),
+      MM: t("nationality.MM"),
+      NP: t("nationality.NP"),
+      SL: t("nationality.SL"),
+      KR: t("nationality.KR"),
+    };
+    return map[code] ?? code;
+  }
+
+  function visaLabel(code: string): string {
+    const map: Record<string, string> = {
+      E9: t("visa.E9"),
+      H2: t("visa.H2"),
+      E7: t("visa.E7"),
+      F4: t("visa.F4"),
+      F5: t("visa.F5"),
+      E10: t("visa.E10"),
+      OTHER: t("visa.OTHER"),
+    };
+    return map[code] ?? code;
+  }
+
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div className="flex-shrink-0">
-          {worker.profileImageUrl ? (
-            <img
-              src={worker.profileImageUrl}
-              alt={worker.fullName}
-              className="h-12 w-12 rounded-xl object-cover"
-            />
-          ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100">
-              <User className="h-6 w-6 text-neutral-400" />
-            </div>
-          )}
+          <img
+            src={worker.profileImageUrl || `/images/worker-placeholder-${(worker.publicId.charCodeAt(0) % 5) + 1}.svg`}
+            alt={worker.fullName}
+            className="h-12 w-12 rounded-xl object-cover"
+          />
         </div>
 
         {/* Info */}
@@ -253,7 +249,7 @@ function WorkerCard({
             </Link>
             {worker.isTeamLeader && (
               <span className="inline-flex items-center rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold text-primary-700 border border-primary-200">
-                팀장
+                {t("teams.leaderBadge")}
               </span>
             )}
           </div>
@@ -272,7 +268,7 @@ function WorkerCard({
             <p className="text-xs text-primary-600 font-medium mt-1">
               {worker.desiredPayMin?.toLocaleString() ?? "?"} ~{" "}
               {worker.desiredPayMax?.toLocaleString() ?? "?"}{" "}
-              {worker.desiredPayUnit === "DAILY" ? "원/일" : worker.desiredPayUnit === "MONTHLY" ? "원/월" : "원/시간"}
+              {worker.desiredPayUnit === "DAILY" ? t("workers.payPerDay") : worker.desiredPayUnit === "MONTHLY" ? t("workers.payPerMonth") : t("workers.payPerHour")}
             </p>
           )}
         </div>
@@ -286,14 +282,14 @@ function WorkerCard({
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-neutral-200 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 hover:border-primary-300 hover:text-primary-700 transition-colors"
           >
             <MessageCircle className="h-3.5 w-3.5" />
-            채팅하기 <span className="text-[10px] font-normal text-neutral-400">(1P)</span>
+            {t("workers.chatBtn")} <span className="text-[10px] font-normal text-neutral-400">(1P)</span>
           </button>
           <button
             onClick={onPropose}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary-500 py-2 text-xs font-semibold text-white hover:bg-primary-600 transition-colors shadow-sm"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            팀 초대 <span className="text-[10px] font-normal text-primary-200">(1P)</span>
+            {t("workers.inviteBtn")} <span className="text-[10px] font-normal text-primary-200">(1P)</span>
           </button>
         </div>
       )}
@@ -327,6 +323,7 @@ function WorkerCardSkeleton() {
 const PAGE_SIZE = 20;
 
 export default function WorkersPage() {
+  const t = useT();
   const router = useRouter();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
@@ -368,7 +365,7 @@ export default function WorkersPage() {
       router.push(`/chats/direct/${room.publicId}`);
     },
     onError: (err: any) => {
-      setChatError(err?.message ?? "채팅 시작에 실패했습니다.");
+      setChatError(err?.message ?? t("workers.chatStart"));
       setTimeout(() => setChatError(null), 5000);
     },
   });
@@ -382,9 +379,9 @@ export default function WorkersPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold text-neutral-950">팀원 찾기</h1>
+            <h1 className="text-2xl font-extrabold text-neutral-950">{t("workers.title")}</h1>
             <p className="mt-1 text-sm text-neutral-500">
-              원하는 팀원을 찾아 채팅하거나 팀에 초대하세요
+              {t("workers.subtitle")}
             </p>
           </div>
           {isLeader && (
@@ -405,7 +402,7 @@ export default function WorkersPage() {
             type="text"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="이름으로 검색..."
+            placeholder={t("workers.searchPlaceholder")}
             className="w-full rounded-xl border border-neutral-200 bg-white py-2.5 pl-10 pr-4 text-sm placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 transition-colors"
           />
           {keyword && (
@@ -423,10 +420,9 @@ export default function WorkersPage() {
           <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
             <Coins className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-500" />
             <span>
-              채팅 시작 또는 팀 초대 시 <strong>1P</strong>가 차감됩니다.
-              포인트가 부족하면{" "}
+              {t("workers.pointHint")}{" "}
               <Link href="/leader/points" className="font-semibold underline">
-                충전하기
+                {t("workers.chargeLink")}
               </Link>
             </span>
           </div>
@@ -453,14 +449,14 @@ export default function WorkersPage() {
               <Search className="h-7 w-7 text-neutral-300" />
             </div>
             <h3 className="text-base font-semibold text-neutral-700">
-              {debouncedKeyword ? `"${debouncedKeyword}" 검색 결과가 없어요` : "등록된 근로자가 없어요"}
+              {debouncedKeyword ? `"${debouncedKeyword}" ${t("workers.noResults")}` : t("workers.noWorkers")}
             </h3>
             {debouncedKeyword && (
               <button
                 onClick={() => setKeyword("")}
                 className="mt-3 text-sm text-primary-600 hover:underline"
               >
-                검색 초기화
+                {t("workers.resetSearch")}
               </button>
             )}
           </div>
@@ -486,7 +482,7 @@ export default function WorkersPage() {
                   onClick={() => setPage((p) => p - 1)}
                   className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  이전
+                  {t("common.prev")}
                 </button>
                 <span className="text-xs text-neutral-500">
                   {page + 1} / {totalPages}
@@ -496,7 +492,7 @@ export default function WorkersPage() {
                   onClick={() => setPage((p) => p + 1)}
                   className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  다음
+                  {t("common.next")}
                 </button>
               </div>
             )}
