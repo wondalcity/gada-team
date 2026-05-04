@@ -154,7 +154,6 @@ class AdminPointsController(
             )
         ).toResponseEntity()
     }
-}
 
     // ═══════════════════════════════════════════════════════
     // TEAM LEADER CHARGE REQUESTS — LIST
