@@ -11,7 +11,6 @@ import {
   type CreateCompanyPayload,
   type UpdateCompanyPayload,
 } from "@/lib/employer-api";
-import { uploadImageToStorage } from "@/lib/firebase";
 import { useT } from "@/lib/i18n";
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -211,13 +210,11 @@ export default function CompanyPage() {
     if (!file || !company) return;
     setIsUploadingLogo(true);
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const path = `profiles/companies/${company.publicId}_${Date.now()}.${ext}`;
-      const uploadPromise = uploadImageToStorage(file, path);
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("업로드 시간이 초과되었습니다. 다시 시도해주세요.")), 30_000)
-      );
-      const url = await Promise.race([uploadPromise, timeoutPromise]);
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("업로드에 실패했습니다.");
+      const { url } = await res.json();
       setLogoUrl(url);
       await employerApi.updateMyCompany(company.publicId, { logoUrl: url });
       queryClient.invalidateQueries({ queryKey: ["employer", "company"] });
