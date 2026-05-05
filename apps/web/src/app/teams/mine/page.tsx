@@ -28,6 +28,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useT } from "@/lib/i18n";
 import {
   teamsApi,
   TeamResponse,
@@ -51,6 +52,7 @@ function getInitials(name?: string): string {
 }
 
 function TeamTypeBadge({ type }: { type: string }) {
+  const t = useT();
   const isCompany = type === "COMPANY_LINKED";
   return (
     <span
@@ -66,12 +68,13 @@ function TeamTypeBadge({ type }: { type: string }) {
       ) : (
         <Users className="h-3 w-3" />
       )}
-      {isCompany ? "기업 소속" : "스쿼드"}
+      {isCompany ? t("teams.typeCompany") : t("teams.typeSquad")}
     </span>
   );
 }
 
 function RoleBadge({ role }: { role: string }) {
+  const t = useT();
   const isLeader = role === "LEADER";
   return (
     <span
@@ -82,7 +85,7 @@ function RoleBadge({ role }: { role: string }) {
           : "bg-neutral-100 text-neutral-600"
       )}
     >
-      {isLeader ? "팀장" : "팀원"}
+      {isLeader ? t("teams.roleLeader") : t("teams.roleMember")}
     </span>
   );
 }
@@ -452,7 +455,7 @@ function LeaderChatRooms() {
       <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
         <h2 className="text-base font-bold text-neutral-950 flex items-center gap-2">
           <MessageCircle className="h-4 w-4 text-primary-500" />
-          업체 채팅
+          기업 담당자 채팅
           {rooms.some((r) => r.unreadCount > 0) && (
             <span className="inline-flex h-5 items-center justify-center rounded-full bg-danger-500 px-1.5 text-[10px] font-bold text-white">
               {rooms.reduce((sum, r) => sum + r.unreadCount, 0)}
@@ -490,7 +493,7 @@ function LeaderChatRoomRow({ room }: { room: WorkerChatRoomSummary }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className={cn("text-sm font-semibold truncate", room.unreadCount > 0 ? "text-neutral-950" : "text-neutral-800")}>
-              {room.employerName ?? "업체"}
+              {room.employerName ?? "기업 담당자"}
             </span>
             <span className="flex-shrink-0 text-xs text-neutral-400">
               {room.lastMessageAt ? relativeTime(room.lastMessageAt) : ""}
@@ -563,8 +566,8 @@ function LeaderChatSheet({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 flex-shrink-0">
           <div>
-            <p className="font-bold text-neutral-950">{employerName ?? "업체"}</p>
-            <p className="text-xs text-neutral-400 mt-0.5">업체와의 채팅</p>
+            <p className="font-bold text-neutral-950">{employerName ?? "기업 담당자"}</p>
+            <p className="text-xs text-neutral-400 mt-0.5">기업 담당자와의 채팅</p>
           </div>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors">
             <X className="h-4 w-4 text-neutral-600" />

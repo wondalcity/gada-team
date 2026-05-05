@@ -81,7 +81,7 @@ function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-3">
       <AlertCircle className="h-10 w-10 text-neutral-300" />
-      <p className="text-neutral-500 font-medium">업체를 찾을 수 없습니다</p>
+      <p className="text-neutral-500 font-medium">기업 담당자를 찾을 수 없습니다</p>
       <Link
         href="/companies"
         className="text-sm text-brand-blue hover:underline"
@@ -275,7 +275,7 @@ export default function CompanyDetailPage() {
   const breadcrumbs = [
     { label: "대시보드", href: "/dashboard" },
     { label: "기업 관리", href: "/companies" },
-    { label: data?.name ?? "업체 상세" },
+    { label: data?.name ?? "기업 담당자 상세" },
   ];
 
   if (isLoading) {
@@ -423,7 +423,7 @@ export default function CompanyDetailPage() {
 
           {data.description && (
             <div className="mt-4 pt-4 border-t border-neutral-100">
-              <p className="text-xs text-neutral-500 mb-1">업체 소개</p>
+              <p className="text-xs text-neutral-500 mb-1">기업 담당자 소개</p>
               <p className="text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed">
                 {data.description}
               </p>

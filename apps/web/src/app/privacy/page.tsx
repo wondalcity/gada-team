@@ -53,7 +53,7 @@ export default function PrivacyPage() {
             <ul className="space-y-1 list-disc pl-5 mb-3">
               <li>이름 (실명)</li>
               <li>전화번호</li>
-              <li>역할 (근로자, 팀장, 업체)</li>
+              <li>역할 (근로자, 팀장, 기업 담당자)</li>
             </ul>
 
             <h3 className="mb-2 font-semibold text-neutral-800">선택 항목 (프로필 등록 시)</h3>

@@ -97,7 +97,7 @@ function RejectModal({
         </p>
         <div className="mb-4">
           <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
-            거절 사유 (업체에게 표시됩니다)
+            거절 사유 (기업 담당자에게 표시됩니다)
           </label>
           <textarea
             value={note}
@@ -197,7 +197,7 @@ export default function AdminPointsPage() {
   const COLUMNS: Column<AdminPointChargeItem>[] = [
     {
       key: "userPhone",
-      header: tab === "leader" ? "팀장" : "업체",
+      header: tab === "leader" ? "팀장" : "기업 담당자",
       render: (row) => (
         <div>
           <p className="text-sm font-medium text-neutral-900">{row.userPhone ?? `ID: ${row.userId}`}</p>

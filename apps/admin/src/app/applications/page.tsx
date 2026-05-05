@@ -366,7 +366,7 @@ export default function ApplicationsPage() {
                         지원자
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider hidden sm:table-cell">
-                        공고 / 업체
+                        공고 / 기업 담당자
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider hidden md:table-cell">
                         유형

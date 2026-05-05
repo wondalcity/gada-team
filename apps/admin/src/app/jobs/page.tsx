@@ -74,7 +74,7 @@ const COLUMNS: Column<AdminJobItem>[] = [
   },
   {
     key: "companyName",
-    header: "업체명",
+    header: "기업 담당자명",
     render: (row) => (
       <span className="text-neutral-700 text-xs">{row.companyName}</span>
     ),

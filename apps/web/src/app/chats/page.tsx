@@ -64,7 +64,7 @@ function EmployerRoomRow({ room }: { room: WorkerChatRoomSummary }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className={cn("truncate text-sm font-semibold", room.unreadCount > 0 ? "text-neutral-950" : "text-neutral-800")}>
-            {room.employerName ?? "업체"}
+            {room.employerName ?? "기업 담당자"}
           </span>
           <span className="flex-shrink-0 text-xs text-neutral-400">
             {formatTime(room.lastMessageAt)}

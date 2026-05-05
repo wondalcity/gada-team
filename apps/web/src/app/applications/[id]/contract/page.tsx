@@ -139,7 +139,7 @@ function ContractDetailContent({ applicationPublicId }: { applicationPublicId: s
         <AlertCircle className="mx-auto mb-4 h-12 w-12 text-neutral-300" />
         <p className="font-semibold text-neutral-700">아직 발송된 계약서가 없어요.</p>
         <p className="mt-1 text-sm text-neutral-500">
-          업체에서 계약서를 발송하면 여기서 확인하고 서명할 수 있어요.
+          기업 담당자에서 계약서를 발송하면 여기서 확인하고 서명할 수 있어요.
         </p>
         <Link
           href="/applications"
@@ -269,7 +269,7 @@ function ContractDetailContent({ applicationPublicId }: { applicationPublicId: s
               {contract.sentAt ? <CheckCircle2 className="h-3.5 w-3.5" /> : "1"}
             </div>
             <div>
-              <p className="text-sm font-medium text-neutral-800">업체 발송</p>
+              <p className="text-sm font-medium text-neutral-800">기업 담당자 발송</p>
               {contract.sentAt && (
                 <p className="text-xs text-neutral-400">
                   {new Date(contract.sentAt).toLocaleDateString("ko-KR")}

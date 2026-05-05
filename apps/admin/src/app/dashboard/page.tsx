@@ -102,7 +102,7 @@ export default function DashboardPage() {
 
   const KPI_CARDS = [
     {
-      label: "총 업체 수",
+      label: "총 기업 담당자 수",
       value: totalCompanies,
       change: "+12",
       trend: "up" as const,

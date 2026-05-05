@@ -303,7 +303,7 @@ export function ApplicationDetailPanel({
           <textarea
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
-            placeholder="업체 메모를 입력하세요..."
+            placeholder="기업 담당자 메모를 입력하세요..."
             rows={2}
             disabled={isMutating}
             className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-brand-blue resize-none placeholder-neutral-300 disabled:opacity-50"

@@ -207,7 +207,7 @@ const SEED_JOBS: JobDetail[] = [
     applicationCount: 2,
     createdAt: "2024-06-15T09:00:00Z",
     description:
-      "부산 해운대 대형 리모델링 공사. 콘크리트 타설 경험 있는 팀 또는 업체 전체 모집. 단가 협의 가능. 숙식·교통 지원.",
+      "부산 해운대 대형 리모델링 공사. 콘크리트 타설 경험 있는 팀 또는 기업 담당자 전체 모집. 단가 협의 가능. 숙식·교통 지원.",
     visaRequirements: ["E-9", "H-2"],
     certificationRequirements: ["콘크리트기능사"],
     healthCheckRequired: true,

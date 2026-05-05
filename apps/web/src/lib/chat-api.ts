@@ -98,7 +98,7 @@ export const workerChatApi = {
     api.post<ChatMessageItem>(`/worker/chats/rooms/${roomPublicId}/messages`, { content }),
 };
 
-// ── Worker Team Proposal API (팀장이 받은 업체 채용 제안) ─────────────────────────────
+// ── Worker Team Proposal API (팀장이 받은 기업 담당자 채용 제안) ─────────────────────────────
 
 export interface WorkerTeamProposalItem {
   publicId: string;
