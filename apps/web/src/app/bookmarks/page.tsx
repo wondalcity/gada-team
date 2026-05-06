@@ -14,20 +14,22 @@ import {
   PagedResponse,
 } from "@/lib/api";
 import { formatPay } from "@/components/jobs/JobCard";
+import { useT } from "@/lib/i18n";
 
 const PAGE_SIZE = 20;
-
-const STATUS_LABELS: Record<string, string> = {
-  PUBLISHED: "모집 중",
-  PAUSED: "일시 중지",
-  CLOSED: "마감",
-  ARCHIVED: "종료",
-  DRAFT: "임시저장",
-};
 
 export default function BookmarksPage() {
   const [page, setPage] = React.useState(0);
   const queryClient = useQueryClient();
+  const t = useT();
+
+  const STATUS_LABELS: Record<string, string> = {
+    PUBLISHED: t("jobs.statusPublished"),
+    PAUSED: t("jobs.statusPaused"),
+    CLOSED: t("jobs.statusClosed"),
+    ARCHIVED: t("jobs.statusArchived"),
+    DRAFT: t("jobs.statusDraft"),
+  };
 
   const { data, isLoading, isError, refetch } = useQuery<PagedResponse<JobBookmarkItem>>({
     queryKey: ["bookmarks", page],
@@ -57,10 +59,10 @@ export default function BookmarksPage() {
           <div>
             <div className="flex items-center gap-2">
               <Heart className="h-5 w-5 fill-pink-500 text-pink-500" />
-              <h1 className="text-xl font-bold text-neutral-900">찜한 공고</h1>
+              <h1 className="text-xl font-bold text-neutral-900">{t("bookmarks.title")}</h1>
             </div>
             {!isLoading && (
-              <p className="text-sm text-neutral-500">총 {totalElements.toLocaleString("ko-KR")}건</p>
+              <p className="text-sm text-neutral-500">{t("bookmarks.totalCount", totalElements.toLocaleString())}</p>
             )}
           </div>
         </div>
@@ -69,8 +71,8 @@ export default function BookmarksPage() {
         {isError && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span>불러오지 못했습니다.</span>
-            <button onClick={() => refetch()} className="ml-auto text-red-600 underline">재시도</button>
+            <span>{t("bookmarks.loadFailed")}</span>
+            <button onClick={() => refetch()} className="ml-auto text-red-600 underline">{t("common.retry")}</button>
           </div>
         )}
 
@@ -90,13 +92,13 @@ export default function BookmarksPage() {
         {!isLoading && content.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Heart className="mb-4 h-12 w-12 text-neutral-200" />
-            <p className="text-base font-medium text-neutral-500">찜한 공고가 없습니다</p>
-            <p className="mt-1 text-sm text-neutral-400">마음에 드는 공고를 찜해보세요</p>
+            <p className="text-base font-medium text-neutral-500">{t("bookmarks.empty")}</p>
+            <p className="mt-1 text-sm text-neutral-400">{t("bookmarks.emptyDesc")}</p>
             <Link
               href="/jobs"
               className="mt-4 rounded-lg bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
             >
-              공고 보러 가기
+              {t("bookmarks.browseJobs")}
             </Link>
           </div>
         )}
@@ -143,12 +145,12 @@ export default function BookmarksPage() {
 
                 <div className="flex items-center justify-between border-t border-neutral-100 px-4 py-2">
                   <span className="text-xs text-neutral-400">
-                    찜한 날짜: {new Date(item.bookmarkedAt).toLocaleDateString("ko-KR")}
+                    {t("bookmarks.bookmarkedAt", new Date(item.bookmarkedAt).toLocaleDateString())}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm("찜을 취소하시겠습니까?")) {
+                      if (confirm(t("bookmarks.removeConfirm"))) {
                         removeMutation.mutate(item.publicId);
                       }
                     }}
@@ -156,7 +158,7 @@ export default function BookmarksPage() {
                     className="flex items-center gap-1 rounded-lg border border-pink-200 bg-pink-50 px-2.5 py-1 text-xs font-medium text-pink-600 hover:bg-pink-100 transition-colors disabled:opacity-40"
                   >
                     <Trash2 className="h-3 w-3" />
-                    찜 취소
+                    {t("bookmarks.remove")}
                   </button>
                 </div>
               </div>
@@ -172,7 +174,7 @@ export default function BookmarksPage() {
               disabled={page === 0}
               className="rounded-lg border border-neutral-200 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-40"
             >
-              이전
+              {t("common.prev")}
             </button>
             <span className="text-sm text-neutral-500">
               {page + 1} / {totalPages}
@@ -182,7 +184,7 @@ export default function BookmarksPage() {
               disabled={page >= totalPages - 1}
               className="rounded-lg border border-neutral-200 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-40"
             >
-              다음
+              {t("common.next")}
             </button>
           </div>
         )}

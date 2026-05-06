@@ -1,11 +1,14 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { XCircle } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
-export default function PaymentFailPage() {
+function PaymentFailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const t = useT();
 
   const code = searchParams.get("code");
   const message = searchParams.get("message");
@@ -21,20 +24,28 @@ export default function PaymentFailPage() {
           </div>
         </div>
         <h1 className="text-lg font-bold text-neutral-900 mb-2">
-          {isUserCancel ? "결제 취소됨" : "결제 실패"}
+          {isUserCancel ? t("payment.canceled") : t("payment.failed")}
         </h1>
         <p className="text-sm text-neutral-500 mb-6">
           {isUserCancel
-            ? "결제가 취소되었습니다."
-            : message ?? "결제 처리 중 문제가 발생했습니다."}
+            ? t("payment.canceledDesc")
+            : message ?? t("payment.failedDesc")}
         </p>
         <button
           onClick={() => router.replace("/employer/points")}
           className="w-full rounded-xl bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
         >
-          다시 시도하기
+          {t("payment.tryAgain")}
         </button>
       </div>
     </div>
+  );
+}
+
+export default function PaymentFailPage() {
+  return (
+    <Suspense>
+      <PaymentFailContent />
+    </Suspense>
   );
 }

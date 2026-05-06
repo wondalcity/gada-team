@@ -24,6 +24,7 @@ import { teamsApi, CreateTeamPayload, RegionEntry, PortfolioEntry } from "@/lib/
 import { uploadImageToStorage } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { DateInput } from "@/components/ui/DateInput";
+import { useAuthStore } from "@/store/authStore";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -245,9 +246,11 @@ const initialState: FormState = {
 function Step1({
   form,
   setForm,
+  showErrors,
 }: {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  showErrors: boolean;
 }) {
   const [uploadingCover, setUploadingCover] = React.useState(false);
   const [coverError, setCoverError] = React.useState<string | null>(null);
@@ -289,8 +292,16 @@ function Step1({
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           placeholder="예) 홍길동 철근팀"
-          className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          className={cn(
+            "w-full rounded-lg border bg-white px-4 py-3 text-sm outline-none transition-all focus:ring-2",
+            showErrors && !form.name.trim()
+              ? "border-danger-400 focus:border-danger-500 focus:ring-danger-100"
+              : "border-neutral-200 focus:border-primary-500 focus:ring-primary-500/20"
+          )}
         />
+        {showErrors && !form.name.trim() && (
+          <p className="mt-1 text-xs text-danger-500">팀 이름을 입력해주세요</p>
+        )}
       </div>
 
       {/* Team type */}
@@ -360,7 +371,7 @@ function Step1({
       <div>
         <div className="mb-1.5 flex items-center justify-between">
           <label className="text-sm font-semibold text-neutral-700">
-            팀 소개 (간단)
+            팀 소개 (간단) <span className="text-danger-500">*</span>
           </label>
           <span className="text-xs text-neutral-400">
             {form.introShort.length}/200
@@ -376,8 +387,16 @@ function Step1({
           }
           placeholder="팀을 한 문장으로 소개해주세요"
           rows={3}
-          className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 resize-none"
+          className={cn(
+            "w-full rounded-lg border bg-white px-4 py-3 text-sm outline-none transition-all focus:ring-2 resize-none",
+            showErrors && !form.introShort.trim()
+              ? "border-danger-400 focus:border-danger-500 focus:ring-danger-100"
+              : "border-neutral-200 focus:border-primary-500 focus:ring-primary-500/20"
+          )}
         />
+        {showErrors && !form.introShort.trim() && (
+          <p className="mt-1 text-xs text-danger-500">팀 소개를 입력해주세요</p>
+        )}
       </div>
 
       {/* Cover image upload */}
@@ -462,9 +481,11 @@ function Step1({
 function Step2({
   form,
   setForm,
+  showErrors,
 }: {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  showErrors: boolean;
 }) {
   const toggleSido = (sido: string) => {
     setForm((f) => ({
@@ -475,10 +496,16 @@ function Step2({
     }));
   };
 
+  const regionInvalid = showErrors && !form.isNationwide && form.selectedSido.length === 0;
+  const equipmentInvalid = showErrors && form.equipment.length === 0;
+
   return (
     <div className="space-y-6">
       {/* Nationwide toggle */}
-      <div className="rounded-lg border border-neutral-200 p-4">
+      <div className={cn(
+        "rounded-lg border p-4",
+        regionInvalid ? "border-danger-300 bg-danger-50" : "border-neutral-200"
+      )}>
         <ToggleSwitch
           checked={form.isNationwide}
           onChange={(v) => setForm((f) => ({ ...f, isNationwide: v }))}
@@ -494,7 +521,7 @@ function Step2({
         <div>
           <label className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-neutral-700">
             <MapPin className="h-4 w-4 text-primary-500" />
-            활동 지역 선택
+            활동 지역 선택 <span className="text-danger-500">*</span>
           </label>
           <div className="flex flex-wrap gap-2">
             {SIDO_LIST.map((sido) => {
@@ -516,6 +543,9 @@ function Step2({
               );
             })}
           </div>
+          {regionInvalid && (
+            <p className="mt-2 text-xs text-danger-500">활동 지역을 하나 이상 선택하거나 전국 활동을 선택해주세요</p>
+          )}
         </div>
       )}
 
@@ -523,13 +553,16 @@ function Step2({
       <div>
         <label className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-neutral-700">
           <Wrench className="h-4 w-4 text-primary-500" />
-          보유 장비
+          보유 장비 <span className="text-danger-500">*</span>
         </label>
         <TagInput
           tags={form.equipment}
           onChange={(equipment) => setForm((f) => ({ ...f, equipment }))}
           placeholder="예) 굴착기, 지게차"
         />
+        {equipmentInvalid && (
+          <p className="mt-2 text-xs text-danger-500">보유 장비를 하나 이상 입력해주세요</p>
+        )}
       </div>
     </div>
   );
@@ -540,16 +573,20 @@ function Step2({
 function Step3({
   form,
   setForm,
+  showErrors,
 }: {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  showErrors: boolean;
 }) {
+  const headcountInvalid = showErrors && !form.headcountTarget;
+
   return (
     <div className="space-y-5">
       {/* Headcount target */}
       <div>
         <label className="mb-1.5 block text-sm font-semibold text-neutral-700">
-          모집 인원 (명)
+          모집 인원 (명) <span className="text-danger-500">*</span>
         </label>
         <input
           type="number"
@@ -559,8 +596,16 @@ function Step3({
             setForm((f) => ({ ...f, headcountTarget: e.target.value }))
           }
           placeholder="몇 명을 모집할까요?"
-          className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          className={cn(
+            "w-full rounded-lg border bg-white px-4 py-3 text-sm outline-none transition-all focus:ring-2",
+            headcountInvalid
+              ? "border-danger-400 focus:border-danger-500 focus:ring-danger-100"
+              : "border-neutral-200 focus:border-primary-500 focus:ring-primary-500/20"
+          )}
         />
+        {headcountInvalid && (
+          <p className="mt-1 text-xs text-danger-500">모집 인원을 입력해주세요</p>
+        )}
       </div>
 
       {/* Pay unit */}
@@ -784,9 +829,11 @@ function Step3({
 
 export default function NewTeamPage() {
   const router = useRouter();
+  const { user, setUser } = useAuthStore();
   const [step, setStep] = React.useState(0);
   const [form, setForm] = React.useState<FormState>(initialState);
   const [error, setError] = React.useState<string | null>(null);
+  const [showErrors, setShowErrors] = React.useState(false);
 
   const STEPS = ["기본 정보", "지역 & 역량", "모집 · 포트폴리오"];
 
@@ -798,14 +845,29 @@ export default function NewTeamPage() {
       | "future",
   }));
 
-  const canProceed = () => {
-    if (step === 0) return form.name.trim().length > 0;
+  const isStepValid = (s: number) => {
+    if (s === 0) return form.name.trim().length > 0 && form.introShort.trim().length > 0;
+    if (s === 1) return (form.isNationwide || form.selectedSido.length > 0) && form.equipment.length > 0;
+    if (s === 2) return !!form.headcountTarget && Number(form.headcountTarget) > 0;
     return true;
+  };
+
+  const handleNext = () => {
+    if (!isStepValid(step)) {
+      setShowErrors(true);
+      return;
+    }
+    setShowErrors(false);
+    setStep((s) => s + 1);
   };
 
   const createMutation = useMutation({
     mutationFn: (payload: CreateTeamPayload) => teamsApi.createTeam(payload),
     onSuccess: () => {
+      // 팀 생성 시 역할을 TEAM_LEADER로 업데이트
+      if (user && user.role !== "TEAM_LEADER") {
+        setUser({ ...user, role: "TEAM_LEADER" });
+      }
       router.push("/teams/mine");
     },
     onError: (err: any) => {
@@ -814,6 +876,10 @@ export default function NewTeamPage() {
   });
 
   const handleSubmit = () => {
+    if (!isStepValid(2)) {
+      setShowErrors(true);
+      return;
+    }
     setError(null);
     const regions: RegionEntry[] = form.isNationwide
       ? []
@@ -879,9 +945,9 @@ export default function NewTeamPage() {
             {STEPS[step]}
           </h2>
 
-          {step === 0 && <Step1 form={form} setForm={setForm} />}
-          {step === 1 && <Step2 form={form} setForm={setForm} />}
-          {step === 2 && <Step3 form={form} setForm={setForm} />}
+          {step === 0 && <Step1 form={form} setForm={setForm} showErrors={showErrors} />}
+          {step === 1 && <Step2 form={form} setForm={setForm} showErrors={showErrors} />}
+          {step === 2 && <Step3 form={form} setForm={setForm} showErrors={showErrors} />}
         </div>
 
         {/* Error */}
@@ -895,9 +961,8 @@ export default function NewTeamPage() {
         <div className="mt-4 flex gap-2">
           {step < STEPS.length - 1 ? (
             <button
-              onClick={() => setStep((s) => s + 1)}
-              disabled={!canProceed()}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-4 text-sm font-semibold text-white transition-all hover:bg-primary-600 disabled:opacity-50 active:scale-[0.98]"
+              onClick={handleNext}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary-500 py-4 text-sm font-semibold text-white transition-all hover:bg-primary-600 active:scale-[0.98]"
             >
               다음
               <ChevronRight className="h-4 w-4" />

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { employerApi, type UpdateSitePayload } from "@/lib/employer-api";
 import { DateInput } from "@/components/ui/DateInput";
 import { useT } from "@/lib/i18n";
 
-export default function EditSitePage() {
+function EditSiteContent() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -216,5 +216,13 @@ export default function EditSitePage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function EditSitePage() {
+  return (
+    <Suspense>
+      <EditSiteContent />
+    </Suspense>
   );
 }

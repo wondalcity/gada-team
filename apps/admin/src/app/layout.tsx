@@ -8,6 +8,9 @@ export const metadata: Metadata = {
     template: "%s | GADA Admin",
   },
   description: "GADA 건설 구인구직 플랫폼 운영 관리 콘솔",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
   robots: { index: false, follow: false },
 };
 

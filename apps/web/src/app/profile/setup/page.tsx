@@ -6,19 +6,11 @@ import { auth } from "@/lib/firebase";
 import { onboard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { DateInput } from "@/components/ui/DateInput";
+import { useT } from "@/lib/i18n";
 
 type SetupStep = "basic" | "identity" | "preferences";
 
 // ─── Static data ──────────────────────────────────────────────────────────────
-
-const NATIONALITIES = [
-  { value: "KR", label: "한국" },
-  { value: "VN", label: "베트남" },
-  { value: "CN", label: "중국" },
-  { value: "PH", label: "필리핀" },
-  { value: "ID", label: "인도네시아" },
-  { value: "OTHER", label: "기타" },
-];
 
 const VISA_TYPES = [
   { value: "CITIZEN", label: "내국인" },
@@ -29,19 +21,6 @@ const VISA_TYPES = [
   { value: "E9", label: "비전문취업 (E-9)" },
   { value: "E7", label: "특정활동 (E-7)" },
   { value: "OTHER", label: "기타" },
-];
-
-const LANGUAGE_OPTIONS = [
-  { code: "vi", label: "베트남어" },
-  { code: "en", label: "영어" },
-  { code: "zh", label: "중국어" },
-];
-
-const LANGUAGE_LEVELS = [
-  { value: "BASIC", label: "기초" },
-  { value: "INTERMEDIATE", label: "중급" },
-  { value: "FLUENT", label: "유창" },
-  { value: "NATIVE", label: "원어민" },
 ];
 
 const JOB_CATEGORIES = [
@@ -130,6 +109,29 @@ function ProgressIndicator({
 export default function ProfileSetupPage() {
   const router = useRouter();
   const { user, setUser } = useAuthStore();
+  const t = useT();
+
+  const NATIONALITIES = [
+    { value: "KR", label: t("profile.nationalityKR") },
+    { value: "VN", label: t("profile.nationalityVN") },
+    { value: "CN", label: t("profile.nationalityCN") },
+    { value: "PH", label: t("profile.nationalityPH") },
+    { value: "ID", label: t("profile.nationalityID") },
+    { value: "OTHER", label: t("profile.nationalityOther") },
+  ];
+
+  const LANGUAGE_OPTIONS = [
+    { code: "vi", label: t("profile.langVi") },
+    { code: "en", label: t("profile.langEn") },
+    { code: "zh", label: t("profile.langZh") },
+  ];
+
+  const LANGUAGE_LEVELS = [
+    { value: "BASIC", label: t("profile.levelBasic") },
+    { value: "INTERMEDIATE", label: t("profile.levelIntermediate") },
+    { value: "FLUENT", label: t("profile.levelFluent") },
+    { value: "NATIVE", label: t("profile.levelNative") },
+  ];
 
   const [step, setStep] = useState<SetupStep>("basic");
   const [fullName, setFullName] = useState("");

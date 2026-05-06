@@ -91,6 +91,7 @@ export const api = {
 export interface AuthResponse {
   userId: number;
   phone: string;
+  fullName?: string | null;
   role: "WORKER" | "TEAM_LEADER" | "EMPLOYER" | "ADMIN";
   status: "PENDING" | "ACTIVE" | "SUSPENDED" | "INACTIVE";
   isNewUser: boolean;

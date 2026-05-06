@@ -1,14 +1,17 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, AlertCircle, Loader2, Coins } from "lucide-react";
 import { employerApi } from "@/lib/employer-api";
+import { useT } from "@/lib/i18n";
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const t = useT();
 
   const paymentKey = searchParams.get("paymentKey") ?? "";
   const orderId = searchParams.get("orderId") ?? "";
@@ -36,8 +39,8 @@ export default function PaymentSuccessPage() {
                 <Loader2 className="h-8 w-8 text-primary-500 animate-spin" />
               </div>
             </div>
-            <h1 className="text-lg font-bold text-neutral-900 mb-2">결제 확인 중...</h1>
-            <p className="text-sm text-neutral-500">잠시만 기다려 주세요.</p>
+            <h1 className="text-lg font-bold text-neutral-900 mb-2">{t("payment.confirming")}</h1>
+            <p className="text-sm text-neutral-500">{t("payment.wait")}</p>
           </>
         )}
 
@@ -48,21 +51,21 @@ export default function PaymentSuccessPage() {
                 <CheckCircle2 className="h-8 w-8 text-green-500" />
               </div>
             </div>
-            <h1 className="text-lg font-bold text-neutral-900 mb-2">결제 완료!</h1>
+            <h1 className="text-lg font-bold text-neutral-900 mb-2">{t("payment.success")}</h1>
             <p className="text-sm text-neutral-500 mb-1">
-              {amount.toLocaleString("ko-KR")}원 결제가 완료되었습니다.
+              {t("payment.successDesc", amount.toLocaleString("ko-KR"))}
             </p>
             <div className="flex items-center justify-center gap-1.5 mb-6">
               <Coins className="h-4 w-4 text-primary-500" />
               <span className="text-base font-bold text-primary-600">
-                +{mutation.data?.pointsToAdd}P 충전 완료
+                {t("payment.chargedPoints", mutation.data?.pointsToAdd ?? "")}
               </span>
             </div>
             <button
               onClick={() => router.replace("/employer/points")}
               className="w-full rounded-xl bg-primary-500 py-3 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
             >
-              포인트 페이지로 이동
+              {t("payment.goToPoints")}
             </button>
           </>
         )}
@@ -74,27 +77,35 @@ export default function PaymentSuccessPage() {
                 <AlertCircle className="h-8 w-8 text-red-500" />
               </div>
             </div>
-            <h1 className="text-lg font-bold text-neutral-900 mb-2">결제 확인 실패</h1>
+            <h1 className="text-lg font-bold text-neutral-900 mb-2">{t("payment.confirmFailed")}</h1>
             <p className="text-sm text-red-600 mb-6">
-              {(mutation.error as Error).message || "결제 확인 중 오류가 발생했습니다."}
+              {(mutation.error as Error).message || t("payment.confirmFailedDesc")}
             </p>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => mutation.mutate()}
                 className="w-full rounded-xl border border-neutral-200 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
               >
-                다시 시도
+                {t("payment.retry")}
               </button>
               <button
                 onClick={() => router.replace("/employer/points")}
                 className="w-full rounded-xl bg-neutral-100 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-200 transition-colors"
               >
-                포인트 페이지로 돌아가기
+                {t("payment.backToPoints")}
               </button>
             </div>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }

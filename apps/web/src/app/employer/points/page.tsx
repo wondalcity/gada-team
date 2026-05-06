@@ -283,7 +283,7 @@ function ChargeForm({ onSuccess }: { onSuccess: () => void }) {
         {mutation.isPending || tossLoading
           ? t("employer.processingBtn")
           : paymentMethod === "CARD"
-          ? "카드 결제하기"
+          ? t("employer.payCardBtn")
           : t("employer.pointChargeRequest")}
       </button>
     </div>

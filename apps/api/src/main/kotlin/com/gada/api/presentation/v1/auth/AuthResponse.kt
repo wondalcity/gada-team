@@ -6,6 +6,7 @@ import com.gada.api.domain.user.UserStatus
 data class AuthResponse(
     val userId: Long,
     val phone: String,
+    val fullName: String?,
     val role: UserRole,
     val status: UserStatus,
     val isNewUser: Boolean,

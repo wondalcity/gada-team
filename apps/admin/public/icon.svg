@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background rounded rect -->
+  <rect width="32" height="32" rx="8" fill="#1E3A5F"/>
+  <!-- Hard hat shape -->
+  <!-- Brim -->
+  <rect x="5" y="19" width="22" height="3" rx="1.5" fill="white"/>
+  <!-- Crown -->
+  <path d="M16 8 C10 8 7 13 7 17 L7 19 L25 19 L25 17 C25 13 22 8 16 8Z" fill="white"/>
+  <!-- Center stripe -->
+  <rect x="14.5" y="8" width="3" height="11" rx="1" fill="#1E3A5F" opacity="0.3"/>
+</svg>

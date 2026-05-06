@@ -23,23 +23,23 @@ interface Country {
   code: string;
   dial: string;
   flag: string;
-  name: string;
+  nameKey: string;
   placeholder: string;
 }
 
 const COUNTRIES: Country[] = [
-  { code: "KR", dial: "+82",  flag: "🇰🇷", name: "대한민국",   placeholder: "10 1234 5678"  },
-  { code: "VN", dial: "+84",  flag: "🇻🇳", name: "베트남",     placeholder: "90 1234 567"   },
-  { code: "US", dial: "+1",   flag: "🇺🇸", name: "미국",       placeholder: "201 234 5678"  },
-  { code: "CN", dial: "+86",  flag: "🇨🇳", name: "중국",       placeholder: "131 2345 6789" },
-  { code: "JP", dial: "+81",  flag: "🇯🇵", name: "일본",       placeholder: "90 1234 5678"  },
-  { code: "PH", dial: "+63",  flag: "🇵🇭", name: "필리핀",     placeholder: "917 123 4567"  },
-  { code: "ID", dial: "+62",  flag: "🇮🇩", name: "인도네시아", placeholder: "812 3456 7890" },
-  { code: "MY", dial: "+60",  flag: "🇲🇾", name: "말레이시아", placeholder: "12 345 6789"   },
-  { code: "TH", dial: "+66",  flag: "🇹🇭", name: "태국",       placeholder: "81 234 5678"   },
-  { code: "SG", dial: "+65",  flag: "🇸🇬", name: "싱가포르",   placeholder: "8123 4567"     },
-  { code: "MM", dial: "+95",  flag: "🇲🇲", name: "미얀마",     placeholder: "9 123 4567"    },
-  { code: "KH", dial: "+855", flag: "🇰🇭", name: "캄보디아",   placeholder: "12 345 678"    },
+  { code: "KR", dial: "+82",  flag: "🇰🇷", nameKey: "login.countryKR", placeholder: "10 1234 5678"  },
+  { code: "VN", dial: "+84",  flag: "🇻🇳", nameKey: "login.countryVN", placeholder: "90 1234 567"   },
+  { code: "US", dial: "+1",   flag: "🇺🇸", nameKey: "login.countryUS", placeholder: "201 234 5678"  },
+  { code: "CN", dial: "+86",  flag: "🇨🇳", nameKey: "login.countryCN", placeholder: "131 2345 6789" },
+  { code: "JP", dial: "+81",  flag: "🇯🇵", nameKey: "login.countryJP", placeholder: "90 1234 5678"  },
+  { code: "PH", dial: "+63",  flag: "🇵🇭", nameKey: "login.countryPH", placeholder: "917 123 4567"  },
+  { code: "ID", dial: "+62",  flag: "🇮🇩", nameKey: "login.countryID", placeholder: "812 3456 7890" },
+  { code: "MY", dial: "+60",  flag: "🇲🇾", nameKey: "login.countryMY", placeholder: "12 345 6789"   },
+  { code: "TH", dial: "+66",  flag: "🇹🇭", nameKey: "login.countryTH", placeholder: "81 234 5678"   },
+  { code: "SG", dial: "+65",  flag: "🇸🇬", nameKey: "login.countrySG", placeholder: "8123 4567"     },
+  { code: "MM", dial: "+95",  flag: "🇲🇲", nameKey: "login.countryMM", placeholder: "9 123 4567"    },
+  { code: "KH", dial: "+855", flag: "🇰🇭", nameKey: "login.countryKH", placeholder: "12 345 678"    },
 ];
 
 // ─── Country dropdown (portal) ─────────────────────────────────────
@@ -55,6 +55,7 @@ function CountryDropdown({
   onSelect: (c: Country) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [pos, setPos] = useState({ top: 0, left: 0, width: 240 });
   const [mounted, setMounted] = useState(false);
@@ -92,7 +93,7 @@ function CountryDropdown({
 
   const filtered = COUNTRIES.filter(
     (c) =>
-      c.name.includes(query) ||
+      t(c.nameKey as Parameters<typeof t>[0]).includes(query) ||
       c.dial.includes(query) ||
       c.code.toLowerCase().includes(query.toLowerCase()),
   );
@@ -146,7 +147,7 @@ function CountryDropdown({
                 }`}
               >
                 <span className="text-base leading-none">{c.flag}</span>
-                <span className="flex-1 font-medium">{c.name}</span>
+                <span className="flex-1 font-medium">{t(c.nameKey as Parameters<typeof t>[0])}</span>
                 <span className="tabular-nums text-xs text-neutral-400">{c.dial}</span>
                 {isSel && (
                   <svg className="w-3.5 h-3.5 shrink-0 text-primary-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">

@@ -1,61 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { onboard } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { DateInput } from "@/components/ui/DateInput";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useT } from "@/lib/i18n";
 
 type Role = "WORKER" | "TEAM_LEADER" | "EMPLOYER";
 type OnboardStep = "role" | "basic" | "identity" | "preferences";
-
-// ─── Static data ─────────────────────────────────────────────────────────────
-
-const ALL_ROLES: { value: Role; label: string; desc: string; emoji: string; type: "worker" | "employer" }[] = [
-  {
-    value: "WORKER",
-    label: "근로자",
-    desc: "건설 현장에서 일하는 개인 근로자",
-    emoji: "👷",
-    type: "worker",
-  },
-  {
-    value: "TEAM_LEADER",
-    label: "팀장",
-    desc: "팀을 이끌며 팀원을 모집하는 반장·팀장",
-    emoji: "🦺",
-    type: "worker",
-  },
-  {
-    value: "EMPLOYER",
-    label: "관리자",
-    desc: "인력을 채용하는 시공사·원도급업체",
-    emoji: "🏗️",
-    type: "employer",
-  },
-];
-
-const NATIONALITIES = [
-  { value: "KR", label: "한국" },
-  { value: "VN", label: "베트남" },
-  { value: "CN", label: "중국" },
-  { value: "PH", label: "필리핀" },
-  { value: "ID", label: "인도네시아" },
-  { value: "OTHER", label: "기타" },
-];
-
-const VISA_TYPES = [
-  { value: "CITIZEN", label: "내국인" },
-  { value: "F4", label: "재외동포 (F-4)" },
-  { value: "F5", label: "영주 (F-5)" },
-  { value: "F6", label: "결혼이민 (F-6)" },
-  { value: "H2", label: "방문취업 (H-2)" },
-  { value: "E9", label: "비전문취업 (E-9)" },
-  { value: "E7", label: "특정활동 (E-7)" },
-  { value: "OTHER", label: "기타" },
-];
 
 const LANGUAGE_OPTIONS = [
   { code: "vi", label: "베트남어" },
@@ -157,10 +112,55 @@ function ProgressIndicator({ steps }: ProgressProps) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-export default function OnboardingPage() {
+function OnboardingContent() {
+  const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
   const setUser = useAuthStore((s) => s.setUser);
+
+  const ALL_ROLES: { value: Role; label: string; desc: string; emoji: string; type: "worker" | "employer" }[] = [
+    {
+      value: "WORKER",
+      label: t("onboarding.roleWorker"),
+      desc: t("onboarding.roleWorkerDesc"),
+      emoji: "👷",
+      type: "worker",
+    },
+    {
+      value: "TEAM_LEADER",
+      label: t("onboarding.roleLeader"),
+      desc: t("onboarding.roleLeaderDesc"),
+      emoji: "🦺",
+      type: "worker",
+    },
+    {
+      value: "EMPLOYER",
+      label: t("onboarding.roleEmployer"),
+      desc: t("onboarding.roleEmployerDesc"),
+      emoji: "🏗️",
+      type: "employer",
+    },
+  ];
+
+  const NATIONALITIES = [
+    { value: "KR", label: t("nationality.KR") },
+    { value: "VN", label: t("nationality.VN") },
+    { value: "CN", label: "중국" },
+    { value: "PH", label: t("nationality.PH") },
+    { value: "ID", label: t("nationality.ID") },
+    { value: "OTHER", label: t("nationality.OTHER") },
+  ];
+
+  const VISA_TYPES = [
+    { value: "CITIZEN", label: t("visa.CITIZEN") },
+    { value: "F4", label: t("visa.F4") },
+    { value: "F5", label: t("visa.F5") },
+    { value: "F6", label: t("visa.F6") },
+    { value: "H2", label: t("visa.H2") },
+    { value: "E9", label: t("visa.E9") },
+    { value: "E7", label: t("visa.E7") },
+    { value: "OTHER", label: t("visa.OTHER") },
+  ];
 
   // Filter roles based on registration type (worker tab = 근로자/팀장, employer tab = 관리자)
   const regType = searchParams.get("type") ?? "worker";
@@ -699,5 +699,13 @@ export default function OnboardingPage() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense>
+      <OnboardingContent />
+    </Suspense>
   );
 }

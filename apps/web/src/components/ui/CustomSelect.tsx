@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 export interface SelectOption {
   value: string;
   label: string;
+  icon?: React.ReactNode;
 }
 
 interface CustomSelectProps {
@@ -42,7 +43,10 @@ export function CustomSelect({ options, value, onChange, placeholder = "선택�
           open ? "border-primary-400 ring-2 ring-primary-100" : "hover:border-neutral-300"
         )}
       >
-        <span className="truncate text-left">{selected ? selected.label : placeholder}</span>
+        <span className="flex items-center gap-2 truncate text-left min-w-0">
+          {selected?.icon && <span className="flex-shrink-0 text-base leading-none">{selected.icon}</span>}
+          {selected ? selected.label : placeholder}
+        </span>
         <ChevronDown className={cn("ml-2 h-4 w-4 flex-shrink-0 text-neutral-400 transition-transform duration-150", open && "rotate-180")} />
       </button>
 
@@ -72,7 +76,10 @@ export function CustomSelect({ options, value, onChange, placeholder = "선택�
                   active ? "bg-primary-50 font-semibold text-primary-600" : "text-neutral-700 hover:bg-neutral-50"
                 )}
               >
-                <span className="flex-1 truncate">{opt.label}</span>
+                <span className="flex flex-1 items-center gap-2 truncate min-w-0">
+                  {opt.icon && <span className="flex-shrink-0 text-base leading-none">{opt.icon}</span>}
+                  {opt.label}
+                </span>
                 {active && (
                   <svg className="h-4 w-4 flex-shrink-0 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

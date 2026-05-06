@@ -98,6 +98,7 @@ class AuthUseCase(
             return AuthResponse(
                 userId = existing.id,
                 phone = existing.phone,
+                fullName = existing.fullName,
                 role = existing.role,
                 status = existing.status,
                 isNewUser = false,
@@ -115,6 +116,7 @@ class AuthUseCase(
             return AuthResponse(
                 userId = existingByPhone.id,
                 phone = existingByPhone.phone,
+                fullName = existingByPhone.fullName,
                 role = existingByPhone.role,
                 status = existingByPhone.status,
                 isNewUser = false,
@@ -133,6 +135,7 @@ class AuthUseCase(
         return AuthResponse(
             userId = user.id,
             phone = user.phone,
+            fullName = user.fullName,
             role = user.role,
             status = user.status,
             isNewUser = true,
@@ -206,6 +209,7 @@ class AuthUseCase(
         return AuthResponse(
             userId = user.id,
             phone = user.phone,
+            fullName = user.fullName,
             role = user.role,
             status = user.status,
             isNewUser = true,
@@ -235,6 +239,7 @@ class AuthUseCase(
         return AuthResponse(
             userId = user.id,
             phone = user.phone,
+            fullName = user.fullName,
             role = user.role,
             status = user.status,
             isNewUser = false,
@@ -268,6 +273,7 @@ class AuthUseCase(
         return AuthResponse(
             userId = user.id,
             phone = user.phone,
+            fullName = user.fullName,
             role = user.role,
             status = user.status,
             isNewUser = false,
@@ -373,6 +379,7 @@ class AuthUseCase(
         return AuthResponse(
             userId = user.id,
             phone = user.phone,
+            fullName = user.fullName,
             role = user.role,
             status = user.status,
             isNewUser = false,
