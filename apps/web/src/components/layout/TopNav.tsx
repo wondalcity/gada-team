@@ -22,6 +22,7 @@ import {
   CreditCard,
   MessageCircle,
   ArrowLeftRight,
+  Percent,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
@@ -117,6 +118,7 @@ function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>
     { label: t("nav.applicants"), href: "/employer/applicants", icon: Users },
     { label: t("nav.teams"), href: "/employer/teams", icon: Users },
     { label: t("nav.chats"), href: "/employer/chats", icon: MessageCircle },
+    { label: t("nav.commissions"), href: "/employer/commissions", icon: Percent },
   ];
   const ADMIN_LINKS = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
@@ -369,6 +371,13 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                               <CreditCard className="h-3.5 w-3.5 text-neutral-400" />
                               {t("nav.paymentHistory")}
                             </Link>
+                            <Link
+                              href="/employer/commissions"
+                              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            >
+                              <Percent className="h-3.5 w-3.5 text-orange-400" />
+                              {t("nav.commissions")}
+                            </Link>
                           </>
                         ) : mountedUser.role === "ADMIN" ? (
                           <a
@@ -560,6 +569,16 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                     <span className="flex items-center gap-3">
                       <CreditCard className="h-4 w-4 text-neutral-400" />
                       {t("nav.paymentHistory")}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-neutral-300" />
+                  </Link>
+                  <Link
+                    href="/employer/commissions"
+                    className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Percent className="h-4 w-4 text-orange-400" />
+                      {t("nav.commissions")}
                     </span>
                     <ChevronRight className="h-4 w-4 text-neutral-300" />
                   </Link>

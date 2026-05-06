@@ -1332,3 +1332,127 @@ export async function rejectTlChargeRequest(publicId: string, adminNote: string)
     body: JSON.stringify({ note: adminNote }),
   });
 }
+
+// ─── Hiring Commissions ────────────────────────────────────────
+
+export interface AdminCommissionItem {
+  publicId: string;
+  employerId: number;
+  companyName?: string;
+  jobTitle?: string;
+  workerName?: string;
+  amountKrw: number;
+  ratePct?: number;
+  status: "PENDING" | "PAID" | "WAIVED";
+  adminNote?: string;
+  reviewedBy?: number;
+  reviewedAt?: string;
+  dueDate?: string;
+  createdAt: string;
+}
+
+export async function getAdminCommissions(params: {
+  status?: string;
+  page?: number;
+  size?: number;
+}): Promise<PagedResponse<AdminCommissionItem>> {
+  const p = new URLSearchParams();
+  if (params.status) p.set("status", params.status);
+  if (params.page !== undefined) p.set("page", String(params.page));
+  if (params.size !== undefined) p.set("size", String(params.size));
+  return adminFetch<PagedResponse<AdminCommissionItem>>(`/admin/commissions?${p.toString()}`);
+}
+
+export async function createAdminCommission(data: {
+  employerId: number;
+  companyName?: string;
+  jobTitle?: string;
+  workerName?: string;
+  amountKrw: number;
+  ratePct?: number;
+  dueDate?: string;
+}): Promise<AdminCommissionItem> {
+  return adminFetch<AdminCommissionItem>(`/admin/commissions`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function markCommissionPaid(publicId: string, note?: string): Promise<AdminCommissionItem> {
+  return adminFetch<AdminCommissionItem>(`/admin/commissions/${publicId}/paid`, {
+    method: "PATCH",
+    body: JSON.stringify({ note }),
+  });
+}
+
+export async function waiveCommission(publicId: string, note?: string): Promise<AdminCommissionItem> {
+  return adminFetch<AdminCommissionItem>(`/admin/commissions/${publicId}/waive`, {
+    method: "PATCH",
+    body: JSON.stringify({ note }),
+  });
+}
+
+// ─── Employer Subsidies ────────────────────────────────────────
+
+export interface AdminSubsidyItem {
+  publicId: string;
+  employerId: number;
+  companyName?: string;
+  subsidyType: "GOVERNMENT" | "PLATFORM";
+  title: string;
+  description?: string;
+  amountKrw: number;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "DISBURSED";
+  adminNote?: string;
+  reviewedBy?: number;
+  reviewedAt?: string;
+  disbursedAt?: string;
+  createdAt: string;
+}
+
+export async function getAdminSubsidies(params: {
+  status?: string;
+  page?: number;
+  size?: number;
+}): Promise<PagedResponse<AdminSubsidyItem>> {
+  const p = new URLSearchParams();
+  if (params.status) p.set("status", params.status);
+  if (params.page !== undefined) p.set("page", String(params.page));
+  if (params.size !== undefined) p.set("size", String(params.size));
+  return adminFetch<PagedResponse<AdminSubsidyItem>>(`/admin/commissions/subsidies?${p.toString()}`);
+}
+
+export async function createAdminSubsidy(data: {
+  employerId: number;
+  companyName?: string;
+  subsidyType: string;
+  title: string;
+  description?: string;
+  amountKrw: number;
+}): Promise<AdminSubsidyItem> {
+  return adminFetch<AdminSubsidyItem>(`/admin/commissions/subsidies`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function approveSubsidy(publicId: string, note?: string): Promise<AdminSubsidyItem> {
+  return adminFetch<AdminSubsidyItem>(`/admin/commissions/subsidies/${publicId}/approve`, {
+    method: "PATCH",
+    body: JSON.stringify({ note }),
+  });
+}
+
+export async function rejectSubsidy(publicId: string, note?: string): Promise<AdminSubsidyItem> {
+  return adminFetch<AdminSubsidyItem>(`/admin/commissions/subsidies/${publicId}/reject`, {
+    method: "PATCH",
+    body: JSON.stringify({ note }),
+  });
+}
+
+export async function disburseSubsidy(publicId: string, note?: string): Promise<AdminSubsidyItem> {
+  return adminFetch<AdminSubsidyItem>(`/admin/commissions/subsidies/${publicId}/disburse`, {
+    method: "PATCH",
+    body: JSON.stringify({ note }),
+  });
+}

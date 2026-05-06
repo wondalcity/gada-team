@@ -28,6 +28,8 @@ import {
   List,
   SendHorizontal,
   Coins,
+  Percent,
+  Gift,
 } from "lucide-react";
 import { cn } from "@gada/ui";
 
@@ -97,6 +99,12 @@ const NAV_SECTIONS: NavSection[] = [
     title: "포인트",
     items: [
       { label: "충전 요청 관리", href: "/points", icon: Coins },
+    ],
+  },
+  {
+    title: "수수료/지원금",
+    items: [
+      { label: "수수료/지원금 관리", href: "/commissions", icon: Percent },
     ],
   },
   {

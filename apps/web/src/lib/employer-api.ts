@@ -369,4 +369,34 @@ export const employerApi = {
     api.post<TeamProposalData>("/employer/teams/proposals", { teamPublicId, jobPublicId, jobTitle, message }),
   listProposals: (page = 0, size = 20) =>
     api.get<PagedResponse<TeamProposalData>>(`/employer/teams/proposals?page=${page}&size=${size}`),
+
+  // Commissions & Subsidies
+  getMyCommissions: (page = 0, size = 20) =>
+    api.get<PagedResponse<EmployerCommissionItem>>(`/employer/commissions?page=${page}&size=${size}`),
+  getMySubsidies: (page = 0, size = 20) =>
+    api.get<PagedResponse<EmployerSubsidyItem>>(`/employer/commissions/subsidies?page=${page}&size=${size}`),
 };
+
+// ─── Commission / Subsidy types ────────────────────────────────
+
+export interface EmployerCommissionItem {
+  publicId: string;
+  jobTitle?: string;
+  workerName?: string;
+  amountKrw: number;
+  ratePct?: number;
+  status: "PENDING" | "PAID" | "WAIVED";
+  dueDate?: string;
+  createdAt: string;
+}
+
+export interface EmployerSubsidyItem {
+  publicId: string;
+  subsidyType: "GOVERNMENT" | "PLATFORM";
+  title: string;
+  description?: string;
+  amountKrw: number;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "DISBURSED";
+  disbursedAt?: string;
+  createdAt: string;
+}
