@@ -12,9 +12,10 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
+        // In production: INTERNAL_API_URL = https://gada-team-web-wondalcity-9533s-projects.vercel.app
         destination: process.env.INTERNAL_API_URL
           ? `${process.env.INTERNAL_API_URL}/api/:path*`
-          : "http://localhost:8090/api/:path*",
+          : "http://localhost:3000/api/:path*",
       },
     ];
   },
