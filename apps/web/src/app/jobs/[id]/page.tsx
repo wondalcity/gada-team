@@ -120,8 +120,8 @@ function JobDetailSkeleton() {
           ))}
         </div>
         <div className="mt-8 space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-4 animate-pulse rounded bg-neutral-100" style={{ width: `${70 + Math.random() * 25}%` }} />
+          {[85, 72, 90, 78, 95, 80].map((w, i) => (
+            <div key={i} className="h-4 animate-pulse rounded bg-neutral-100" style={{ width: `${w}%` }} />
           ))}
         </div>
       </div>
