@@ -9,7 +9,6 @@ export async function GET(req: NextRequest) {
     const keyword = searchParams.get("keyword") ?? "";
     const sido = searchParams.get("sido") ?? "";
     const sigungu = searchParams.get("sigungu") ?? "";
-    const categoryCode = searchParams.get("categoryCode") ?? "";
     const payUnit = searchParams.get("payUnit") ?? "";
     const page = parseInt(searchParams.get("page") ?? "0", 10);
     const size = parseInt(searchParams.get("size") ?? "20", 10);
@@ -21,27 +20,20 @@ export async function GET(req: NextRequest) {
       .select(
         `id, public_id, title, status, pay_min, pay_max, pay_unit, required_count,
          always_open, start_date, end_date, accommodation_provided, meal_provided,
-         transportation_provided, health_check_required, view_count, application_count, created_at,
-         sites!inner(id, public_id, name, address, sido, sigungu,
-           companies!inner(id, public_id, name, logo_url, is_verified)
+         transportation_provided, health_check_required, view_count, application_count,
+         application_types, published_at, created_at,
+         sites!inner(public_id, name, address, sido, sigungu,
+           companies!inner(public_id, name, logo_url, is_verified)
          )`,
         { count: "exact" }
       )
       .eq("status", "PUBLISHED")
-      .is("sites.companies.deleted_at" as never, null);
+      .is("deleted_at", null);
 
-    if (keyword) {
-      query = query.ilike("title", `%${keyword}%`);
-    }
-    if (sido) {
-      query = query.eq("sites.sido" as never, sido);
-    }
-    if (sigungu) {
-      query = query.eq("sites.sigungu" as never, sigungu);
-    }
-    if (payUnit) {
-      query = query.eq("pay_unit", payUnit);
-    }
+    if (keyword) query = query.ilike("title", `%${keyword}%`);
+    if (sido) query = query.eq("sites.sido" as never, sido);
+    if (sigungu) query = query.eq("sites.sigungu" as never, sigungu);
+    if (payUnit) query = query.eq("pay_unit", payUnit);
 
     const { data, error, count } = await query
       .order("created_at", { ascending: false })
@@ -52,7 +44,39 @@ export async function GET(req: NextRequest) {
       return serverError();
     }
 
-    return paginated(data ?? [], page, size, count ?? 0);
+    const content = (data ?? []).map((job) => {
+      const site = job.sites as { public_id: string; name: string; address: string; sido: string | null; sigungu: string | null; companies: { public_id: string; name: string; logo_url: string | null; is_verified: boolean } };
+      const company = site?.companies;
+      return {
+        publicId: job.public_id,
+        sitePublicId: site?.public_id ?? "",
+        companyPublicId: company?.public_id ?? "",
+        companyName: company?.name ?? "",
+        companyLogoUrl: company?.logo_url ?? undefined,
+        siteName: site?.name ?? "",
+        sido: site?.sido ?? undefined,
+        sigungu: site?.sigungu ?? undefined,
+        title: job.title,
+        payMin: job.pay_min ?? undefined,
+        payMax: job.pay_max ?? undefined,
+        payUnit: job.pay_unit,
+        applicationTypes: Array.isArray(job.application_types) ? job.application_types : [],
+        accommodationProvided: job.accommodation_provided ?? false,
+        mealProvided: job.meal_provided ?? false,
+        transportationProvided: job.transportation_provided ?? false,
+        requiredCount: job.required_count ?? undefined,
+        alwaysOpen: job.always_open ?? false,
+        startDate: job.start_date ?? undefined,
+        endDate: job.end_date ?? undefined,
+        status: job.status,
+        viewCount: job.view_count ?? 0,
+        applicationCount: job.application_count ?? 0,
+        publishedAt: job.published_at ?? undefined,
+        createdAt: job.created_at,
+      };
+    });
+
+    return paginated(content, page, size, count ?? 0);
   } catch (err) {
     console.error("[jobs GET] error:", err);
     return serverError();
