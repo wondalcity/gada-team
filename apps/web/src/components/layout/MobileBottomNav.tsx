@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, Users, FileText, User, Bell } from "lucide-react";
+import { Home, Search, Users, FileText, User, Bell, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { getMyNotifications } from "@/lib/notifications-api";
@@ -16,20 +16,30 @@ export function MobileBottomNav() {
   const getEffectiveRole = useAuthStore((s) => s.getEffectiveRole);
   // Defer role check to client-only to avoid SSR/client hydration mismatch.
   const [isWorker, setIsWorker] = useState(false);
+  const [effectiveRole, setEffectiveRole] = useState<string | null>(null);
   useEffect(() => {
-    setIsWorker(getEffectiveRole() === "WORKER");
+    const role = getEffectiveRole();
+    setIsWorker(role === "WORKER");
+    setEffectiveRole(role);
   }, [getEffectiveRole]);
+
+  const isWorkerOrLeader = effectiveRole === "WORKER" || effectiveRole === "TEAM_LEADER";
 
   const ALL_TABS = [
     { label: t("bottom.home"), href: "/", icon: Home, exactMatch: true },
     { label: t("bottom.jobs"), href: "/jobs", icon: Search },
     { label: t("bottom.teams"), href: "/teams", icon: Users },
     { label: t("bottom.applications"), href: "/applications", icon: FileText },
+    { label: "내 입찰", href: "/bids", icon: TrendingUp, workerAndLeaderOnly: true },
     { label: t("bottom.notifications"), href: "/notifications", icon: Bell, leaderOnly: true },
     { label: t("bottom.profile"), href: "/profile", icon: User },
   ];
 
-  const TABS = ALL_TABS.filter((tab) => !(tab.leaderOnly && isWorker));
+  const TABS = ALL_TABS.filter((tab) => {
+    if ("leaderOnly" in tab && tab.leaderOnly && isWorker) return false;
+    if ("workerAndLeaderOnly" in tab && tab.workerAndLeaderOnly && !isWorkerOrLeader) return false;
+    return true;
+  });
 
   const { data: notifData } = useQuery({
     queryKey: ["notificationUnread"],

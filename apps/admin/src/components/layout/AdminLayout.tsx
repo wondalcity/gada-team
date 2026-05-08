@@ -30,6 +30,7 @@ import {
   Coins,
   Percent,
   Gift,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@gada/ui";
 
@@ -76,6 +77,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "공고 관리",
     items: [
       { label: "채용공고", href: "/jobs", icon: Briefcase },
+      { label: "입찰 관리", href: "/bids", icon: TrendingUp },
       { label: "지원 관리", href: "/applications", icon: ClipboardList },
       { label: "계약 관리", href: "/contracts", icon: ScrollText },
     ],

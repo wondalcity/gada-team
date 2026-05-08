@@ -28,6 +28,7 @@ import { useJobDetail } from "@/hooks/useJobs";
 import { useAuthStore } from "@/store/authStore";
 import { formatPay } from "@/components/jobs/JobCard";
 import { ApplyModal } from "@/components/jobs/ApplyModal";
+import { BidModal } from "@/components/jobs/BidModal";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
@@ -138,6 +139,9 @@ function JobDetailContent({ id }: { id: string }) {
   const user = useAuthStore((s) => s.user);
   const { data: job, isLoading, isError } = useJobDetail(id);
   const [applyOpen, setApplyOpen] = React.useState(false);
+  const [bidOpen, setBidOpen] = React.useState(false);
+
+  const canBid = user?.role === "WORKER" || user?.role === "TEAM_LEADER";
 
   const handleApply = () => {
     if (!user) {
@@ -572,12 +576,25 @@ function JobDetailContent({ id }: { id: string }) {
         className="fixed bottom-0 left-0 right-0 z-30 border-t border-neutral-100 bg-white/95 px-4 pt-3 backdrop-blur-sm lg:hidden"
         style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + 60px)` }}
       >
-        <button
-          onClick={handleApply}
-          className="w-full rounded-lg bg-primary-500 py-4 text-base font-bold text-white hover:bg-primary-600 active:scale-[0.98] transition-all"
-        >
-          {t("job.apply")}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleApply}
+            className="flex-1 rounded-lg bg-primary-500 py-4 text-base font-bold text-white hover:bg-primary-600 active:scale-[0.98] transition-all"
+          >
+            {t("job.apply")}
+          </button>
+          {canBid && (
+            <button
+              onClick={() => {
+                if (!user) { router.push("/login"); return; }
+                setBidOpen(true);
+              }}
+              className="flex-1 rounded-lg border-2 border-primary-500 py-4 text-base font-bold text-primary-500 hover:bg-primary-50 active:scale-[0.98] transition-all"
+            >
+              견적 입찰
+            </button>
+          )}
+        </div>
       </div>
 
       {job && (
@@ -586,6 +603,15 @@ function JobDetailContent({ id }: { id: string }) {
           onClose={() => setApplyOpen(false)}
           job={{ publicId: job.publicId, title: job.title, companyName: companyName ?? "" }}
           onSuccess={() => setApplyOpen(false)}
+        />
+      )}
+
+      {job && canBid && (
+        <BidModal
+          isOpen={bidOpen}
+          onClose={() => setBidOpen(false)}
+          job={{ publicId: job.publicId, title: job.title, payMin: job.payMin, payMax: job.payMax, payUnit: job.payUnit }}
+          onSuccess={() => setBidOpen(false)}
         />
       )}
     </>

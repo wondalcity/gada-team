@@ -23,6 +23,7 @@ import {
   MessageCircle,
   ArrowLeftRight,
   Percent,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "./NotificationBell";
@@ -98,6 +99,7 @@ function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>
     { label: t("nav.teams"), href: "/teams", icon: Users },
     { label: t("nav.guides"), href: "/guides", icon: BookOpen },
     { label: t("nav.applications"), href: "/applications", icon: FileText },
+    { label: "내 입찰", href: "/bids", icon: TrendingUp },
     { label: t("nav.chats"), href: "/chats", icon: MessageCircle },
     { label: t("nav.proposals"), href: "/proposals", icon: FileText },
   ];
@@ -107,6 +109,7 @@ function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>
     { label: t("nav.teams"), href: "/teams", icon: Users },
     { label: t("nav.guides"), href: "/guides", icon: BookOpen },
     { label: t("nav.applications"), href: "/applications", icon: FileText },
+    { label: "내 입찰", href: "/bids", icon: TrendingUp },
     { label: t("nav.chats"), href: "/chats", icon: MessageCircle },
     { label: t("nav.proposals"), href: "/proposals", icon: FileText },
   ];
@@ -115,6 +118,7 @@ function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>
     { label: t("nav.company"), href: "/employer/company", icon: Building2 },
     { label: t("nav.sites"), href: "/employer/sites", icon: MapPin },
     { label: t("nav.jobManage"), href: "/employer/jobs", icon: Briefcase },
+    { label: "입찰 관리", href: "/employer/bids", icon: TrendingUp },
     { label: t("nav.applicants"), href: "/employer/applicants", icon: Users },
     { label: t("nav.teams"), href: "/employer/teams", icon: Users },
     { label: t("nav.chats"), href: "/employer/chats", icon: MessageCircle },
