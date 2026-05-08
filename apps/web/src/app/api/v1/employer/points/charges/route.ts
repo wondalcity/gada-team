@@ -51,7 +51,18 @@ export async function GET(req: NextRequest) {
       return serverError();
     }
 
-    return paginated(data ?? [], page, size, count ?? 0);
+    const content = (data ?? []).map((c) => ({
+      publicId: c.public_id,
+      amountKrw: c.amount_krw,
+      pointsToAdd: c.points_to_add,
+      paymentMethod: c.payment_method,
+      status: c.status,
+      adminNote: c.admin_note ?? undefined,
+      reviewedAt: c.reviewed_at ?? undefined,
+      createdAt: c.created_at,
+    }));
+
+    return paginated(content, page, size, count ?? 0);
   } catch (err) {
     console.error("[charges GET] error:", err);
     return serverError();

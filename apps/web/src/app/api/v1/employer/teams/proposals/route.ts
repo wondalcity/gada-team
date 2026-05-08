@@ -43,7 +43,23 @@ export async function GET(req: NextRequest) {
       return serverError();
     }
 
-    return paginated(data ?? [], page, size, count ?? 0);
+    const content = (data ?? []).map((p) => {
+      const team = p.teams as { public_id: string; name: string };
+      const pJob = p.jobs as { public_id: string; title: string };
+      return {
+        publicId: p.public_id,
+        teamPublicId: team?.public_id ?? "",
+        jobPublicId: pJob?.public_id ?? "",
+        jobTitle: pJob?.title ?? undefined,
+        message: p.message ?? undefined,
+        pointsUsed: p.points_used ?? 0,
+        status: p.status,
+        respondedAt: p.responded_at ?? undefined,
+        createdAt: p.created_at,
+      };
+    });
+
+    return paginated(content, page, size, count ?? 0);
   } catch (err) {
     console.error("[proposals GET] error:", err);
     return serverError();

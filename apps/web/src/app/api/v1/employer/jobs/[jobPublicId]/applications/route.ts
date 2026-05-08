@@ -74,7 +74,20 @@ export async function GET(
       return serverError();
     }
 
-    return paginated(data ?? [], page, size, count ?? 0);
+    const content = (data ?? []).map((app) => ({
+      publicId: app.public_id,
+      jobTitle: (job as Record<string, unknown>).title as string,
+      jobPublicId: jobPublicId,
+      companyName: "",
+      applicationType: app.application_type,
+      status: app.status,
+      statusUpdatedAt: app.created_at,
+      isScouted: app.is_scouted ?? false,
+      isVerified: app.is_verified ?? false,
+      appliedAt: app.created_at,
+    }));
+
+    return paginated(content, page, size, count ?? 0);
   } catch (err) {
     console.error("[job applications GET] error:", err);
     return serverError();

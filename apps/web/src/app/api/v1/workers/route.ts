@@ -50,7 +50,22 @@ export async function GET(req: NextRequest) {
       return serverError();
     }
 
-    return paginated(data ?? [], page, size, count ?? 0);
+    const content = (data ?? []).map((w) => ({
+      publicId: w.public_id,
+      fullName: w.full_name,
+      nationality: w.nationality,
+      visaType: w.visa_type,
+      healthCheckStatus: "NOT_DONE",
+      profileImageUrl: w.profile_image_url ?? null,
+      desiredPayMin: w.desired_pay_min ?? null,
+      desiredPayMax: w.desired_pay_max ?? null,
+      desiredPayUnit: w.desired_pay_unit ?? null,
+      isTeamLeader: w.is_team_leader ?? false,
+      teamPublicId: null,
+      teamName: null,
+    }));
+
+    return paginated(content, page, size, count ?? 0);
   } catch (err) {
     console.error("[workers GET] error:", err);
     return serverError();
