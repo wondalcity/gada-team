@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
          always_open, start_date, end_date, view_count, application_count,
          application_types, created_at,
          accommodation_provided, meal_provided, transportation_provided,
+         job_bids(count),
          sites!inner(public_id, name, sido, sigungu, company_id,
            companies!inner(name)
          )`,
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
 
     const content = (data ?? []).map((job) => {
       const site = job.sites as { public_id: string; name: string; sido: string | null; sigungu: string | null; companies: { name: string } };
+      const bidCount = Array.isArray((job as any).job_bids) ? (job as any).job_bids[0]?.count ?? 0 : 0;
       return {
         publicId: job.public_id,
         title: job.title,
@@ -74,6 +76,7 @@ export async function GET(req: NextRequest) {
         endDate: job.end_date ?? undefined,
         viewCount: job.view_count ?? 0,
         applicationCount: job.application_count ?? 0,
+        bidCount,
         createdAt: job.created_at,
       };
     });

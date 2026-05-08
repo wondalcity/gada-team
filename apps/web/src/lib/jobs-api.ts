@@ -30,6 +30,7 @@ export interface JobSummary {
   status: string;
   viewCount: number;
   applicationCount: number;
+  bidCount: number;
   publishedAt?: string;
   createdAt: string;
   // Location search fields

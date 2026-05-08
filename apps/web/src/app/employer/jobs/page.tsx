@@ -77,6 +77,9 @@ function JobCard({
             <span className="text-xs text-neutral-400">
               {t("employer.applicants")} {job.applicationCount}
             </span>
+            <span className="text-xs font-medium text-indigo-500">
+              입찰 {job.bidCount}
+            </span>
             <span className="text-xs text-neutral-400">
               {t("common.views")} {job.viewCount}
             </span>

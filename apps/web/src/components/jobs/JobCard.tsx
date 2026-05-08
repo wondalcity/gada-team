@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { MapPin, Users, User, Building2, Clock, Heart } from "lucide-react";
+import { MapPin, Users, User, Building2, Clock, Heart, TrendingUp } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { JobSummary } from "@/lib/jobs-api";
@@ -193,8 +193,14 @@ export function JobCard({ job, isBookmarked: initialBookmarked }: { job: JobSumm
                   <Icon className="h-2.5 w-2.5" />
                   {label}
                 </span>
-              );
-            })}
+              )}
+            )}
+            {job.bidCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">
+                <TrendingUp className="h-2.5 w-2.5" />
+                입찰 {job.bidCount}
+              </span>
+            )}
           </div>
 
           <div className="flex-shrink-0">

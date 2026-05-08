@@ -122,6 +122,7 @@ export interface AdminJobItem {
   status: "DRAFT" | "PUBLISHED" | "PAUSED" | "CLOSED" | "ARCHIVED";
   applicationCount: number;
   viewCount: number;
+  bidCount: number;
   createdAt: string;
 }
 

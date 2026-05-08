@@ -4,7 +4,7 @@ import { fmtDatetime, fmtDate } from "@/lib/format";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Search, Briefcase, Eye, FileText, PauseCircle, Plus, Pencil } from "lucide-react";
+import { Search, Briefcase, Eye, FileText, PauseCircle, Plus, Pencil, TrendingUp } from "lucide-react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -150,6 +150,16 @@ const COLUMNS: Column<AdminJobItem>[] = [
       <div className="flex items-center gap-1 text-xs text-neutral-600">
         <FileText className="h-3 w-3 text-neutral-400" />
         {row.applicationCount}
+      </div>
+    ),
+  },
+  {
+    key: "bidCount",
+    header: "입찰수",
+    render: (row) => (
+      <div className="flex items-center gap-1 text-xs font-medium text-indigo-600">
+        <TrendingUp className="h-3 w-3" />
+        {row.bidCount ?? 0}
       </div>
     ),
   },

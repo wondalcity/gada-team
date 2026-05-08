@@ -64,6 +64,7 @@ export interface JobSummary {
   endDate?: string;
   viewCount: number;
   applicationCount: number;
+  bidCount: number;
   createdAt: string;
 }
 

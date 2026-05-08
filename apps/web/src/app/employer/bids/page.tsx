@@ -74,12 +74,18 @@ export default function EmployerBidsPage() {
                   </span>
                   {statusBadge(job.status)}
                 </div>
-                {job.sido && (
-                  <p className="mt-0.5 flex items-center gap-1 text-xs text-neutral-400">
-                    <MapPin className="h-3 w-3" />
-                    {job.sido} {job.sigungu ?? ""}
-                  </p>
-                )}
+                <div className="mt-0.5 flex items-center gap-3 text-xs text-neutral-400">
+                  {job.sido && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {job.sido} {job.sigungu ?? ""}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1 font-medium text-indigo-500">
+                    <TrendingUp className="h-3 w-3" />
+                    입찰 {job.bidCount}건
+                  </span>
+                </div>
               </div>
               <ChevronRight className="h-4 w-4 flex-shrink-0 text-neutral-300 group-hover:text-primary-400" />
             </Link>
