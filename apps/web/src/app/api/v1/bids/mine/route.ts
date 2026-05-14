@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     }
 
     const content = (data ?? []).map((b) => {
-      const job = b.jobs as {
+      const job = b.jobs as unknown as {
         public_id: string; title: string; pay_min: number | null; pay_max: number | null;
         pay_unit: string; status: string;
         sites: { name: string; sido: string | null; sigungu: string | null; companies: { name: string; logo_url: string | null } };

@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     }
 
     const content = (data ?? []).map((job) => {
-      const site = job.sites as { id: number; public_id: string; name: string; address: string; sido: string | null; sigungu: string | null; companies: { id: number; public_id: string; name: string; status: string; is_verified: boolean } };
+      const site = job.sites as unknown as { id: number; public_id: string; name: string; address: string; sido: string | null; sigungu: string | null; companies: { id: number; public_id: string; name: string; status: string; is_verified: boolean } };
       const company = site?.companies;
       const bidCount = Array.isArray((job as any).job_bids) ? (job as any).job_bids[0]?.count ?? 0 : 0;
       return {

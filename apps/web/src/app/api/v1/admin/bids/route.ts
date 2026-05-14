@@ -43,9 +43,9 @@ export async function GET(req: NextRequest) {
     }
 
     const content = (data ?? []).map((b) => {
-      const job = b.jobs as { public_id: string; title: string; sites: { name: string; companies: { name: string } } };
-      const worker = b.worker as { public_id: string; worker_profiles: { full_name: string }[] } | null;
-      const team = b.team as { public_id: string; name: string } | null;
+      const job = b.jobs as unknown as { public_id: string; title: string; sites: { name: string; companies: { name: string } } };
+      const worker = b.worker as unknown as { public_id: string; worker_profiles: { full_name: string }[] } | null;
+      const team = b.team as unknown as { public_id: string; name: string } | null;
       return {
         publicId: b.public_id,
         bidderType: b.bidder_type,
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
         jobPublicId: job.public_id,
         jobTitle: job.title,
         siteName: job.sites?.name ?? "",
-        companyName: (job.sites as { companies: { name: string } })?.companies?.name ?? "",
+        companyName: (job.sites as unknown as { companies: { name: string } })?.companies?.name ?? "",
         workerName: worker?.worker_profiles?.[0]?.full_name ?? undefined,
         teamName: team?.name ?? undefined,
       };

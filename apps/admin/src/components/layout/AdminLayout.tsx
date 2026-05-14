@@ -218,26 +218,13 @@ function Sidebar({
           )}
         >
           {!collapsed && (
-            <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-blue">
-                <HardHat className="h-4 w-4 text-white" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-extrabold tracking-tight text-neutral-950 leading-none">
-                  GADA<span className="text-brand-blue">.</span>
-                </div>
-                <div className="text-[10px] font-medium text-neutral-400 mt-0.5">
-                  Admin Console
-                </div>
-              </div>
+            <Link href="/dashboard" className="flex items-center min-w-0">
+              <img src="/logo.png" alt="GADA Team" className="h-8 w-auto" />
             </Link>
           )}
           {collapsed && (
-            <Link
-              href="/dashboard"
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-blue"
-            >
-              <HardHat className="h-4 w-4 text-white" />
+            <Link href="/dashboard" className="flex items-center justify-center">
+              <img src="/logo.png" alt="GADA Team" className="h-6 w-auto" />
             </Link>
           )}
           <button

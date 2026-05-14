@@ -91,7 +91,7 @@ export async function GET(
 
     // EMPLOYER: verify ownership (skip in demo mode if no profile found — return dummy)
     if (principal.role === "EMPLOYER") {
-      const site = job.sites as { company_id: number };
+      const site = job.sites as unknown as { company_id: number };
       const { data: profile } = await db
         .from("employer_profiles")
         .select("id")
@@ -129,7 +129,7 @@ export async function GET(
     }
 
     const content = (data ?? []).map((b) => {
-      const worker = b.worker as {
+      const worker = b.worker as unknown as {
         public_id: string;
         worker_profiles: {
           public_id: string;
@@ -140,7 +140,7 @@ export async function GET(
         }[];
       } | null;
       const wp = worker?.worker_profiles?.[0];
-      const team = b.team as { public_id: string; name: string } | null;
+      const team = b.team as unknown as { public_id: string; name: string } | null;
       return {
         publicId: b.public_id,
         bidderType: b.bidder_type,
@@ -232,7 +232,7 @@ export async function POST(
 
     const { data: bid, error } = await db
       .from("job_bids")
-      .upsert(insertData, {
+      .upsert(insertData as any, {
         onConflict:
           bidderType === "TEAM" ? "job_id,bidder_team_id" : "job_id,bidder_user_id",
       })

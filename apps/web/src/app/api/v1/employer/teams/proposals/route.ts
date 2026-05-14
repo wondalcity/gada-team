@@ -44,8 +44,8 @@ export async function GET(req: NextRequest) {
     }
 
     const content = (data ?? []).map((p) => {
-      const team = p.teams as { public_id: string; name: string };
-      const pJob = p.jobs as { public_id: string; title: string };
+      const team = p.teams as unknown as { public_id: string; name: string };
+      const pJob = p.jobs as unknown as { public_id: string; title: string };
       return {
         publicId: p.public_id,
         teamPublicId: team?.public_id ?? "",

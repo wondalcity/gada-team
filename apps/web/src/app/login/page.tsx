@@ -13,7 +13,7 @@ import { useAuthStore } from "@/store/authStore";
 import type { ConfirmationResult } from "firebase/auth";
 import type { AuthResponse } from "@/lib/api";
 import Link from "next/link";
-import { HardHat, Eye, EyeOff, Globe, ChevronDown } from "lucide-react";
+import { Eye, EyeOff, Globe, ChevronDown } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useLocaleStore, type Locale } from "@/store/localeStore";
 
@@ -406,11 +406,8 @@ export default function LoginPage() {
           style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }}
         />
         <div className="relative z-10 px-12 w-full max-w-sm">
-          <Link href="/" className="flex items-center gap-2.5 mb-8 w-fit">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 border border-white/30">
-              <HardHat className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-display text-2xl font-bold text-white">가다<span className="text-white/60 font-black"> Team</span></span>
+          <Link href="/" className="mb-8 w-fit block">
+            <img src="/logo.png" alt="가다 Team" className="h-10 w-auto brightness-0 invert" />
           </Link>
           <h2 className="font-display text-2xl font-bold text-white leading-snug mb-3">
             {t("auth.heroTitle")}
@@ -444,12 +441,7 @@ export default function LoginPage() {
         {/* Mobile logo */}
         <div className="lg:hidden mb-8 text-center">
           <Link href="/" className="inline-flex flex-col items-center gap-1">
-            <div className="inline-flex items-center gap-2 mb-1">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm">
-                <HardHat className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-display text-xl font-bold text-neutral-900">가다<span className="text-primary-500 font-black"> Team</span></span>
-            </div>
+            <img src="/logo.png" alt="가다 Team" className="h-8 w-auto mb-1" />
             <p className="text-xs text-neutral-400">{t("auth.heroSub")}</p>
           </Link>
         </div>

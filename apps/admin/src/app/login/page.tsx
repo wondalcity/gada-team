@@ -79,15 +79,8 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400">
-              <span className="text-neutral-900 font-black text-xl">G</span>
-            </div>
-            <div className="text-left">
-              <p className="text-white font-bold text-xl tracking-tight">GADA Admin</p>
-              <p className="text-neutral-400 text-xs">운영 관리 콘솔</p>
-            </div>
-          </div>
+          <img src="/logo.png" alt="GADA Team" className="h-12 w-auto mx-auto mb-2 brightness-0 invert" />
+          <p className="text-neutral-400 text-xs">운영 관리 콘솔</p>
         </div>
 
         {/* Card */}

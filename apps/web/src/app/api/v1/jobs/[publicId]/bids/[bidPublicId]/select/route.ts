@@ -32,7 +32,7 @@ export async function POST(
 
     if (!job) return notFound("공고를 찾을 수 없습니다");
 
-    const site = job.sites as { company_id: number };
+    const site = job.sites as unknown as { company_id: number };
     const { data: profile } = await db
       .from("employer_profiles")
       .select("id")
@@ -118,7 +118,7 @@ export async function POST(
             : null;
         })
       );
-      const valid = notifInserts.filter(Boolean);
+      const valid = notifInserts.filter((n): n is NonNullable<typeof n> => n !== null);
       if (valid.length > 0) await db.from("notifications").insert(valid);
     }
 
