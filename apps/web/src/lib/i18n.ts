@@ -32,6 +32,8 @@ const translations = {
     "nav.employerProfile": "마이페이지",
     "nav.chats": "채팅",
     "nav.proposals": "받은 제안",
+    "nav.companyGroup": "회사 관리",
+    "nav.recruitGroup": "채용 관리",
 
     // ── Bottom nav ──
     "bottom.home": "홈",
@@ -1263,6 +1265,8 @@ const translations = {
     "nav.employerProfile": "My Page",
     "nav.chats": "Chats",
     "nav.proposals": "Received Proposals",
+    "nav.companyGroup": "Company",
+    "nav.recruitGroup": "Recruitment",
 
     // ── Bottom nav ──
     "bottom.home": "Home",
@@ -2496,6 +2500,8 @@ const translations = {
     "nav.employerProfile": "Trang cá nhân",
     "nav.chats": "Nhắn tin",
     "nav.proposals": "Đề xuất nhận được",
+    "nav.companyGroup": "Quản lý công ty",
+    "nav.recruitGroup": "Quản lý tuyển dụng",
 
     // ── Bottom nav ──
     "bottom.home": "Trang chủ",

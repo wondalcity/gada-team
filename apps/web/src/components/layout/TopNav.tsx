@@ -87,13 +87,35 @@ function LocaleSwitcher() {
   );
 }
 
-function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>) {
-  const PUBLIC_LINKS = [
+type LucideIcon = typeof Briefcase;
+
+type NavLeaf = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  exact?: boolean;
+  external?: boolean;
+};
+
+type NavGroup = {
+  label: string;
+  icon: LucideIcon;
+  children: NavLeaf[];
+};
+
+type NavItem = NavLeaf | NavGroup;
+
+function isGroup(item: NavItem): item is NavGroup {
+  return "children" in item;
+}
+
+function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>): NavItem[] {
+  const PUBLIC_LINKS: NavItem[] = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
     { label: t("nav.teams"), href: "/teams", icon: Users },
     { label: t("nav.guides"), href: "/guides", icon: BookOpen },
   ];
-  const WORKER_LINKS = [
+  const WORKER_LINKS: NavItem[] = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
     { label: t("nav.teams"), href: "/teams", icon: Users },
     { label: t("nav.guides"), href: "/guides", icon: BookOpen },
@@ -102,7 +124,7 @@ function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>
     { label: t("nav.chats"), href: "/chats", icon: MessageCircle },
     { label: t("nav.proposals"), href: "/proposals", icon: FileText },
   ];
-  const TEAM_LEADER_LINKS = [
+  const TEAM_LEADER_LINKS: NavItem[] = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
     { label: t("workers.title"), href: "/workers", icon: Users },
     { label: t("nav.teams"), href: "/teams", icon: Users },
@@ -112,18 +134,30 @@ function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>
     { label: t("nav.chats"), href: "/chats", icon: MessageCircle },
     { label: t("nav.proposals"), href: "/proposals", icon: FileText },
   ];
-  const EMPLOYER_LINKS = [
+  const EMPLOYER_LINKS: NavItem[] = [
     { label: t("nav.dashboard"), href: "/employer", icon: LayoutDashboard, exact: true },
-    { label: t("nav.company"), href: "/employer/company", icon: Building2 },
-    { label: t("nav.sites"), href: "/employer/sites", icon: MapPin },
-    { label: t("nav.jobManage"), href: "/employer/jobs", icon: Briefcase },
-    { label: "입찰 관리", href: "/employer/bids", icon: TrendingUp },
-    { label: t("nav.applicants"), href: "/employer/applicants", icon: Users },
-    { label: t("nav.teams"), href: "/employer/teams", icon: Users },
+    {
+      label: t("nav.companyGroup"),
+      icon: Building2,
+      children: [
+        { label: t("nav.company"), href: "/employer/company", icon: Building2 },
+        { label: t("nav.sites"), href: "/employer/sites", icon: MapPin },
+      ],
+    },
+    {
+      label: t("nav.recruitGroup"),
+      icon: Briefcase,
+      children: [
+        { label: t("nav.jobManage"), href: "/employer/jobs", icon: Briefcase },
+        { label: "입찰 관리", href: "/employer/bids", icon: TrendingUp },
+        { label: t("nav.applicants"), href: "/employer/applicants", icon: Users },
+        { label: t("nav.teams"), href: "/employer/teams", icon: Users },
+      ],
+    },
     { label: t("nav.chats"), href: "/employer/chats", icon: MessageCircle },
     { label: t("nav.commissions"), href: "/employer/commissions", icon: Percent },
   ];
-  const ADMIN_LINKS = [
+  const ADMIN_LINKS: NavItem[] = [
     { label: t("nav.jobs"), href: "/jobs", icon: Briefcase },
     { label: t("nav.adminDashboard"), href: "http://localhost:3001/dashboard", icon: LayoutDashboard, external: true },
   ];
@@ -140,6 +174,86 @@ function getNavLinks(role: string | null | undefined, t: ReturnType<typeof useT>
     default:
       return PUBLIC_LINKS;
   }
+}
+
+// ─── Desktop dropdown for grouped nav items ─────────────────────────────────
+
+function NavDropdown({
+  group,
+  pathname,
+}: {
+  group: NavGroup;
+  pathname: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Close when route changes
+  React.useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  const isAnyChildActive = group.children.some(
+    (c) => pathname === c.href || pathname.startsWith(c.href + "/")
+  );
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          isAnyChildActive
+            ? "text-primary-500 bg-primary-50"
+            : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+        )}
+      >
+        {group.label}
+        <ChevronDown className={cn(
+          "h-3.5 w-3.5 transition-transform",
+          open && "rotate-180",
+          isAnyChildActive ? "text-primary-400" : "text-neutral-400"
+        )} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 w-52 rounded-lg border border-neutral-200 bg-white p-1 shadow-card-lg z-50">
+          {group.children.map((child) => {
+            const ChildIcon = child.icon;
+            const isActive =
+              pathname === child.href || pathname.startsWith(child.href + "/");
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+                  isActive
+                    ? "bg-primary-50 font-semibold text-primary-600"
+                    : "text-neutral-700 hover:bg-neutral-50"
+                )}
+              >
+                <ChildIcon className={cn(
+                  "h-4 w-4",
+                  isActive ? "text-primary-500" : "text-neutral-400"
+                )} />
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function TopNav({ variant = "white" }: { variant?: "transparent" | "white" }) {
@@ -224,30 +338,33 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
 
           {/* Desktop links */}
           <div className="hidden items-center gap-0.5 md:flex">
-            {navLinks.map((link) => {
+            {navLinks.map((item, idx) => {
+              if (isGroup(item)) {
+                return <NavDropdown key={`group-${idx}`} group={item} pathname={pathname} />;
+              }
               const isActive =
-                !("external" in link && link.external) &&
-                ("exact" in link && link.exact
-                  ? pathname === link.href
-                  : pathname === link.href || pathname.startsWith(link.href + "/"));
-              if ("external" in link && link.external) {
+                !item.external &&
+                (item.exact
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(item.href + "/"));
+              if (item.external) {
                 return (
                   <a
-                    key={link.href}
-                    href={link.href}
+                    key={item.href}
+                    href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
                   >
-                    {link.label}
+                    {item.label}
                     <span className="text-[10px] font-semibold text-warning-700 bg-warning-50 px-1.5 py-0.5 rounded">{t("nav.admin")}</span>
                   </a>
                 );
               }
               return (
                 <Link
-                  key={link.href}
-                  href={link.href}
+                  key={item.href}
+                  href={item.href}
                   className={cn(
                     "rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     isActive
@@ -255,7 +372,7 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                       : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
                   )}
                 >
-                  {link.label}
+                  {item.label}
                 </Link>
               );
             })}
@@ -478,25 +595,67 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                 </div>
               )}
               <div className="flex flex-col gap-0.5">
-                {navLinks.map((link) => {
-                  const Icon = link.icon;
+                {navLinks.map((item, idx) => {
+                  if (isGroup(item)) {
+                    const GroupIcon = item.icon;
+                    const hasActiveChild = item.children.some(
+                      (c) => pathname === c.href || pathname.startsWith(c.href + "/")
+                    );
+                    return (
+                      <div key={`group-${idx}`} className="rounded-md">
+                        <div className={cn(
+                          "flex items-center gap-3 px-3 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wide",
+                          hasActiveChild ? "text-primary-500" : "text-neutral-400"
+                        )}>
+                          <GroupIcon className="h-3.5 w-3.5" />
+                          {item.label}
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          {item.children.map((child) => {
+                            const ChildIcon = child.icon;
+                            const childActive =
+                              pathname === child.href || pathname.startsWith(child.href + "/");
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                className={cn(
+                                  "flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                                  childActive
+                                    ? "bg-primary-50 text-primary-600"
+                                    : "text-neutral-700 hover:bg-neutral-50"
+                                )}
+                              >
+                                <span className="flex items-center gap-3 pl-4">
+                                  <ChildIcon className={cn("h-4 w-4", childActive ? "text-primary-500" : "text-neutral-400")} />
+                                  {child.label}
+                                </span>
+                                <ChevronRight className="h-4 w-4 text-neutral-300" />
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const Icon = item.icon;
                   const isActive =
-                    !("external" in link && link.external) &&
-                    ("exact" in link && link.exact
-                      ? pathname === link.href
-                      : pathname === link.href || pathname.startsWith(link.href + "/"));
-                  if ("external" in link && link.external) {
+                    !item.external &&
+                    (item.exact
+                      ? pathname === item.href
+                      : pathname === item.href || pathname.startsWith(item.href + "/"));
+                  if (item.external) {
                     return (
                       <a
-                        key={link.href}
-                        href={link.href}
+                        key={item.href}
+                        href={item.href}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
                       >
                         <span className="flex items-center gap-3">
                           <Icon className="h-4 w-4 text-neutral-400" />
-                          {link.label}
+                          {item.label}
                         </span>
                         <span className="text-[10px] font-semibold text-warning-700 bg-warning-50 px-1.5 py-0.5 rounded">{t("nav.admin")}</span>
                       </a>
@@ -504,8 +663,8 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                   }
                   return (
                     <Link
-                      key={link.href}
-                      href={link.href}
+                      key={item.href}
+                      href={item.href}
                       className={cn(
                         "flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
                         isActive
@@ -515,7 +674,7 @@ export function TopNav({ variant = "white" }: { variant?: "transparent" | "white
                     >
                       <span className="flex items-center gap-3">
                         <Icon className={cn("h-4 w-4", isActive ? "text-primary-500" : "text-neutral-400")} />
-                        {link.label}
+                        {item.label}
                       </span>
                       <ChevronRight className="h-4 w-4 text-neutral-300" />
                     </Link>

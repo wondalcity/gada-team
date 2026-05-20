@@ -1,14 +1,20 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   TrendingUp, User, Users, CheckCircle2, Clock, XCircle,
-  AlertCircle, ChevronLeft, Trophy, MessageSquare
+  AlertCircle, ChevronLeft, Trophy, MessageSquare, Phone, MessageCircle, Gift
 } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import {
+  getDemoSelection,
+  selectDemoBid,
+  type DemoBidSelection,
+} from "@/lib/demo-bid-selections";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,8 +26,15 @@ interface BidItem {
   status: "PENDING" | "SELECTED" | "REJECTED";
   selectedAt?: string;
   createdAt: string;
-  worker?: { publicId: string; fullName: string; nationality: string; visaType: string; profileImageUrl: string | null };
-  team?: { publicId: string; name: string };
+  worker?: {
+    publicId: string;
+    fullName: string;
+    nationality: string;
+    visaType: string;
+    profileImageUrl: string | null;
+    phone?: string;
+  };
+  team?: { publicId: string; name: string; phone?: string };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -35,6 +48,49 @@ const STATUS_CFG = {
   SELECTED: { label: "선정됨", icon: CheckCircle2,  cls: "bg-success-50 text-success-700 border-success-200" },
   REJECTED: { label: "미선정", icon: XCircle,       cls: "bg-neutral-100 text-neutral-500 border-neutral-200" },
 };
+
+// Apply local demo-mode selection on top of API data so the UI reflects
+// the chosen bid even though server-side dummy data never mutates.
+function applyDemoSelection(
+  bids: BidItem[],
+  selection: DemoBidSelection | null
+): BidItem[] {
+  if (!selection) return bids;
+  return bids.map((b) => {
+    if (b.publicId === selection.bidPublicId) {
+      return { ...b, status: "SELECTED", selectedAt: selection.selectedAt };
+    }
+    if (b.status === "PENDING") {
+      return { ...b, status: "REJECTED" };
+    }
+    return b;
+  });
+}
+
+// ─── Portal-rendered modal ────────────────────────────────────────────────────
+
+function Modal({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  if (!mounted || !open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 // ─── BidCard ──────────────────────────────────────────────────────────────────
 
@@ -50,11 +106,22 @@ function BidCard({
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = React.useState(false);
 
+  const isDemoBid = bid.publicId.startsWith("demo-bid-");
+
   const selectMutation = useMutation({
-    mutationFn: () =>
-      api.post(`/jobs/${jobPublicId}/bids/${bid.publicId}/select`, {}),
+    mutationFn: async () => {
+      // Real bids hit the API; demo bids skip it and rely on localStorage so
+      // selection state persists across navigations and reloads.
+      if (!isDemoBid) {
+        await api.post(`/jobs/${jobPublicId}/bids/${bid.publicId}/select`, {});
+      }
+    },
     onSuccess: () => {
+      if (isDemoBid) {
+        selectDemoBid(jobPublicId, bid.publicId);
+      }
       qc.invalidateQueries({ queryKey: ["employer-bids", jobPublicId] });
+      qc.invalidateQueries({ queryKey: ["employer-jobs-for-bids"] });
       setConfirmOpen(false);
     },
   });
@@ -64,6 +131,7 @@ function BidCard({
   const bidderName = bid.bidderType === "TEAM"
     ? (bid.team?.name ?? "팀")
     : (bid.worker?.fullName ?? "근로자");
+  const phone = bid.bidderType === "TEAM" ? bid.team?.phone : bid.worker?.phone;
 
   return (
     <>
@@ -108,7 +176,7 @@ function BidCard({
           </div>
         )}
 
-        {/* Select button */}
+        {/* Select button (PENDING + no selection yet) */}
         {bid.status === "PENDING" && !hasSelected && (
           <button
             onClick={() => setConfirmOpen(true)}
@@ -117,10 +185,58 @@ function BidCard({
             이 입찰 선정하기
           </button>
         )}
+
+        {/* Selected — contact section (free) */}
         {bid.status === "SELECTED" && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg bg-success-100 px-3 py-2 text-sm font-bold text-success-700">
-            <Trophy className="h-4 w-4" />
-            최종 선정된 입찰입니다
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-2 rounded-lg bg-success-100 px-3 py-2 text-sm font-bold text-success-700">
+              <Trophy className="h-4 w-4" />
+              최종 선정된 입찰입니다
+            </div>
+
+            <div className="rounded-lg border border-success-200 bg-success-50 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success-700" />
+                  <p className="text-xs font-bold uppercase tracking-wider text-success-700">
+                    연락처 공개
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-success-700 border border-success-200">
+                  <Gift className="h-3 w-3" />
+                  무료
+                </span>
+              </div>
+
+              {phone ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-success-700 mb-0.5">전화번호</p>
+                    <p className="font-bold text-neutral-900 text-base tracking-wide truncate">
+                      {phone}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <a
+                      href={`tel:${phone.replace(/-/g, "")}`}
+                      className="flex items-center gap-1.5 rounded-lg bg-success-700 px-3 py-2 text-sm font-bold text-white hover:bg-success-700 transition-colors"
+                    >
+                      <Phone className="h-4 w-4" />
+                      전화
+                    </a>
+                    <Link
+                      href={`/employer/chats`}
+                      className="flex items-center gap-1.5 rounded-lg border border-success-300 bg-white px-3 py-2 text-sm font-bold text-success-700 hover:bg-success-100 transition-colors"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      채팅
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-success-700">연락처를 불러오는 중...</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -129,39 +245,33 @@ function BidCard({
         </p>
       </div>
 
-      {/* Confirm dialog */}
-      {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmOpen(false)} />
-          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="mb-2 text-base font-bold text-neutral-900">입찰 선정 확인</h3>
-            <p className="text-sm text-neutral-500 mb-1">
-              <span className="font-semibold text-neutral-800">{bidderName}</span>의 입찰을 선정하시겠습니까?
-            </p>
-            <p className="text-sm text-neutral-500 mb-5">
-              제안 금액: <span className="font-bold text-primary-600">{formatVND(bid.bidAmount)}</span>
-            </p>
-            <p className="mb-5 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700">
-              선정 후 다른 입찰자에게 미선정 알림이 발송됩니다.
-            </p>
-            {selectMutation.isError && (
-              <p className="mb-3 text-xs text-danger-600">선정 처리에 실패했습니다. 다시 시도해주세요.</p>
-            )}
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmOpen(false)} className="flex-1 rounded-lg border border-neutral-200 py-2.5 text-sm font-semibold text-neutral-600">
-                취소
-              </button>
-              <button
-                onClick={() => selectMutation.mutate()}
-                disabled={selectMutation.isPending}
-                className="flex-1 rounded-lg bg-primary-500 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-              >
-                {selectMutation.isPending ? "처리 중..." : "선정하기"}
-              </button>
-            </div>
-          </div>
+      <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <h3 className="mb-2 text-base font-bold text-neutral-900">입찰 선정 확인</h3>
+        <p className="text-sm text-neutral-500 mb-1">
+          <span className="font-semibold text-neutral-800">{bidderName}</span>의 입찰을 선정하시겠습니까?
+        </p>
+        <p className="text-sm text-neutral-500 mb-5">
+          제안 금액: <span className="font-bold text-primary-600">{formatVND(bid.bidAmount)}</span>
+        </p>
+        <p className="mb-5 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-700">
+          선정 후 다른 입찰자에게 미선정 알림이 발송됩니다.
+        </p>
+        {selectMutation.isError && (
+          <p className="mb-3 text-xs text-danger-600">선정 처리에 실패했습니다. 다시 시도해주세요.</p>
+        )}
+        <div className="flex gap-2">
+          <button onClick={() => setConfirmOpen(false)} className="flex-1 rounded-lg border border-neutral-200 py-2.5 text-sm font-semibold text-neutral-600">
+            취소
+          </button>
+          <button
+            onClick={() => selectMutation.mutate()}
+            disabled={selectMutation.isPending}
+            className="flex-1 rounded-lg bg-primary-500 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {selectMutation.isPending ? "처리 중..." : "선정하기"}
+          </button>
         </div>
-      )}
+      </Modal>
     </>
   );
 }
@@ -183,7 +293,20 @@ export default function EmployerJobBidsPage({
       ),
   });
 
-  const bids = data?.content ?? [];
+  // Re-render when demo selection changes (e.g. after mutation invalidates).
+  // We read it directly each render since localStorage is synchronous.
+  const [, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const onStorage = () => setTick((t) => t + 1);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const rawBids = data?.content ?? [];
+  const demoSelection =
+    typeof window !== "undefined" ? getDemoSelection(jobPublicId) : null;
+  const bids = applyDemoSelection(rawBids, demoSelection);
+
   const hasSelected = bids.some((b) => b.status === "SELECTED");
   const selected = bids.find((b) => b.status === "SELECTED");
   const pending = bids.filter((b) => b.status === "PENDING");

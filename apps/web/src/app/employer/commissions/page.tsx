@@ -318,7 +318,7 @@ export default function EmployerCommissionsPage() {
   }).length;
 
   return (
-    <div className="max-w-3xl">
+    <div>
       {/* Header */}
       <div className="mb-6">
         <Link

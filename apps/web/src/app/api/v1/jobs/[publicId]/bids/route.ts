@@ -20,6 +20,7 @@ const DUMMY_BIDS = [
       nationality: "베트남",
       visaType: "E-9",
       profileImageUrl: null,
+      phone: "010-2345-6789",
     },
     team: undefined,
   },
@@ -35,6 +36,7 @@ const DUMMY_BIDS = [
     team: {
       publicId: "demo-team-001",
       name: "베트남 A팀",
+      phone: "010-3456-7890",
     },
   },
   {
@@ -51,6 +53,7 @@ const DUMMY_BIDS = [
       nationality: "베트남",
       visaType: "E-9",
       profileImageUrl: null,
+      phone: "010-4567-8901",
     },
     team: undefined,
   },
